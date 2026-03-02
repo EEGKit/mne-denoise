@@ -29,12 +29,23 @@ Hamza Abdelhedi — hamza.abdelhedi@umontreal.ca
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.signal import welch as _welch
+
+# Suppress seaborn FutureWarning about palette without hue (our calls DO pass
+# hue, but seaborn ≤ 0.13 may still emit the warning internally).
+warnings.filterwarnings(
+    "ignore", category=FutureWarning,
+    message=r"Passing `palette` without assigning `hue`",
+)
+warnings.filterwarnings(
+    "ignore", message=r"set_ticklabels\(\) should only be used",
+)
 
 from ._theme import COLORS, FONTS, _finalize_fig, pub_figure, pub_legend, style_axes
 
@@ -607,16 +618,16 @@ def plot_metric_violins(
 
         # Violin
         sns.violinplot(
-            data=df_v, x="Group", y="value",
-            order=pretty_order, palette=palette,
+            data=df_v, x="Group", y="value", hue="Group",
+            order=pretty_order, hue_order=pretty_order, palette=palette,
             inner=None, linewidth=0.8, alpha=0.3, ax=ax,
-            cut=0, density_norm="width",
+            cut=0, density_norm="width", legend=False,
         )
         # Swarm
         sns.stripplot(
-            data=df_v, x="Group", y="value",
-            order=pretty_order, palette=palette,
-            size=3, alpha=0.7, jitter=0.12, ax=ax, zorder=5,
+            data=df_v, x="Group", y="value", hue="Group",
+            order=pretty_order, hue_order=pretty_order, palette=palette,
+            size=3, alpha=0.7, jitter=0.12, ax=ax, zorder=5, legend=False,
         )
 
         # Paired within-subject lines
@@ -648,10 +659,7 @@ def plot_metric_violins(
 
         ax.set_xlabel("")
         ax.set_ylabel(ml, fontsize=FONTS["label"])
-        ax.set_xticklabels(
-            ax.get_xticklabels(), fontsize=FONTS["tick"],
-            rotation=30, ha="right",
-        )
+        ax.tick_params(axis="x", labelsize=FONTS["tick"], rotation=30)
         ax.grid(axis="y", alpha=0.3, zorder=0)
         style_axes(ax)
 
@@ -758,15 +766,15 @@ def plot_endpoint_summary(
         df_v = pd.DataFrame(rows)
 
         sns.violinplot(
-            data=df_v, x="Group", y="value",
-            order=pretty_order, palette=palette,
+            data=df_v, x="Group", y="value", hue="Group",
+            order=pretty_order, hue_order=pretty_order, palette=palette,
             inner=None, linewidth=0.8, alpha=0.3, ax=ax,
-            cut=0, density_norm="width",
+            cut=0, density_norm="width", legend=False,
         )
         sns.stripplot(
-            data=df_v, x="Group", y="value",
-            order=pretty_order, palette=palette,
-            size=3, alpha=0.7, jitter=0.12, ax=ax, zorder=5,
+            data=df_v, x="Group", y="value", hue="Group",
+            order=pretty_order, hue_order=pretty_order, palette=palette,
+            size=3, alpha=0.7, jitter=0.12, ax=ax, zorder=5, legend=False,
         )
 
         # Null distribution overlay
@@ -796,9 +804,7 @@ def plot_endpoint_summary(
 
         ax.set_xlabel("")
         ax.set_ylabel(ml, fontsize=FONTS["label"])
-        ax.set_xticklabels(
-            ax.get_xticklabels(), fontsize=6, rotation=30, ha="right",
-        )
+        ax.tick_params(axis="x", labelsize=6, rotation=30)
         ax.grid(axis="y", alpha=0.3, zorder=0)
         if i == 0:
             ax.set_title(
