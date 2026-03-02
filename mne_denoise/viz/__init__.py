@@ -8,6 +8,7 @@ from ._theme import (
     METHOD_COLORS,
     _apply_style,
     _finalize_fig,
+    _get_color,
     pub_figure,
     pub_legend,
     set_pub_style,
@@ -81,6 +82,7 @@ __all__ = [
     "pub_legend",
     "_apply_style",
     "_finalize_fig",
+    "_get_color",
     # Component plots
     "plot_component_summary",
     "plot_spatial_patterns",

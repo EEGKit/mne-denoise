@@ -326,25 +326,37 @@ def plot_time_course_comparison(
     if picks is None:
         picks = list(range(min(5, len(inst_orig.ch_names))))
 
+    # Resolve string channel names to integer indices
+    ch_names = inst_orig.ch_names
+    resolved = []
+    for p in picks:
+        if isinstance(p, str):
+            resolved.append(ch_names.index(p))
+        else:
+            resolved.append(p)
+    pick_labels = [ch_names[i] for i in resolved]
+
     times = inst_orig.times
 
     if isinstance(inst_orig, mne.io.BaseRaw):
-        data1 = inst_orig.get_data(picks=picks, start=start, stop=stop)
-        data2 = inst_denoised.get_data(picks=picks, start=start, stop=stop)
+        data1 = inst_orig.get_data(picks=resolved, start=start, stop=stop)
+        data2 = inst_denoised.get_data(picks=resolved, start=start, stop=stop)
         if start is not None:
             times = times[start:stop] if stop else times[start:]
     elif isinstance(inst_orig, mne.BaseEpochs):
-        data1 = inst_orig.get_data(picks=picks)
-        data2 = inst_denoised.get_data(picks=picks)
+        data1 = inst_orig.get_data(picks=resolved)
+        data2 = inst_denoised.get_data(picks=resolved)
     else:  # Evoked or Array
-        data1 = inst_orig.get_data(picks=picks)
-        data2 = inst_denoised.get_data(picks=picks)
+        data1 = inst_orig.get_data(picks=resolved)
+        data2 = inst_denoised.get_data(picks=resolved)
 
-    fig, axes = plt.subplots(len(picks), 1, sharex=True, figsize=(10, 2 * len(picks)))
-    if len(picks) == 1:
+    fig, axes = plt.subplots(
+        len(resolved), 1, sharex=True, figsize=(10, 2 * len(resolved))
+    )
+    if len(resolved) == 1:
         axes = [axes]
 
-    for i, idx in enumerate(picks):
+    for i, label in enumerate(pick_labels):
         ax = axes[i]
         # data (n_ch, n_times) or (n_epochs, n_ch, n_times)
         if data1.ndim == 3:
@@ -356,7 +368,7 @@ def plot_time_course_comparison(
 
         ax.plot(times, d1, label="Original", alpha=0.6)
         ax.plot(times, d2, label="Denoised", alpha=0.6)
-        ax.set_ylabel(inst_orig.ch_names[idx])
+        ax.set_ylabel(label)
         if i == 0:
             ax.legend()
 
