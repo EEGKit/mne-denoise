@@ -67,6 +67,16 @@ from .zapline import plot_psd_comparison as plot_zapline_psd_comparison
 from .zapline import (
     plot_spatial_patterns as plot_zapline_patterns,
 )
+from .erp import (
+    DEFAULT_PIPE_COLORS,
+    DEFAULT_PIPE_LABELS,
+    DEFAULT_PIPE_ORDER,
+    plot_condition_interaction,
+    plot_endpoint_summary,
+    plot_erp_signal_diagnostics,
+    plot_metric_violins,
+    plot_pipeline_slopes,
+)
 
 __all__ = [
     # Theme
@@ -125,4 +135,13 @@ __all__ = [
     "plot_paired_metrics",
     "plot_qc_psd",
     "plot_tradeoff_and_r",
+    # ERP benchmark plots
+    "DEFAULT_PIPE_COLORS",
+    "DEFAULT_PIPE_LABELS",
+    "DEFAULT_PIPE_ORDER",
+    "plot_erp_signal_diagnostics",
+    "plot_condition_interaction",
+    "plot_metric_violins",
+    "plot_endpoint_summary",
+    "plot_pipeline_slopes",
 ]

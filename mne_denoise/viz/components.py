@@ -62,10 +62,15 @@ def plot_narrowband_scan(
     else:
         fig = ax.figure
 
+    eigenvalues = np.asarray(eigenvalues)
+    # For a 2-D array (n_freqs, n_components), use the first (dominant)
+    # eigenvalue for markers and plot each component as a separate line.
+    eig_1d = eigenvalues[:, 0] if eigenvalues.ndim == 2 else eigenvalues
+
     # Plot eigenvalue spectrum
     ax.plot(
         frequencies,
-        eigenvalues,
+        eig_1d,
         color=COLORS["primary"],
         marker="o",
         linestyle="-",
@@ -78,7 +83,7 @@ def plot_narrowband_scan(
         peak_idx = np.argmin(np.abs(frequencies - peak_freq))
         ax.plot(
             peak_freq,
-            eigenvalues[peak_idx],
+            eig_1d[peak_idx],
             color=COLORS["accent"],
             marker="*",
             linestyle="none",
