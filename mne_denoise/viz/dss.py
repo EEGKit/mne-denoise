@@ -20,6 +20,7 @@ from ._theme import (
     COLORS,
     DEFAULT_FIGSIZE,
     FONTS,
+    _finalize_fig,
     pub_legend,
     style_axes,
 )
@@ -106,6 +107,7 @@ def plot_dss_summary(
     figsize=None,
     dpi=200,
     show=True,
+    fname=None,
 ):
     """Publication-quality 3×2 diagnostics dashboard for any fitted DSS.
 
@@ -164,6 +166,7 @@ def plot_dss_summary(
             figsize=figsize,
             dpi=dpi,
             show=show,
+            fname=fname,
         )
 
     import matplotlib.ticker as mticker
@@ -783,10 +786,7 @@ def plot_dss_summary(
         color=C["text"],
     )
 
-    if show:
-        plt.show()
-
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
 # =====================================================================
@@ -806,6 +806,7 @@ def plot_dss_segmented_summary(
     figsize=None,
     dpi=200,
     show=True,
+    fname=None,
 ):
     """Publication-quality diagnostics for segmented DSS.
 
@@ -1408,10 +1409,7 @@ def plot_dss_segmented_summary(
         color=C["text"],
     )
 
-    if show:
-        plt.show()
-
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
 # =====================================================================
@@ -1423,6 +1421,7 @@ def plot_dss_eigenvalues(
     estimator,
     ax=None,
     show=True,
+    fname=None,
 ):
     """Bar chart of DSS eigenvalues with auto-selection threshold.
 
@@ -1514,11 +1513,7 @@ def plot_dss_eigenvalues(
     ax.set_ylabel("Eigenvalue", fontsize=F["label"])
     ax.set_title("DSS Eigenvalues", fontsize=F["title"], fontweight="semibold")
 
-    plt.tight_layout()
-    if show:
-        plt.show()
-
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
 def plot_dss_patterns(
@@ -1527,6 +1522,7 @@ def plot_dss_patterns(
     max_components=6,
     ax=None,
     show=True,
+    fname=None,
 ):
     """Spatial mixing patterns as topomaps (or stem plot fallback).
 
@@ -1651,12 +1647,8 @@ def plot_dss_patterns(
             fontsize=F["title"],
             fontweight="semibold",
         )
-        plt.tight_layout()
 
-    if show:
-        plt.show()
-
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
 # =====================================================================
@@ -1706,6 +1698,7 @@ def plot_dss_comparison(
     title=None,
     figsize=(16, 5),
     show=True,
+    fname=None,
 ):
     """Run and compare DSS in three modes: plain, smoothed, segmented.
 
@@ -1967,8 +1960,7 @@ def plot_dss_comparison(
     fig.suptitle(title, fontsize=13, y=1.02)
     plt.tight_layout()
 
-    if show:
-        plt.show()
+    fig = _finalize_fig(fig, show=show, fname=fname)
 
     # —— Build results dict ——
     results = {

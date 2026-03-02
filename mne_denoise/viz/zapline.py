@@ -261,7 +261,14 @@ def plot_spatial_patterns(
         return _finalize_fig(fig, show=show, fname=fname)
 
     n_show = min(n_patterns, patterns.shape[1])
-    colors = plt.cm.tab10(np.linspace(0, 1, n_show))
+    _palette = [
+        COLORS["primary"],
+        COLORS["accent"],
+        COLORS["secondary"],
+        COLORS.get("purple", COLORS["primary"]),
+        COLORS.get("success", COLORS["secondary"]),
+    ]
+    colors = [_palette[i % len(_palette)] for i in range(n_show)]
 
     for i in range(n_show):
         ax.plot(
@@ -289,6 +296,7 @@ def plot_cleaning_summary(
     sfreq: float,
     line_freq: float | None = None,
     show: bool = True,
+    fname: str | None = None,
 ) -> plt.Figure:
     """Create a combined multi-panel cleaning summary.
 
@@ -374,13 +382,10 @@ def plot_cleaning_summary(
     plt.suptitle("ZapLine Cleaning Summary", fontsize=14, fontweight="bold")
     plt.tight_layout()
 
-    if show:
-        plt.show()
-
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
-def plot_zapline_analytics(result, sfreq=None, show=True):
+def plot_zapline_analytics(result, sfreq=None, show=True, fname=None):
     """Plot ZapLine cleaning analytics (legacy function).
 
     Parameters
@@ -525,10 +530,7 @@ def plot_zapline_analytics(result, sfreq=None, show=True):
 
     plt.tight_layout()
 
-    if show:
-        plt.show()
-
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
 def plot_adaptive_summary(
@@ -542,6 +544,7 @@ def plot_adaptive_summary(
     figsize=None,
     dpi=200,
     show=True,
+    fname=None,
 ):
     """Comprehensive adaptive ZapLine-plus diagnostics dashboard.
 
@@ -1102,10 +1105,7 @@ def plot_adaptive_summary(
         title = "Adaptive ZapLine+ Diagnostics"
     fig.suptitle(title, fontsize=F["suptitle"], fontweight="bold", color=C["text"])
 
-    if show:
-        plt.show()
-
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
 def plot_zapline_summary(
@@ -1120,6 +1120,7 @@ def plot_zapline_summary(
     figsize=None,
     dpi=200,
     show=True,
+    fname=None,
 ):
     """Publication-quality diagnostics dashboard for standard ZapLine.
 
@@ -1187,6 +1188,7 @@ def plot_zapline_summary(
             figsize=figsize,
             dpi=dpi,
             show=show,
+            fname=fname,
         )
 
     # ---- Resolve basic attributes ----
@@ -1764,10 +1766,7 @@ def plot_zapline_summary(
         title = "ZapLine Diagnostics"
     fig.suptitle(title, fontsize=F["suptitle"], fontweight="bold", color=C["text"])
 
-    if show:
-        plt.show()
-
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
 def _get_n_removed(result):

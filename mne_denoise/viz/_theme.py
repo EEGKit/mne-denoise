@@ -278,6 +278,10 @@ def _finalize_fig(fig, show=True, fname=None, tight=True):
         fig.savefig(fname, dpi=300, bbox_inches="tight", pad_inches=0.05)
     if show:
         plt.show()
+    elif fname is not None:
+        # Figure was saved to disk; close to free memory.
+        plt.close(fig)
+    # If show=False and fname=None the caller owns the figure.
     return fig
 
 

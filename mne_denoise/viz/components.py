@@ -524,7 +524,7 @@ def plot_component_time_series(
         # Color logic: Highlight first few? Or just blue?
         # Legacy script highlights reproducible ones. We don't have reproducibility metric here easily unless calculated.
         # Just use blue/gray.
-        color = "steelblue" if i < 5 else "gray"
+        color = COLORS["primary"] if i < 5 else COLORS["muted"]
         alpha = 0.8 if i < 5 else 0.5
 
         ax.plot(times, comp_norm + offset, color=color, alpha=alpha, linewidth=1.5)

@@ -51,8 +51,8 @@ def plot_psd_comparison(
 
     # Plot comparison
     for inst, label, color in [
-        (inst_orig, "Original", "k"),
-        (inst_denoised, "Denoised", "r"),
+        (inst_orig, "Original", COLORS["before"]),
+        (inst_denoised, "Denoised", COLORS["after"]),
     ]:
         spectrum = inst.compute_psd(fmin=fmin, fmax=fmax)
         psd = spectrum.get_data(return_freqs=False)
@@ -190,7 +190,7 @@ def plot_evoked_comparison(
     inst_denoised,
     ci=0.95,
     n_boot=1000,
-    colors=("r", "b"),
+    colors=(COLORS["before"], COLORS["after"]),
     linestyles=("-", "-"),
     labels=("Original", "Denoised"),
     show=True,

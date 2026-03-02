@@ -80,9 +80,6 @@ __all__ = [
     "style_axes",
     "pub_figure",
     "pub_legend",
-    "_apply_style",
-    "_finalize_fig",
-    "_get_color",
     # Component plots
     "plot_component_summary",
     "plot_spatial_patterns",

@@ -45,3 +45,15 @@ def peak_attenuation_db(
         peak_before = psd_before[:, mask].max(axis=1)
         peak_after = psd_after[:, mask].max(axis=1)
     return 10.0 * np.log10(peak_before / np.maximum(peak_after, 1e-30))
+
+
+# TODO: Implement and export the remaining QA metrics used in the
+# benchmark scripts.  The following are referenced in
+# ``scripts/run_line_noise_benchmark.py`` but not yet shipped:
+#
+#   - noise_surround_ratio (R_f0)
+#   - below_noise_distortion (below_noise_pct)
+#   - overclean_proportion
+#   - underclean_proportion
+#   - geometric_mean_psd_ratio
+#   - compute_all_qa_metrics (convenience wrapper)
