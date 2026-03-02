@@ -2,7 +2,7 @@
 
 Publication-quality figures that summarise a multi-method, multi-subject
 benchmark.  Every ``plot_*`` function returns a ``matplotlib.figure.Figure``
-and accepts an optional ``save_path`` for disk persistence.
+and accepts an optional ``fname`` for disk persistence.
 
 The functions use the shared theme from ``mne_denoise.viz._theme`` so
 they match the rest of the package's visual style.
@@ -10,7 +10,7 @@ they match the rest of the package's visual style.
 Functions
 ---------
 plot_psd_gallery
-    Grid of PSD panels (methods ?? harmonics) for one subject.
+    Grid of PSD panels (methods × harmonics) for one subject.
 plot_subject_psd_overlay
     Full-spectrum + fundamental-zoom PSD comparison for one subject.
 plot_metric_bars
@@ -18,7 +18,7 @@ plot_metric_bars
 plot_tradeoff_scatter
     Attenuation-vs-distortion scatter with group-mean stars.
 plot_r_comparison
-    R(f???) bar / paired-dot plot.
+    R(f₀) bar / paired-dot plot.
 plot_harmonic_attenuation
     Per-harmonic attenuation grouped-bar chart.
 plot_paired_metrics
@@ -28,8 +28,8 @@ plot_qc_psd
 
 Authors
 -------
-Sina Esmaeili ??? sina.esmaeili@umontreal.ca
-Hamza Abdelhedi ??? hamza.abdelhedi@umontreal.ca
+Sina Esmaeili — sina.esmaeili@umontreal.ca
+Hamza Abdelhedi — hamza.abdelhedi@umontreal.ca
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ import numpy as np
 
 from ._theme import COLORS, FONTS, pub_figure, pub_legend, style_axes
 
-# ?????? Default method palette (colorblind-safe, matches notebook) ?????????????????????
+# —— Default method palette (colorblind-safe, matches notebook) ---
 DEFAULT_METHOD_COLORS = {
     "M0": COLORS["gray"],
     "M1": COLORS["blue"],
@@ -64,19 +64,19 @@ DEFAULT_METHOD_ORDER = ["M0", "M1", "M2", "M3"]
 # =====================================================================
 
 
-def _resolve_save(fig, save_path, dpi=300):
+def _resolve_save(fig, fname, dpi=300):
     """Optionally save *fig* and return it."""
-    if save_path is not None:
-        save_path = Path(save_path)
-        save_path.parent.mkdir(parents=True, exist_ok=True)
-        fig.savefig(save_path, dpi=dpi, bbox_inches="tight")
+    if fname is not None:
+        fname = Path(fname)
+        fname.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(fname, dpi=dpi, bbox_inches="tight")
     return fig
 
 
 def _method_color(method, method_colors=None):
     if method_colors and method in method_colors:
         return method_colors[method]
-    return DEFAULT_METHOD_COLORS.get(method, "#333333")
+    return DEFAULT_METHOD_COLORS.get(method, COLORS["dark"])
 
 
 def _method_label(method, method_labels=None):
@@ -86,7 +86,7 @@ def _method_label(method, method_labels=None):
 
 
 # =====================================================================
-# plot_qc_psd ??? per-subject before/after PSD + harmonic zoom
+# plot_qc_psd — per-subject before/after PSD + harmonic zoom
 # =====================================================================
 
 
@@ -103,7 +103,7 @@ def plot_qc_psd(
     fmax=125.0,
     method_colors=None,
     method_labels=None,
-    save_path=None,
+    fname=None,
     show=True,
 ):
     """Per-subject before/after geometric-mean PSD plus harmonic zoom.
@@ -128,7 +128,7 @@ def plot_qc_psd(
         Maximum frequency for the full-spectrum panel.
     method_colors, method_labels : dict | None
         Override palettes.
-    save_path : str | Path | None
+    fname : str | Path | None
         Save figure to this path.
     show : bool
         Call ``plt.show()`` if *True*.
@@ -164,8 +164,8 @@ def plot_qc_psd(
     for h in harmonics_hz:
         ax.axvline(h, color=COLORS["line_marker"], ls="--", alpha=0.2)
     ax.set_xlabel("Frequency (Hz)", fontsize=FONTS["label"])
-    ax.set_ylabel("PSD (V??/Hz)", fontsize=FONTS["label"])
-    ax.set_title(f"{subject} ??? {label_str}", fontsize=FONTS["title"])
+    ax.set_ylabel("PSD (V²/Hz)", fontsize=FONTS["label"])
+    ax.set_title(f"{subject} — {label_str}", fontsize=FONTS["title"])
     pub_legend(ax)
     ax.set_xlim(0, fmax)
     style_axes(ax)
@@ -193,7 +193,7 @@ def plot_qc_psd(
         style_axes(ax)
 
     fig.tight_layout()
-    _resolve_save(fig, save_path)
+    _resolve_save(fig, fname)
     if show:
         plt.show()
     else:
@@ -202,7 +202,7 @@ def plot_qc_psd(
 
 
 # =====================================================================
-# plot_psd_gallery ??? methods ?? harmonics grid
+# plot_psd_gallery — methods × harmonics grid
 # =====================================================================
 
 
@@ -217,10 +217,10 @@ def plot_psd_gallery(
     method_order=None,
     method_colors=None,
     method_labels=None,
-    save_path=None,
+    fname=None,
     show=True,
 ):
-    """Grid of PSD panels (methods ?? harmonics) for one or more subjects.
+    """Grid of PSD panels (methods × harmonics) for one or more subjects.
 
     Parameters
     ----------
@@ -240,7 +240,7 @@ def plot_psd_gallery(
         Order of rows. Defaults to sorted keys of *cleaned_psds*.
     method_colors, method_labels : dict | None
         Override palettes.
-    save_path : str | Path | None
+    fname : str | Path | None
         Save figure to this path.
     show : bool
         Call ``plt.show()`` if *True*.
@@ -320,13 +320,13 @@ def plot_psd_gallery(
             style_axes(ax)
 
     fig.suptitle(
-        f"PSD Gallery ??? {subject}" if subject else "PSD Gallery",
+        f"PSD Gallery — {subject}" if subject else "PSD Gallery",
         fontsize=FONTS["suptitle"],
         fontweight="bold",
         y=1.01,
     )
     fig.tight_layout()
-    _resolve_save(fig, save_path)
+    _resolve_save(fig, fname)
     if show:
         plt.show()
     else:
@@ -335,7 +335,7 @@ def plot_psd_gallery(
 
 
 # =====================================================================
-# plot_subject_psd_overlay ??? full spectrum + zoom (all methods on 1 plot)
+# plot_subject_psd_overlay — full spectrum + zoom (all methods on 1 plot)
 # =====================================================================
 
 
@@ -351,7 +351,7 @@ def plot_subject_psd_overlay(
     method_order=None,
     method_colors=None,
     method_labels=None,
-    save_path=None,
+    fname=None,
     show=True,
 ):
     """Full-spectrum + fundamental-zoom PSD comparison for one subject.
@@ -374,7 +374,7 @@ def plot_subject_psd_overlay(
         Subject label.
     method_order, method_colors, method_labels : dict | None
         Display overrides.
-    save_path : str | Path | None
+    fname : str | Path | None
     show : bool
 
     Returns
@@ -407,8 +407,8 @@ def plot_subject_psd_overlay(
         if hf < fmax:
             ax.axvline(hf, color=COLORS["line_marker"], ls="--", alpha=0.15)
     ax.set_xlabel("Frequency (Hz)", fontsize=FONTS["label"])
-    ax.set_ylabel("Geometric-Mean PSD (V??/Hz)", fontsize=FONTS["label"])
-    ax.set_title(f"{subject} ??? Full Spectrum Comparison", fontsize=FONTS["title"])
+    ax.set_ylabel("Geometric-Mean PSD (V²/Hz)", fontsize=FONTS["label"])
+    ax.set_title(f"{subject} — Full Spectrum Comparison", fontsize=FONTS["title"])
     pub_legend(ax)
     ax.set_xlim(0, fmax)
     style_axes(ax)
@@ -439,17 +439,17 @@ def plot_subject_psd_overlay(
         )
     ax.axvline(line_freq, color=COLORS["line_marker"], ls="--", alpha=0.4)
     ax.set_xlabel("Frequency (Hz)", fontsize=FONTS["label"])
-    ax.set_title(f"{subject} ??? Zoom at {line_freq} Hz", fontsize=FONTS["title"])
+    ax.set_title(f"{subject} — Zoom at {line_freq} Hz", fontsize=FONTS["title"])
     pub_legend(ax)
     style_axes(ax)
 
     fig.suptitle(
-        f"Per-Subject PSD Comparison ??? {subject}",
+        f"Per-Subject PSD Comparison — {subject}",
         fontsize=FONTS["suptitle"],
         fontweight="bold",
     )
     fig.tight_layout()
-    _resolve_save(fig, save_path)
+    _resolve_save(fig, fname)
     if show:
         plt.show()
     else:
@@ -458,12 +458,12 @@ def plot_subject_psd_overlay(
 
 
 # =====================================================================
-# plot_metric_bars ??? group-mean ?? SEM bar chart
+# plot_metric_bars — group-mean ± SEM bar chart
 # =====================================================================
 
 
 def plot_metric_bars(
-    df, *, method_order=None, method_colors=None, save_path=None, show=True
+    df, *, method_order=None, method_colors=None, fname=None, show=True
 ):
     """Group-mean (?? SEM) bar chart for each QA metric.
 
@@ -476,7 +476,7 @@ def plot_metric_bars(
         Order of bars.  Default ``DEFAULT_METHOD_ORDER``.
     method_colors : dict | None
         Override palette.
-    save_path : str | Path | None
+    fname : str | Path | None
     show : bool
 
     Returns
@@ -494,11 +494,11 @@ def plot_metric_bars(
         "underclean_proportion",
     ]
     metric_labels = [
-        "R(f???)  ??? 1",
-        "Peak Attenuation (dB)  ???",
-        "Sub-Peak ??Power (%)  ??? 0",
-        "Overclean Frac  ???",
-        "Underclean Frac  ???",
+        "R(f₀)  — 1",
+        "Peak Attenuation (dB)  —",
+        "Sub-Peak ΔPower (%)  — 0",
+        "Overclean Frac  —",
+        "Underclean Frac  —",
     ]
     lower_better = [True, False, True, True, True]
 
@@ -522,7 +522,7 @@ def plot_metric_bars(
             means,
             yerr=sems,
             color=colors,
-            edgecolor="k",
+            edgecolor=COLORS["edge"],
             linewidth=0.5,
             capsize=3,
             alpha=0.85,
@@ -551,12 +551,12 @@ def plot_metric_bars(
             else:
                 best_idx = 1 + int(np.argmax(means_no_m0))
             ax.annotate(
-                "???",
+                "—",
                 xy=(best_idx, means[best_idx]),
                 fontsize=14,
                 ha="center",
                 va="bottom",
-                color="gold",
+                color=COLORS["highlight"],
             )
 
     fig.suptitle(
@@ -565,7 +565,7 @@ def plot_metric_bars(
         fontweight="bold",
     )
     fig.tight_layout()
-    _resolve_save(fig, save_path)
+    _resolve_save(fig, fname)
     if show:
         plt.show()
     else:
@@ -584,7 +584,7 @@ def plot_tradeoff_scatter(
     method_order=None,
     method_colors=None,
     method_labels=None,
-    save_path=None,
+    fname=None,
     show=True,
 ):
     """Attenuation-vs-distortion scatter with group-mean stars.
@@ -597,7 +597,7 @@ def plot_tradeoff_scatter(
         Columns ``"method"``, ``"peak_attenuation_db"``,
         ``"below_noise_pct"``.
     method_order, method_colors, method_labels : dict | None
-    save_path : str | Path | None
+    fname : str | Path | None
     show : bool
 
     Returns
@@ -621,7 +621,7 @@ def plot_tradeoff_scatter(
             color=c,
             s=80,
             alpha=0.8,
-            edgecolors="k",
+            edgecolors=COLORS["edge"],
             linewidth=0.5,
             label=f"{mtag} ({lbl})",
             zorder=3,
@@ -633,17 +633,15 @@ def plot_tradeoff_scatter(
                 color=c,
                 s=200,
                 marker="*",
-                edgecolors="k",
+                edgecolors=COLORS["edge"],
                 linewidth=1,
                 zorder=4,
             )
 
     ax.set_xlabel(
-        "Sub-Peak ??Power (%)  ???  closer to 0 is better", fontsize=FONTS["label"]
+        "Sub-Peak ΔPower (%)  —  closer to 0 is better", fontsize=FONTS["label"]
     )
-    ax.set_ylabel(
-        "Peak Attenuation (dB)  ???  higher is better", fontsize=FONTS["label"]
-    )
+    ax.set_ylabel("Peak Attenuation (dB)  —  higher is better", fontsize=FONTS["label"])
     ax.set_title(
         "Attenuation vs Sub-Peak Distortion Trade-off",
         fontsize=FONTS["title"],
@@ -655,7 +653,7 @@ def plot_tradeoff_scatter(
     ax.axvline(0, color=COLORS["accent"], ls=":", alpha=0.4, label="No distortion")
 
     fig.tight_layout()
-    _resolve_save(fig, save_path)
+    _resolve_save(fig, fname)
     if show:
         plt.show()
     else:
@@ -664,7 +662,7 @@ def plot_tradeoff_scatter(
 
 
 # =====================================================================
-# plot_r_comparison ??? bar or paired-dot R(f???)
+# plot_r_comparison — bar or paired-dot R(f₀)
 # =====================================================================
 
 
@@ -674,17 +672,17 @@ def plot_r_comparison(
     method_order=None,
     method_colors=None,
     method_labels=None,
-    save_path=None,
+    fname=None,
     show=True,
 ):
-    """R(f???) bar chart (single subject) or paired-dot plot (multi-subject).
+    """R(f₀) bar chart (single subject) or paired-dot plot (multi-subject).
 
     Parameters
     ----------
     df : DataFrame
         Columns ``"subject"``, ``"method"``, ``"R_f0"``.
     method_order, method_colors, method_labels : dict | None
-    save_path : str | Path | None
+    fname : str | Path | None
     show : bool
 
     Returns
@@ -719,7 +717,7 @@ def plot_r_comparison(
             range(len(method_order)),
             means,
             "s-",
-            color="k",
+            color=COLORS["before"],
             markersize=8,
             lw=2,
             label="Group mean",
@@ -732,7 +730,9 @@ def plot_r_comparison(
             r_vals.append(v.iloc[0] if len(v) else 0)
         x = np.arange(len(method_order))
         colors = [_method_color(m, method_colors) for m in method_order]
-        ax.bar(x, r_vals, color=colors, edgecolor="k", linewidth=0.5, alpha=0.85)
+        ax.bar(
+            x, r_vals, color=colors, edgecolor=COLORS["edge"], linewidth=0.5, alpha=0.85
+        )
         for xi, rv in zip(x, r_vals):
             ax.text(
                 xi,
@@ -746,15 +746,15 @@ def plot_r_comparison(
     ax.axhline(1.0, color=COLORS["success"], ls="--", alpha=0.5, label="Ideal (R=1)")
     ax.set_xticks(range(len(method_order)))
     ax.set_xticklabels(method_order, fontsize=FONTS["tick"])
-    ax.set_ylabel("R(f???) ??? Noise-Surround Ratio", fontsize=FONTS["label"])
+    ax.set_ylabel("R(f₀) — Noise-Surround Ratio", fontsize=FONTS["label"])
     ax.set_title(
-        "Residual Line Noise ??? R(f???)", fontsize=FONTS["title"], fontweight="bold"
+        "Residual Line Noise — R(f₀)", fontsize=FONTS["title"], fontweight="bold"
     )
     pub_legend(ax)
     style_axes(ax, grid=True)
 
     fig.tight_layout()
-    _resolve_save(fig, save_path)
+    _resolve_save(fig, fname)
     if show:
         plt.show()
     else:
@@ -763,7 +763,7 @@ def plot_r_comparison(
 
 
 # =====================================================================
-# plot_harmonic_attenuation ??? grouped bars per harmonic
+# plot_harmonic_attenuation — grouped bars per harmonic
 # =====================================================================
 
 
@@ -777,7 +777,7 @@ def plot_harmonic_attenuation(
     method_order=None,
     method_colors=None,
     method_labels=None,
-    save_path=None,
+    fname=None,
     show=True,
 ):
     """Per-harmonic peak-attenuation grouped-bar chart.
@@ -795,7 +795,7 @@ def plot_harmonic_attenuation(
     subject : str
         Subject label.
     method_order, method_colors, method_labels : dict | None
-    save_path : str | Path | None
+    fname : str | Path | None
     show : bool
 
     Returns
@@ -826,7 +826,7 @@ def plot_harmonic_attenuation(
             atten_per_h,
             bar_width,
             color=_method_color(mtag, method_colors),
-            edgecolor="k",
+            edgecolor=COLORS["edge"],
             linewidth=0.3,
             label=_method_label(mtag, method_labels),
             alpha=0.85,
@@ -836,7 +836,7 @@ def plot_harmonic_attenuation(
     ax.set_xticklabels([f"{h:.0f} Hz" for h in harmonics_hz], fontsize=FONTS["tick"])
     ax.set_ylabel("Peak Attenuation (dB)", fontsize=FONTS["label"])
     title = (
-        f"Per-Harmonic Attenuation ??? {subject}"
+        f"Per-Harmonic Attenuation — {subject}"
         if subject
         else "Per-Harmonic Attenuation"
     )
@@ -845,7 +845,7 @@ def plot_harmonic_attenuation(
     style_axes(ax, grid=True)
 
     fig.tight_layout()
-    _resolve_save(fig, save_path)
+    _resolve_save(fig, fname)
     if show:
         plt.show()
     else:
@@ -854,12 +854,12 @@ def plot_harmonic_attenuation(
 
 
 # =====================================================================
-# plot_paired_metrics ??? multi-subject paired-dot plots
+# plot_paired_metrics — multi-subject paired-dot plots
 # =====================================================================
 
 
 def plot_paired_metrics(
-    df, *, method_order=None, method_colors=None, save_path=None, show=True
+    df, *, method_order=None, method_colors=None, fname=None, show=True
 ):
     """Paired dot plots for key metrics across subjects.
 
@@ -870,7 +870,7 @@ def plot_paired_metrics(
     df : DataFrame
         Columns ``"subject"``, ``"method"``, and metric columns.
     method_order, method_colors : dict | None
-    save_path : str | Path | None
+    fname : str | Path | None
     show : bool
 
     Returns
@@ -886,8 +886,8 @@ def plot_paired_metrics(
 
     pair_metrics = [
         ("peak_attenuation_db", "Peak Attenuation (dB)"),
-        ("below_noise_pct", "Sub-Peak ??Power (%)"),
-        ("R_f0", "R(f???)"),
+        ("below_noise_pct", "Sub-Peak ΔPower (%)"),
+        ("R_f0", "R(f₀)"),
     ]
 
     fig, axes = pub_figure(1, len(pair_metrics), figsize=(6 * len(pair_metrics), 5))
@@ -914,7 +914,7 @@ def plot_paired_metrics(
             range(len(method_order)),
             means,
             "s-",
-            color="k",
+            color=COLORS["before"],
             markersize=8,
             lw=2,
             label="Group mean",
@@ -931,7 +931,7 @@ def plot_paired_metrics(
         "Paired Subject-Level Comparison", fontsize=FONTS["suptitle"], fontweight="bold"
     )
     fig.tight_layout()
-    _resolve_save(fig, save_path)
+    _resolve_save(fig, fname)
     if show:
         plt.show()
     else:
@@ -940,7 +940,7 @@ def plot_paired_metrics(
 
 
 # =====================================================================
-# plot_tradeoff_and_r ??? combined 2-panel figure (scatter + R)
+# plot_tradeoff_and_r — combined 2-panel figure (scatter + R)
 # =====================================================================
 
 
@@ -950,10 +950,10 @@ def plot_tradeoff_and_r(
     method_order=None,
     method_colors=None,
     method_labels=None,
-    save_path=None,
+    fname=None,
     show=True,
 ):
-    """Two-panel figure: attenuation-vs-distortion + R(f???).
+    """Two-panel figure: attenuation-vs-distortion + R(f₀).
 
     Convenience wrapper that combines :func:`plot_tradeoff_scatter` and
     :func:`plot_r_comparison` into a single figure.
@@ -962,7 +962,7 @@ def plot_tradeoff_and_r(
     ----------
     df : DataFrame
     method_order, method_colors, method_labels : dict | None
-    save_path : str | Path | None
+    fname : str | Path | None
     show : bool
 
     Returns
@@ -974,7 +974,7 @@ def plot_tradeoff_and_r(
 
     fig, axes = pub_figure(1, 2, figsize=(16, 6))
 
-    # ?????? Left: scatter ????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
+    # —— Left: scatter ---
     ax = axes[0]
     for mtag in method_order:
         sub_df = df[df["method"] == mtag]
@@ -986,7 +986,7 @@ def plot_tradeoff_and_r(
             color=c,
             s=80,
             alpha=0.8,
-            edgecolors="k",
+            edgecolors=COLORS["edge"],
             linewidth=0.5,
             label=f"{mtag} ({lbl})",
             zorder=3,
@@ -998,16 +998,14 @@ def plot_tradeoff_and_r(
                 color=c,
                 s=200,
                 marker="*",
-                edgecolors="k",
+                edgecolors=COLORS["edge"],
                 linewidth=1,
                 zorder=4,
             )
     ax.set_xlabel(
-        "Sub-Peak ??Power (%)  ???  closer to 0 is better", fontsize=FONTS["label"]
+        "Sub-Peak ΔPower (%)  —  closer to 0 is better", fontsize=FONTS["label"]
     )
-    ax.set_ylabel(
-        "Peak Attenuation (dB)  ???  higher is better", fontsize=FONTS["label"]
-    )
+    ax.set_ylabel("Peak Attenuation (dB)  —  higher is better", fontsize=FONTS["label"])
     ax.set_title(
         "Attenuation vs Sub-Peak Distortion Trade-off",
         fontsize=FONTS["title"],
@@ -1018,7 +1016,7 @@ def plot_tradeoff_and_r(
     ax.axhline(10, color=COLORS["success"], ls=":", alpha=0.4)
     ax.axvline(0, color=COLORS["accent"], ls=":", alpha=0.4, label="No distortion")
 
-    # ?????? Right: R(f???) ????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
+    # —— Right: R(f₀) ---
     ax = axes[1]
     multi = df["subject"].nunique() > 1
     if multi:
@@ -1040,7 +1038,7 @@ def plot_tradeoff_and_r(
             range(len(method_order)),
             means,
             "s-",
-            color="k",
+            color=COLORS["before"],
             markersize=8,
             lw=2,
             label="Group mean",
@@ -1053,7 +1051,9 @@ def plot_tradeoff_and_r(
             r_vals.append(v.iloc[0] if len(v) else 0)
         x = np.arange(len(method_order))
         colors = [_method_color(m, method_colors) for m in method_order]
-        ax.bar(x, r_vals, color=colors, edgecolor="k", linewidth=0.5, alpha=0.85)
+        ax.bar(
+            x, r_vals, color=colors, edgecolor=COLORS["edge"], linewidth=0.5, alpha=0.85
+        )
         for xi, rv in zip(x, r_vals):
             ax.text(
                 xi,
@@ -1067,16 +1067,16 @@ def plot_tradeoff_and_r(
     ax.axhline(1.0, color=COLORS["success"], ls="--", alpha=0.5, label="Ideal (R=1)")
     ax.set_xticks(range(len(method_order)))
     ax.set_xticklabels(method_order, fontsize=FONTS["tick"])
-    ax.set_ylabel("R(f???) ??? Noise-Surround Ratio", fontsize=FONTS["label"])
+    ax.set_ylabel("R(f₀) — Noise-Surround Ratio", fontsize=FONTS["label"])
     ax.set_title(
-        "Residual Line Noise ??? R(f???)", fontsize=FONTS["title"], fontweight="bold"
+        "Residual Line Noise — R(f₀)", fontsize=FONTS["title"], fontweight="bold"
     )
     pub_legend(ax)
     style_axes(ax, grid=True)
 
     fig.suptitle("Trade-off Analysis", fontsize=FONTS["suptitle"], fontweight="bold")
     fig.tight_layout()
-    _resolve_save(fig, save_path)
+    _resolve_save(fig, fname)
     if show:
         plt.show()
     else:

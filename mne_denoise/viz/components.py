@@ -9,11 +9,18 @@ import mne
 import numpy as np
 from matplotlib.gridspec import GridSpec
 
+from ._theme import COLORS, _finalize_fig
 from ._utils import _get_components, _get_info, _get_patterns, _get_scores
 
 
 def plot_narrowband_scan(
-    frequencies, eigenvalues, peak_freq=None, true_freqs=None, ax=None, show=True
+    frequencies,
+    eigenvalues,
+    peak_freq=None,
+    true_freqs=None,
+    ax=None,
+    show=True,
+    fname=None,
 ):
     """Plot narrowband DSS frequency scan results.
 
@@ -56,7 +63,15 @@ def plot_narrowband_scan(
         fig = ax.figure
 
     # Plot eigenvalue spectrum
-    ax.plot(frequencies, eigenvalues, "b-o", markersize=4, linewidth=2)
+    ax.plot(
+        frequencies,
+        eigenvalues,
+        color=COLORS["primary"],
+        marker="o",
+        linestyle="-",
+        markersize=4,
+        linewidth=2,
+    )
 
     # Highlight peak if provided
     if peak_freq is not None:
@@ -64,16 +79,24 @@ def plot_narrowband_scan(
         ax.plot(
             peak_freq,
             eigenvalues[peak_idx],
-            "r*",
+            color=COLORS["accent"],
+            marker="*",
+            linestyle="none",
             markersize=15,
             label=f"Peak: {peak_freq:.1f} Hz",
         )
-        ax.axvline(peak_freq, color="red", linestyle="--", alpha=0.5)
+        ax.axvline(peak_freq, color=COLORS["accent"], linestyle="--", alpha=0.5)
 
     # Mark true frequencies if provided (for synthetic data)
     if true_freqs is not None:
+        _cycle = [
+            COLORS["accent"],
+            COLORS["success"],
+            COLORS["secondary"],
+            COLORS["purple"],
+        ]
         for i, freq in enumerate(true_freqs):
-            color = ["red", "green", "orange", "purple"][i % 4]
+            color = _cycle[i % len(_cycle)]
             ax.axvline(
                 freq, color=color, linestyle="--", alpha=0.5, label=f"True: {freq} Hz"
             )
@@ -87,12 +110,10 @@ def plot_narrowband_scan(
     if peak_freq is not None or true_freqs is not None:
         ax.legend()
 
-    if show:
-        plt.show()
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
-def plot_score_curve(estimator, mode="raw", ax=None, show=True):
+def plot_score_curve(estimator, mode="raw", ax=None, show=True, fname=None):
     """
     Plot component scores (eigenvalues or power ratios).
 
@@ -144,18 +165,18 @@ def plot_score_curve(estimator, mode="raw", ax=None, show=True):
         y = scores
         ylabel = "Score / Eigenvalue"
 
-    ax.plot(x, y, ".-", color="black")
+    ax.plot(x, y, ".-", color=COLORS["before"])
     ax.set_xlabel("Component")
     ax.set_ylabel(ylabel)
     ax.set_title("Component Scores")
     ax.grid(True, linestyle=":")
 
-    if show:
-        plt.show()
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
-def plot_spatial_patterns(estimator, info=None, n_components=None, show=True):
+def plot_spatial_patterns(
+    estimator, info=None, n_components=None, show=True, fname=None
+):
     """
     Plot spatial patterns (topomaps) for components.
 
@@ -207,7 +228,13 @@ def plot_spatial_patterns(estimator, info=None, n_components=None, show=True):
 
 
 def plot_component_summary(
-    estimator, data=None, info=None, n_components=None, show=True, plot_ci=True
+    estimator,
+    data=None,
+    info=None,
+    n_components=None,
+    show=True,
+    plot_ci=True,
+    fname=None,
 ):
     """
     Comprehensive dashboard for checking DSS components.
@@ -312,7 +339,7 @@ def plot_component_summary(
             # Mean
             mean_tc = comp_data.mean(axis=1)
             times = np.arange(len(mean_tc)) / sfreq
-            ax_time.plot(times, mean_tc, label="Mean", color="k")
+            ax_time.plot(times, mean_tc, label="Mean", color=COLORS["before"])
 
             if plot_ci:
                 # Simple std err or bootstrap
@@ -321,7 +348,7 @@ def plot_component_summary(
                     times,
                     mean_tc - 2 * std_tc,
                     mean_tc + 2 * std_tc,
-                    color="gray",
+                    color=COLORS["muted"],
                     alpha=0.3,
                     label="95% CI (SEM)",
                 )
@@ -329,7 +356,7 @@ def plot_component_summary(
             # (n_comp, n_times)
             comp_data = sources[comp_idx]
             times = np.arange(len(comp_data)) / sfreq
-            ax_time.plot(times, comp_data, color="k")
+            ax_time.plot(times, comp_data, color=COLORS["before"])
 
         ax_time.set_title(f"Comp {comp_idx} Time Course")
         ax_time.set_xlabel("Time (s)")
@@ -357,12 +384,12 @@ def plot_component_summary(
         ax_psd.set_xlabel("Freq (Hz)")
         ax_psd.set_xlim(0, min(100, sfreq / 2))  # Zoom to relevant freq
 
-    if show:
-        plt.show()
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
-def plot_component_image(estimator, data=None, n_components=None, show=True):
+def plot_component_image(
+    estimator, data=None, n_components=None, show=True, fname=None
+):
     """
     Plot raster image of components (epochs/trials view).
 
@@ -417,13 +444,16 @@ def plot_component_image(estimator, data=None, n_components=None, show=True):
 
     axes[-1].set_xlabel("Time (samples)")
 
-    if show:
-        plt.show()
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
 def plot_component_time_series(
-    estimator, data=None, n_components=None, show=True, ax=None
+    estimator,
+    data=None,
+    n_components=None,
+    show=True,
+    ax=None,
+    fname=None,
 ):
     """
     Plot stacked component time series (vertical offsets).
@@ -512,12 +542,12 @@ def plot_component_time_series(
     ax.spines["right"].set_visible(False)
     ax.spines["top"].set_visible(False)
 
-    if show:
-        plt.show()
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
-def plot_tf_mask(mask, times, freqs, title="Time-Frequency Mask", show=True):
+def plot_tf_mask(
+    mask, times, freqs, title="Time-Frequency Mask", show=True, fname=None
+):
     """
     Visualize a Time-Frequency mask filter.
 
@@ -556,9 +586,7 @@ def plot_tf_mask(mask, times, freqs, title="Time-Frequency Mask", show=True):
     # Grid often helps in masks
     ax.grid(False)
 
-    if show:
-        plt.show()
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
 def plot_component_spectrogram(
@@ -569,6 +597,7 @@ def plot_component_spectrogram(
     title="Component Spectrogram",
     ax=None,
     show=True,
+    fname=None,
 ):
     """
     Plot TFR spectrogram for a single component.
@@ -638,6 +667,4 @@ def plot_component_spectrogram(
     ax.set_title(title)
     plt.colorbar(im, ax=ax, label="Power")
 
-    if show:
-        plt.show()
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)

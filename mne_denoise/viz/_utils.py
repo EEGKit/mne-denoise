@@ -90,7 +90,7 @@ def _get_components(estimator, data=None):
     # We want dimension 0 to be components for easier plotting.
 
     if (
-        isinstance(data, mne.BaseEpochs | mne.epochs.BaseEpochs)
+        isinstance(data, mne.BaseEpochs)
         and sources.ndim == 3
         and sources.shape[1] == _get_filters(estimator).shape[0]
     ):

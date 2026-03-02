@@ -5,10 +5,14 @@ from ._theme import (
     DEFAULT_DPI,
     DEFAULT_FIGSIZE,
     FONTS,
+    METHOD_COLORS,
+    _apply_style,
+    _finalize_fig,
     pub_figure,
     pub_legend,
     set_pub_style,
     style_axes,
+    use_style,
 )
 from .benchmark import (
     DEFAULT_METHOD_COLORS,
@@ -67,12 +71,16 @@ __all__ = [
     # Theme
     "COLORS",
     "FONTS",
+    "METHOD_COLORS",
     "DEFAULT_FIGSIZE",
     "DEFAULT_DPI",
     "set_pub_style",
+    "use_style",
     "style_axes",
     "pub_figure",
     "pub_legend",
+    "_apply_style",
+    "_finalize_fig",
     # Component plots
     "plot_component_summary",
     "plot_spatial_patterns",

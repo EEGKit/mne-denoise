@@ -29,7 +29,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy import signal
 
-from ._theme import COLORS, FONTS, pub_legend, style_axes
+from ._theme import COLORS, FONTS, _finalize_fig, pub_legend, style_axes
 
 if TYPE_CHECKING:
     pass
@@ -43,7 +43,8 @@ def plot_psd_comparison(
     fmax: float = 100.0,
     ax: plt.Axes | None = None,
     show: bool = True,
-) -> plt.Axes:
+    fname: str | None = None,
+) -> plt.Figure:
     """Compare power spectral density before and after cleaning.
 
     Parameters
@@ -62,11 +63,13 @@ def plot_psd_comparison(
         Matplotlib axes. If None, creates new figure.
     show : bool
         Whether to call plt.show().
+    fname : str | None
+        If given, save the figure to this path.
 
     Returns
     -------
-    ax : Axes
-        The matplotlib axes with the plot.
+    fig : Figure
+        The matplotlib figure.
 
     Examples
     --------
@@ -74,23 +77,47 @@ def plot_psd_comparison(
     >>> plot_psd_comparison(data, cleaned, sfreq=1000, line_freq=50)
     """
     if ax is None:
-        _, ax = plt.subplots(figsize=(10, 4))
+        fig, ax = plt.subplots(figsize=(10, 4))
+    else:
+        fig = ax.figure
 
     nperseg = min(data_before.shape[1], int(sfreq * 2))
     freqs, psd_before = signal.welch(data_before, sfreq, nperseg=nperseg)
     _, psd_after = signal.welch(data_after, sfreq, nperseg=nperseg)
 
-    ax.semilogy(freqs, np.mean(psd_before, axis=0), "b-", alpha=0.5, label="Before")
-    ax.semilogy(freqs, np.mean(psd_after, axis=0), "g-", label="After")
+    ax.semilogy(
+        freqs,
+        np.mean(psd_before, axis=0),
+        color=COLORS["before"],
+        linestyle="-",
+        alpha=0.5,
+        label="Before",
+    )
+    ax.semilogy(
+        freqs,
+        np.mean(psd_after, axis=0),
+        color=COLORS["after"],
+        linestyle="-",
+        label="After",
+    )
 
     if line_freq is not None:
         ax.axvline(
-            line_freq, color="r", linestyle="--", alpha=0.7, label=f"{line_freq} Hz"
+            line_freq,
+            color=COLORS["line_marker"],
+            linestyle="--",
+            alpha=0.7,
+            label=f"{line_freq} Hz",
         )
         # Mark harmonics if within range
         for h in range(2, 5):
             if line_freq * h < fmax:
-                ax.axvline(line_freq * h, color="r", linestyle="--", alpha=0.3)
+                ax.axvline(
+                    line_freq * h,
+                    color=COLORS["line_marker"],
+                    linestyle="--",
+                    alpha=0.3,
+                )
 
     ax.set_xlabel("Frequency (Hz)")
     ax.set_ylabel("PSD")
@@ -98,18 +125,15 @@ def plot_psd_comparison(
     ax.set_xlim(0, fmax)
     ax.legend()
 
-    if show:
-        plt.tight_layout()
-        plt.show()
-
-    return ax
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
 def plot_component_scores(
     estimator,
     ax: plt.Axes | None = None,
     show: bool = True,
-) -> plt.Axes:
+    fname: str | None = None,
+) -> plt.Figure:
     """Visualize DSS component eigenvalues with removal threshold.
 
     Parameters
@@ -120,11 +144,13 @@ def plot_component_scores(
         Matplotlib axes. If None, creates new figure.
     show : bool
         Whether to call plt.show().
+    fname : str | None
+        If given, save the figure to this path.
 
     Returns
     -------
-    ax : Axes
-        The matplotlib axes with the plot.
+    fig : Figure
+        The matplotlib figure.
 
     Examples
     --------
@@ -133,7 +159,9 @@ def plot_component_scores(
     >>> plot_component_scores(zapline)
     """
     if ax is None:
-        _, ax = plt.subplots(figsize=(8, 4))
+        fig, ax = plt.subplots(figsize=(8, 4))
+    else:
+        fig = ax.figure
 
     scores = getattr(estimator, "eigenvalues_", None)
     if scores is None or len(scores) == 0:
@@ -146,18 +174,28 @@ def plot_component_scores(
             transform=ax.transAxes,
             fontsize=12,
         )
-        return ax
+        return _finalize_fig(fig, show=show, fname=fname)
 
-    ax.bar(range(len(scores)), scores, color="steelblue", edgecolor="navy", alpha=0.8)
+    ax.bar(
+        range(len(scores)),
+        scores,
+        color=COLORS["primary"],
+        edgecolor=COLORS["blue"],
+        alpha=0.8,
+    )
     ax.axhline(
-        np.mean(scores), color="red", linestyle="--", linewidth=1.5, label="Mean"
+        np.mean(scores),
+        color=COLORS["line_marker"],
+        linestyle="--",
+        linewidth=1.5,
+        label="Mean",
     )
 
     n_removed = getattr(estimator, "n_removed_", 0)
     if n_removed > 0:
         ax.axvline(
             n_removed - 0.5,
-            color="green",
+            color=COLORS["success"],
             linestyle="--",
             linewidth=2,
             label=f"Removed: {n_removed}",
@@ -168,11 +206,7 @@ def plot_component_scores(
     ax.set_title("Component Scores")
     ax.legend()
 
-    if show:
-        plt.tight_layout()
-        plt.show()
-
-    return ax
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
 def plot_spatial_patterns(
@@ -180,7 +214,8 @@ def plot_spatial_patterns(
     n_patterns: int = 3,
     ax: plt.Axes | None = None,
     show: bool = True,
-) -> plt.Axes:
+    fname: str | None = None,
+) -> plt.Figure:
     """Display spatial patterns of noise components.
 
     Parameters
@@ -193,11 +228,13 @@ def plot_spatial_patterns(
         Matplotlib axes. If None, creates new figure.
     show : bool
         Whether to call plt.show().
+    fname : str | None
+        If given, save the figure to this path.
 
     Returns
     -------
-    ax : Axes
-        The matplotlib axes with the plot.
+    fig : Figure
+        The matplotlib figure.
 
     Examples
     --------
@@ -206,7 +243,9 @@ def plot_spatial_patterns(
     >>> plot_spatial_patterns(zapline, n_patterns=3)
     """
     if ax is None:
-        _, ax = plt.subplots(figsize=(8, 4))
+        fig, ax = plt.subplots(figsize=(8, 4))
+    else:
+        fig = ax.figure
 
     patterns = getattr(estimator, "patterns_", None)
     if patterns is None or patterns.size == 0:
@@ -219,7 +258,7 @@ def plot_spatial_patterns(
             transform=ax.transAxes,
             fontsize=12,
         )
-        return ax
+        return _finalize_fig(fig, show=show, fname=fname)
 
     n_show = min(n_patterns, patterns.shape[1])
     colors = plt.cm.tab10(np.linspace(0, 1, n_show))
@@ -238,13 +277,9 @@ def plot_spatial_patterns(
     ax.set_ylabel("Pattern weight")
     ax.set_title(f"Spatial Patterns (Top {n_show} Components)")
     ax.legend()
-    ax.axhline(0, color="gray", linestyle="-", alpha=0.3)
+    ax.axhline(0, color=COLORS["muted"], linestyle="-", alpha=0.3)
 
-    if show:
-        plt.tight_layout()
-        plt.show()
-
-    return ax
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
 def plot_cleaning_summary(
@@ -332,7 +367,7 @@ def plot_cleaning_summary(
         fontsize=12,
         verticalalignment="top",
         fontfamily="monospace",
-        bbox={"boxstyle": "round", "facecolor": "lightgray", "alpha": 0.5},
+        bbox={"boxstyle": "round", "facecolor": COLORS["light_gray"], "alpha": 0.5},
     )
     ax.set_title("Summary Statistics")
 
@@ -375,8 +410,10 @@ def plot_zapline_analytics(result, sfreq=None, show=True):
         scores = result["eigenvalues"]
 
     if scores is not None and isinstance(scores, np.ndarray) and scores.size > 0:
-        ax.bar(range(len(scores)), scores, color="steelblue")
-        ax.axhline(np.mean(scores), color="red", linestyle="--", label="Mean")
+        ax.bar(range(len(scores)), scores, color=COLORS["primary"])
+        ax.axhline(
+            np.mean(scores), color=COLORS["line_marker"], linestyle="--", label="Mean"
+        )
 
         n_rem = _get_n_removed(result)
         is_adaptive = _is_adaptive(result)
@@ -394,7 +431,7 @@ def plot_zapline_analytics(result, sfreq=None, show=True):
             if display_n_rem > 0:
                 ax.axvline(
                     display_n_rem - 0.5,
-                    color="green",
+                    color=COLORS["success"],
                     linestyle="--",
                     label=label,
                 )
@@ -403,7 +440,7 @@ def plot_zapline_analytics(result, sfreq=None, show=True):
                 display_n_rem = min(n_rem, len(scores))
                 ax.axvline(
                     display_n_rem - 0.5,
-                    color="green",
+                    color=COLORS["success"],
                     linestyle="--",
                     label=f"Removed: {n_rem}",
                 )
@@ -426,7 +463,7 @@ def plot_zapline_analytics(result, sfreq=None, show=True):
     removed = _get_removed(result)
     if removed is not None and np.any(removed != 0):
         removed_power = np.mean(removed**2, axis=1)
-        ax.bar(range(len(removed_power)), removed_power, color="salmon")
+        ax.bar(range(len(removed_power)), removed_power, color=COLORS["accent"])
         ax.set_xlabel("Channel")
         ax.set_ylabel("Mean Squared Amplitude")
         ax.set_title("Removed Power per Channel")
@@ -757,7 +794,7 @@ def plot_adaptive_summary(
             va="center",
             transform=ax_c.transAxes,
             fontsize=F["label"],
-            color="#999999",
+            color=COLORS["placeholder"],
         )
         ax_c.set_title(
             "(c)  Segment boundaries",
@@ -856,7 +893,7 @@ def plot_adaptive_summary(
                 va="center",
                 transform=ax_d.transAxes,
                 fontsize=F["label"],
-                color="#999999",
+                color=COLORS["placeholder"],
             )
 
         ax_d.set_xlabel("Channel", fontsize=F["label"])
@@ -882,7 +919,7 @@ def plot_adaptive_summary(
         ax_e.semilogy(
             freqs,
             mean_before,
-            color="#333333",
+            color=COLORS["before"],
             linewidth=2.0,
             linestyle="-",
             alpha=1.0,
@@ -954,7 +991,7 @@ def plot_adaptive_summary(
                 va="center",
                 transform=ax_e.transAxes,
                 fontsize=F["label"],
-                color="#999999",
+                color=COLORS["placeholder"],
             )
             ax_e.set_title(
                 "(e)  Power spectral density",
@@ -1022,7 +1059,7 @@ def plot_adaptive_summary(
             label,
             transform=ax_f.transAxes,
             fontsize=F["label"] - 0.5,
-            color="#555555",
+            color=COLORS["label_secondary"],
             va="top",
             fontfamily="sans-serif",
         )
@@ -1044,7 +1081,7 @@ def plot_adaptive_summary(
         ax_f.plot(
             [0.03, 0.97],
             [y_line, y_line],
-            color="#e0e0e0",
+            color=COLORS["separator"],
             lw=0.4,
             transform=ax_f.transAxes,
             clip_on=False,
@@ -1086,7 +1123,7 @@ def plot_zapline_summary(
 ):
     """Publication-quality diagnostics dashboard for standard ZapLine.
 
-    Creates a 3??2 panel figure that summarises every stage of the
+    Creates a 3×2 panel figure that summarises every stage of the
     standard (non-adaptive) ZapLine pipeline:
 
     +-----------------------------------+-----------------------------------+
@@ -1244,7 +1281,7 @@ def plot_zapline_summary(
             va="center",
             transform=ax_a.transAxes,
             fontsize=F["label"],
-            color="#999999",
+            color=COLORS["placeholder"],
         )
 
     ax_a.set_xlabel("Component", fontsize=F["label"])
@@ -1263,7 +1300,7 @@ def plot_zapline_summary(
     _has_patterns = patterns is not None and patterns.size > 0
 
     if _has_patterns and info is not None:
-        # --- topomap mode: subdivide gs[0, 1] into 1??N sub-axes --------
+        # --- topomap mode: subdivide gs[0, 1] into 1×N sub-axes --------
         import mne
 
         n_ch, n_pat = patterns.shape
@@ -1359,7 +1396,7 @@ def plot_zapline_summary(
                 va="center",
                 transform=ax_b.transAxes,
                 fontsize=F["label"],
-                color="#999999",
+                color=COLORS["placeholder"],
             )
 
         ax_b.set_xlabel("Channel", fontsize=F["label"])
@@ -1461,7 +1498,7 @@ def plot_zapline_summary(
                 va="center",
                 transform=ax_c.transAxes,
                 fontsize=F["label"],
-                color="#999999",
+                color=COLORS["placeholder"],
             )
 
         ax_c.set_xlabel("Channel", fontsize=F["label"])
@@ -1526,7 +1563,7 @@ def plot_zapline_summary(
             va="center",
             transform=ax_d.transAxes,
             fontsize=F["label"],
-            color="#999999",
+            color=COLORS["placeholder"],
         )
     else:
         ax_d.text(
@@ -1537,7 +1574,7 @@ def plot_zapline_summary(
             va="center",
             transform=ax_d.transAxes,
             fontsize=F["label"],
-            color="#999999",
+            color=COLORS["placeholder"],
         )
 
     ax_d.set_title(
@@ -1562,7 +1599,7 @@ def plot_zapline_summary(
         ax_e.semilogy(
             freqs,
             mean_before,
-            color="#333333",
+            color=COLORS["before"],
             linewidth=2.0,
             linestyle="-",
             alpha=1.0,
@@ -1614,7 +1651,7 @@ def plot_zapline_summary(
             va="center",
             transform=ax_e.transAxes,
             fontsize=F["label"],
-            color="#999999",
+            color=COLORS["placeholder"],
         )
 
     ax_e.set_title(
@@ -1634,14 +1671,14 @@ def plot_zapline_summary(
     _get_cleaned(result)
     rows = [
         ("Mode", "Standard"),
-        ("Line frequency", f"{line_freq:.1f} Hz" if line_freq else "???"),
-        ("Harmonics", str(getattr(result, "n_harmonics_", "???"))),
+        ("Line frequency", f"{line_freq:.1f} Hz" if line_freq else "N/A"),
+        ("Harmonics", str(getattr(result, "n_harmonics_", "N/A"))),
         ("Components removed", str(n_removed)),
-        ("n_remove setting", str(getattr(result, "n_remove", "???"))),
-        ("Threshold (\u03c3)", f"{getattr(result, 'threshold', '???')}"),
+        ("n_remove setting", str(getattr(result, "n_remove", "N/A"))),
+        ("Threshold (\u03c3)", f"{getattr(result, 'threshold', 'N/A')}"),
         (
             "nkeep / rank",
-            f"{getattr(result, 'nkeep', '???')} / {getattr(result, 'rank', '???')}",
+            f"{getattr(result, 'nkeep', 'N/A')} / {getattr(result, 'rank', 'N/A')}",
         ),
     ]
 
@@ -1686,7 +1723,7 @@ def plot_zapline_summary(
             label,
             transform=ax_f.transAxes,
             fontsize=F["label"] - 0.5,
-            color="#555555",
+            color=COLORS["label_secondary"],
             va="top",
             fontfamily="sans-serif",
         )
@@ -1706,7 +1743,7 @@ def plot_zapline_summary(
         ax_f.plot(
             [0.03, 0.97],
             [y_line, y_line],
-            color="#e0e0e0",
+            color=COLORS["separator"],
             lw=0.4,
             transform=ax_f.transAxes,
             clip_on=False,

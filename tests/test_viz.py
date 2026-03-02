@@ -526,34 +526,34 @@ def test_plot_zapline_psd_comparison(zapline_data, fitted_zapline):
     data, sfreq = zapline_data
     cleaned = fitted_zapline.transform(data)
 
-    # Basic call
-    ax = plot_zapline_psd(data, cleaned, sfreq, show=False)
-    assert isinstance(ax, plt.Axes)
+    # Basic call — now returns Figure
+    fig = plot_zapline_psd(data, cleaned, sfreq, show=False)
+    assert isinstance(fig, plt.Figure)
 
     # With line frequency marker
-    ax = plot_zapline_psd(data, cleaned, sfreq, line_freq=50.0, show=False)
-    assert isinstance(ax, plt.Axes)
+    fig = plot_zapline_psd(data, cleaned, sfreq, line_freq=50.0, show=False)
+    assert isinstance(fig, plt.Figure)
 
-    # With custom axes
-    fig, custom_ax = plt.subplots()
-    ret_ax = plot_zapline_psd(data, cleaned, sfreq, ax=custom_ax, show=False)
-    assert ret_ax is custom_ax
+    # With custom axes — should return the parent figure
+    fig_ext, custom_ax = plt.subplots()
+    ret_fig = plot_zapline_psd(data, cleaned, sfreq, ax=custom_ax, show=False)
+    assert ret_fig is fig_ext
 
     # With fmax
-    ax = plot_zapline_psd(data, cleaned, sfreq, fmax=150.0, show=False)
-    assert isinstance(ax, plt.Axes)
+    fig = plot_zapline_psd(data, cleaned, sfreq, fmax=150.0, show=False)
+    assert isinstance(fig, plt.Figure)
 
 
 def test_plot_component_scores(fitted_zapline):
     """Test ZapLine component scores plot."""
-    # Basic call
-    ax = plot_component_scores(fitted_zapline, show=False)
-    assert isinstance(ax, plt.Axes)
+    # Basic call — now returns Figure
+    fig = plot_component_scores(fitted_zapline, show=False)
+    assert isinstance(fig, plt.Figure)
 
     # With custom axes
-    fig, custom_ax = plt.subplots()
-    ret_ax = plot_component_scores(fitted_zapline, ax=custom_ax, show=False)
-    assert ret_ax is custom_ax
+    fig_ext, custom_ax = plt.subplots()
+    ret_fig = plot_component_scores(fitted_zapline, ax=custom_ax, show=False)
+    assert ret_fig is fig_ext
 
 
 def test_plot_component_scores_empty():
@@ -562,24 +562,24 @@ def test_plot_component_scores_empty():
     class MockEstimator:
         eigenvalues_ = np.array([])
 
-    ax = plot_component_scores(MockEstimator(), show=False)
-    assert isinstance(ax, plt.Axes)
+    fig = plot_component_scores(MockEstimator(), show=False)
+    assert isinstance(fig, plt.Figure)
 
 
 def test_plot_zapline_patterns(fitted_zapline):
     """Test ZapLine spatial patterns plot."""
-    # Basic call
-    ax = plot_zapline_patterns(fitted_zapline, show=False)
-    assert isinstance(ax, plt.Axes)
+    # Basic call — now returns Figure
+    fig = plot_zapline_patterns(fitted_zapline, show=False)
+    assert isinstance(fig, plt.Figure)
 
     # With n_patterns
-    ax = plot_zapline_patterns(fitted_zapline, n_patterns=2, show=False)
-    assert isinstance(ax, plt.Axes)
+    fig = plot_zapline_patterns(fitted_zapline, n_patterns=2, show=False)
+    assert isinstance(fig, plt.Figure)
 
     # With custom axes
-    fig, custom_ax = plt.subplots()
-    ret_ax = plot_zapline_patterns(fitted_zapline, ax=custom_ax, show=False)
-    assert ret_ax is custom_ax
+    fig_ext, custom_ax = plt.subplots()
+    ret_fig = plot_zapline_patterns(fitted_zapline, ax=custom_ax, show=False)
+    assert ret_fig is fig_ext
 
 
 def test_plot_zapline_patterns_empty():
@@ -588,8 +588,8 @@ def test_plot_zapline_patterns_empty():
     class MockEstimator:
         patterns_ = np.array([])
 
-    ax = plot_zapline_patterns(MockEstimator(), show=False)
-    assert isinstance(ax, plt.Axes)
+    fig = plot_zapline_patterns(MockEstimator(), show=False)
+    assert isinstance(fig, plt.Figure)
 
 
 def test_plot_cleaning_summary(zapline_data, fitted_zapline):
@@ -619,3 +619,79 @@ def test_zapline_viz_show(zapline_data, fitted_zapline):
         plot_component_scores(fitted_zapline, show=True)
         plot_zapline_patterns(fitted_zapline, show=True)
         plot_cleaning_summary(data, cleaned, fitted_zapline, sfreq, show=True)
+
+
+# =============================================================================
+# Theme & Helpers Tests
+# =============================================================================
+
+
+def test_use_style_context_manager():
+    """Test that use_style restores rcParams on exit."""
+    from mne_denoise.viz._theme import use_style
+
+    # Record a known param before
+    before = plt.rcParams["axes.spines.top"]
+    with use_style():
+        # Inside the context manager publication style should be active
+        in_ctx = plt.rcParams["axes.spines.top"]
+        assert in_ctx is False  # _PUB_RC turns off top spine
+    # After exit, rcParams should be restored
+    assert plt.rcParams["axes.spines.top"] == before
+
+
+def test_get_color():
+    """Test _get_color helper returns expected values."""
+    from mne_denoise.viz._theme import COLORS, METHOD_COLORS, _get_color
+
+    # Known method
+    assert _get_color("dss") == METHOD_COLORS["dss"]
+    # Unknown method returns fallback (COLORS["dark"] by default)
+    assert _get_color("nonexistent_xyz") == COLORS["dark"]
+    # With explicit fallback
+    assert _get_color("nonexistent_xyz", fallback="#aabbcc") == "#aabbcc"
+
+
+def test_finalize_fig_basic():
+    """Test _finalize_fig returns figure and optionally saves."""
+    from mne_denoise.viz._theme import _finalize_fig
+
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 1])
+
+    # Basic: show=False should just return fig
+    ret = _finalize_fig(fig, show=False)
+    assert ret is fig
+
+
+def test_finalize_fig_save(tmp_path):
+    """Test _finalize_fig saves figure when fname is given."""
+    from mne_denoise.viz._theme import _finalize_fig
+
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 1])
+
+    # Save to a temp file
+    fpath = tmp_path / "test_plot.png"
+    ret = _finalize_fig(fig, show=False, fname=str(fpath))
+    assert ret is fig
+    assert fpath.exists()
+
+
+def test_fname_parameter_comparison(synthetic_data, tmp_path):
+    """Test fname parameter on a comparison plot function."""
+    epochs_clean = synthetic_data.copy()
+    fpath = tmp_path / "psd_cmp.png"
+    fig = plot_psd_comparison(
+        synthetic_data, epochs_clean, show=False, fname=str(fpath)
+    )
+    assert isinstance(fig, plt.Figure)
+    assert fpath.exists()
+
+
+def test_fname_parameter_components(fitted_dss, tmp_path):
+    """Test fname parameter on a components plot function."""
+    fpath = tmp_path / "scores.png"
+    fig = plot_score_curve(fitted_dss, mode="raw", show=False, fname=str(fpath))
+    assert isinstance(fig, plt.Figure)
+    assert fpath.exists()

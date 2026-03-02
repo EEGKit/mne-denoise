@@ -11,9 +11,18 @@ import mne
 import numpy as np
 from matplotlib.gridspec import GridSpec
 
+from ._theme import COLORS, _finalize_fig
+
 
 def plot_psd_comparison(
-    inst_orig, inst_denoised, fmin=0, fmax=np.inf, show=True, average=True, ax=None
+    inst_orig,
+    inst_denoised,
+    fmin=0,
+    fmax=np.inf,
+    show=True,
+    average=True,
+    ax=None,
+    fname=None,
 ):
     """Plot PSD comparison (Original vs Denoised).
 
@@ -69,13 +78,18 @@ def plot_psd_comparison(
     ax.set_title("PSD Comparison")
     ax.grid(True)
 
-    if show:
-        plt.show()
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
 def plot_spectral_psd_comparison(
-    inst_orig, components, sfreq, peak_freq=None, fmin=1, fmax=40, show=True
+    inst_orig,
+    components,
+    sfreq,
+    peak_freq=None,
+    fmin=1,
+    fmax=40,
+    show=True,
+    fname=None,
 ):
     """Plot side-by-side PSD comparison for spectral/narrowband DSS.
 
@@ -124,7 +138,7 @@ def plot_spectral_psd_comparison(
     if peak_freq is not None:
         axes[0].axvline(
             peak_freq,
-            color="red",
+            color=COLORS["line_marker"],
             linestyle="--",
             alpha=0.7,
             label=f"Peak: {peak_freq:.1f} Hz",
@@ -162,13 +176,13 @@ def plot_spectral_psd_comparison(
     axes[1].set_title("DSS Components PSD")
 
     if peak_freq is not None:
-        axes[1].axvline(peak_freq, color="red", linestyle="--", alpha=0.7)
+        axes[1].axvline(
+            peak_freq, color=COLORS["line_marker"], linestyle="--", alpha=0.7
+        )
 
     plt.tight_layout()
 
-    if show:
-        plt.show()
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
 def plot_evoked_comparison(
@@ -181,6 +195,7 @@ def plot_evoked_comparison(
     labels=("Original", "Denoised"),
     show=True,
     ax=None,
+    fname=None,
 ):
     """Plot Global Field Power (GFP) comparison with optional Bootstrap CI.
 
@@ -289,13 +304,17 @@ def plot_evoked_comparison(
     ax.legend(loc="best")
     ax.grid(True, linestyle=":")
 
-    if show:
-        plt.show()
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
 def plot_time_course_comparison(
-    inst_orig, inst_denoised, picks=None, start=0, stop=None, show=True
+    inst_orig,
+    inst_denoised,
+    picks=None,
+    start=0,
+    stop=None,
+    show=True,
+    fname=None,
 ):
     """Butterfly plot of time courses.
 
@@ -309,7 +328,7 @@ def plot_time_course_comparison(
 
     times = inst_orig.times
 
-    if isinstance(inst_orig, mne.io.BaseRaw | mne.io.RawArray):
+    if isinstance(inst_orig, mne.io.BaseRaw):
         data1 = inst_orig.get_data(picks=picks, start=start, stop=stop)
         data2 = inst_denoised.get_data(picks=picks, start=start, stop=stop)
         if start is not None:
@@ -342,12 +361,10 @@ def plot_time_course_comparison(
             ax.legend()
 
     axes[-1].set_xlabel("Time (s)")
-    if show:
-        plt.show()
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
-def plot_power_map(inst_orig, inst_denoised, info=None, show=True, ax=None):
+def plot_power_map(inst_orig, inst_denoised, info=None, show=True, ax=None, fname=None):
     """
     Plot topomap of the ratio of variance (Denoised / Original).
 
@@ -385,7 +402,7 @@ def plot_power_map(inst_orig, inst_denoised, info=None, show=True, ax=None):
             raise ValueError("info is required")
 
     def _get_var(inst):
-        if isinstance(inst, mne.io.BaseRaw | mne.io.RawArray | mne.Evoked):
+        if isinstance(inst, mne.io.BaseRaw | mne.Evoked):
             d = inst.get_data()  # (n_ch, n_times)
             return np.var(d, axis=1)
         elif isinstance(inst, mne.BaseEpochs):
@@ -418,13 +435,18 @@ def plot_power_map(inst_orig, inst_denoised, info=None, show=True, ax=None):
     plt.colorbar(im, ax=ax, label="Power Ratio (Denoised/Original)")
     ax.set_title("Preserved Power Fraction")
 
-    if show:
-        plt.show()
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
 def plot_spectrogram_comparison(
-    inst_orig, inst_denoised, fmin=1, fmax=40, n_freqs=20, picks=None, show=True
+    inst_orig,
+    inst_denoised,
+    fmin=1,
+    fmax=40,
+    n_freqs=20,
+    picks=None,
+    show=True,
+    fname=None,
 ):
     """
     Compare Time-Frequency spectrograms (averaged over channels).
@@ -544,12 +566,10 @@ def plot_spectrogram_comparison(
     _plot_im(axes[1], data2, "Denoised", cmap="viridis", vlims=(vmin, vmax))
     _plot_im(axes[2], diff, "Original - Denoised", cmap="RdBu_r")  # Diverging for diff
 
-    if show:
-        plt.show()
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
-def plot_denoising_summary(inst_orig, inst_denoised, info=None, show=True):
+def plot_denoising_summary(inst_orig, inst_denoised, info=None, show=True, fname=None):
     """
     Plot comprehensive denoising summary.
 
@@ -593,7 +613,7 @@ def plot_denoising_summary(inst_orig, inst_denoised, info=None, show=True):
     ax_gfp = fig.add_subplot(gs[1, :])
 
     def _get_gfp(inst):
-        if isinstance(inst, mne.io.BaseRaw | mne.io.RawArray | mne.Evoked):
+        if isinstance(inst, mne.io.BaseRaw | mne.Evoked):
             d = inst.get_data()
             return np.std(d, axis=0)
         elif isinstance(inst, mne.BaseEpochs):
@@ -608,10 +628,12 @@ def plot_denoising_summary(inst_orig, inst_denoised, info=None, show=True):
     times = inst_orig.times
 
     if gfp1 is not None:
-        ax_gfp.plot(times, gfp1, label="Original GFP", color="k", alpha=0.7)
-        ax_gfp.plot(times, gfp2, label="Denoised GFP", color="r", alpha=0.7)
+        ax_gfp.plot(
+            times, gfp1, label="Original GFP", color=COLORS["before"], alpha=0.7
+        )
+        ax_gfp.plot(times, gfp2, label="Denoised GFP", color=COLORS["after"], alpha=0.7)
         ax_gfp.fill_between(
-            times, gfp1, gfp2, color="gray", alpha=0.2, label="Difference"
+            times, gfp1, gfp2, color=COLORS["muted"], alpha=0.2, label="Difference"
         )
         ax_gfp.legend()
         ax_gfp.set_xlabel("Time (s)")
@@ -621,9 +643,7 @@ def plot_denoising_summary(inst_orig, inst_denoised, info=None, show=True):
 
     fig.suptitle("Denoising Summary", fontsize=14, fontweight="bold")
 
-    if show:
-        plt.show()
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
 def plot_overlay_comparison(
@@ -634,6 +654,7 @@ def plot_overlay_comparison(
     scale_denoised=True,
     title=None,
     show=True,
+    fname=None,
 ):
     """
     Overlay original and denoised time series to verify reconstruction.
@@ -712,8 +733,22 @@ def plot_overlay_comparison(
         d2 = d2 * scaler
 
     fig, ax = plt.subplots(figsize=(12, 4), constrained_layout=True)
-    ax.plot(t, d1, "k", label="Original/Ground Truth", alpha=0.5, linewidth=1)
-    ax.plot(t, d2, "r--", label="Denoised/Estimated", linewidth=1.5)
+    ax.plot(
+        t,
+        d1,
+        color=COLORS["before"],
+        label="Original/Ground Truth",
+        alpha=0.5,
+        linewidth=1,
+    )
+    ax.plot(
+        t,
+        d2,
+        color=COLORS["after"],
+        linestyle="--",
+        label="Denoised/Estimated",
+        linewidth=1.5,
+    )
 
     ax.set_ylabel("Amplitude")
     ax.set_xlabel("Time (s)" if hasattr(inst_orig, "times") else "Time (samples)")
@@ -725,6 +760,4 @@ def plot_overlay_comparison(
     else:
         ax.set_title("Signal Overlay Comparison")
 
-    if show:
-        plt.show()
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)

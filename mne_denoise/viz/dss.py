@@ -1,7 +1,7 @@
 """Generalized DSS diagnostics dashboards.
 
 Publication-quality visualizations that work for **any** fitted
-:class:`~mne_denoise.dss.DSS` instance ??? regardless of bias function,
+:class:`~mne_denoise.dss.DSS` instance — regardless of bias function,
 smoothing mode, or segmented mode.  Mirrors the panel structure of
 :mod:`~mne_denoise.viz.zapline` but removes all ZapLine / line-noise
 specific assumptions.
@@ -107,7 +107,7 @@ def plot_dss_summary(
     dpi=200,
     show=True,
 ):
-    """Publication-quality 3??2 diagnostics dashboard for any fitted DSS.
+    """Publication-quality 3×2 diagnostics dashboard for any fitted DSS.
 
     +-----------------------------------+-----------------------------------+
     | (a) DSS eigenvalues + threshold   | (b) Spatial patterns (topomaps)   |
@@ -291,7 +291,7 @@ def plot_dss_summary(
             va="center",
             transform=ax_a.transAxes,
             fontsize=F["label"],
-            color="#999999",
+            color=COLORS["placeholder"],
         )
 
     ax_a.set_xlabel("Component", fontsize=F["label"])
@@ -395,7 +395,7 @@ def plot_dss_summary(
                 va="center",
                 transform=ax_b.transAxes,
                 fontsize=F["label"],
-                color="#999999",
+                color=COLORS["placeholder"],
             )
 
         ax_b.set_xlabel("Channel", fontsize=F["label"])
@@ -494,7 +494,7 @@ def plot_dss_summary(
                 va="center",
                 transform=ax_c.transAxes,
                 fontsize=F["label"],
-                color="#999999",
+                color=COLORS["placeholder"],
             )
 
         ax_c.set_xlabel("Channel", fontsize=F["label"])
@@ -557,7 +557,7 @@ def plot_dss_summary(
             va="center",
             transform=ax_d.transAxes,
             fontsize=F["label"],
-            color="#999999",
+            color=COLORS["placeholder"],
         )
     else:
         ax_d.text(
@@ -568,7 +568,7 @@ def plot_dss_summary(
             va="center",
             transform=ax_d.transAxes,
             fontsize=F["label"],
-            color="#999999",
+            color=COLORS["placeholder"],
         )
 
     ax_d.set_title(
@@ -592,7 +592,7 @@ def plot_dss_summary(
         ax_e.semilogy(
             freqs,
             mean_before,
-            color="#333333",
+            color=COLORS["before"],
             linewidth=2.0,
             linestyle="-",
             alpha=1.0,
@@ -654,7 +654,7 @@ def plot_dss_summary(
                 va="center",
                 transform=ax_e.transAxes,
                 fontsize=F["label"],
-                color="#999999",
+                color=COLORS["placeholder"],
             )
 
     ax_e.set_title(
@@ -675,9 +675,9 @@ def plot_dss_summary(
     rows = [
         ("Bias function", bias_name),
         ("Mode", "Standard"),
-        ("n_components", str(getattr(estimator, "n_components", "???"))),
-        ("Components selected", str(n_selected) if n_selected else "???"),
-        ("Selection method", str(getattr(estimator, "selection_method", "???"))),
+        ("n_components", str(getattr(estimator, "n_components", "N/A"))),
+        ("Components selected", str(n_selected) if n_selected else "N/A"),
+        ("Selection method", str(getattr(estimator, "selection_method", "N/A"))),
     ]
 
     # Smoothing
@@ -737,7 +737,7 @@ def plot_dss_summary(
             label,
             transform=ax_f.transAxes,
             fontsize=F["label"] - 0.5,
-            color="#555555",
+            color=COLORS["label_secondary"],
             va="top",
             fontfamily="sans-serif",
         )
@@ -757,7 +757,7 @@ def plot_dss_summary(
         ax_f.plot(
             [0.03, 0.97],
             [y_line, y_line],
-            color="#e0e0e0",
+            color=COLORS["separator"],
             lw=0.4,
             transform=ax_f.transAxes,
             clip_on=False,
@@ -809,7 +809,7 @@ def plot_dss_segmented_summary(
 ):
     """Publication-quality diagnostics for segmented DSS.
 
-    Creates a 3??2 multi-panel figure:
+    Creates a 3×2 multi-panel figure:
 
     +---------------------------------------------+---------------------------+
     | (a) Components selected per segment         | (b) Eigenvalue heatmap    |
@@ -969,7 +969,7 @@ def plot_dss_segmented_summary(
     ax_b = fig.add_subplot(gs[0, 1])
     style_axes(ax_b)
 
-    # Build a matrix: segments ?? max_components
+    # Build a matrix: segments × max_components
     max_n_eig = max((len(e) for e in per_seg_eigenvalues if len(e) > 0), default=0)
 
     if max_n_eig > 0:
@@ -1013,7 +1013,7 @@ def plot_dss_segmented_summary(
             va="center",
             transform=ax_b.transAxes,
             fontsize=F["label"],
-            color="#999999",
+            color=COLORS["placeholder"],
         )
 
     ax_b.set_title(
@@ -1087,7 +1087,7 @@ def plot_dss_segmented_summary(
             va="center",
             transform=ax_c.transAxes,
             fontsize=F["label"],
-            color="#999999",
+            color=COLORS["placeholder"],
         )
 
     ax_c.set_title(
@@ -1184,7 +1184,7 @@ def plot_dss_segmented_summary(
                 va="center",
                 transform=ax_d.transAxes,
                 fontsize=F["label"],
-                color="#999999",
+                color=COLORS["placeholder"],
             )
 
         ax_d.set_xlabel("Channel", fontsize=F["label"])
@@ -1209,7 +1209,7 @@ def plot_dss_segmented_summary(
         ax_e.semilogy(
             freqs,
             mean_before,
-            color="#333333",
+            color=COLORS["before"],
             linewidth=2.0,
             linestyle="-",
             alpha=1.0,
@@ -1271,7 +1271,7 @@ def plot_dss_segmented_summary(
                 va="center",
                 transform=ax_e.transAxes,
                 fontsize=F["label"],
-                color="#999999",
+                color=COLORS["placeholder"],
             )
 
     ax_e.set_title(
@@ -1302,8 +1302,7 @@ def plot_dss_segmented_summary(
         ),
         (
             "Per-segment mean \u00b1 std",
-            f"{np.mean(per_seg_selected):.1f} \u00b1 "
-            f"{np.std(per_seg_selected):.1f}",
+            f"{np.mean(per_seg_selected):.1f} \u00b1 {np.std(per_seg_selected):.1f}",
         ),
     ]
 
@@ -1363,7 +1362,7 @@ def plot_dss_segmented_summary(
             label,
             transform=ax_f.transAxes,
             fontsize=F["label"] - 0.5,
-            color="#555555",
+            color=COLORS["label_secondary"],
             va="top",
             fontfamily="sans-serif",
         )
@@ -1383,7 +1382,7 @@ def plot_dss_segmented_summary(
         ax_f.plot(
             [0.03, 0.97],
             [y_line, y_line],
-            color="#e0e0e0",
+            color=COLORS["separator"],
             lw=0.4,
             transform=ax_f.transAxes,
             clip_on=False,
@@ -1508,7 +1507,7 @@ def plot_dss_eigenvalues(
             va="center",
             transform=ax.transAxes,
             fontsize=F["label"],
-            color="#999999",
+            color=COLORS["placeholder"],
         )
 
     ax.set_xlabel("Component", fontsize=F["label"])
@@ -1642,7 +1641,7 @@ def plot_dss_patterns(
                 va="center",
                 transform=ax.transAxes,
                 fontsize=F["label"],
-                color="#999999",
+                color=COLORS["placeholder"],
             )
 
         ax.set_xlabel("Channel", fontsize=F["label"])
@@ -1713,13 +1712,13 @@ def plot_dss_comparison(
     Fits three :class:`~mne_denoise.dss.DSS` instances with the same
     ``bias`` on the same ``data``:
 
-    * **(A) Plain** ??? no smoothing, no segmentation.
-    * **(B) + Smoothing** ??? eigenvalue decomposition smoothed.
-    * **(C) + Smoothing + Segmentation** ??? smoothed, with adaptive
+    * **(A) Plain** — no smoothing, no segmentation.
+    * **(B) + Smoothing** — eigenvalue decomposition smoothed.
+    * **(C) + Smoothing + Segmentation** — smoothed, with adaptive
       per-segment component selection.
 
     Prints a comparison table (SR at harmonics, spectral distortion,
-    variance removed) and returns a 1??2 PSD overlay figure.
+    variance removed) and returns a 1×2 PSD overlay figure.
 
     Parameters
     ----------
@@ -1769,10 +1768,10 @@ def plot_dss_comparison(
 
     bias_name = type(bias).__name__
 
-    print(f"DSS + {bias_name} ??? 3-Way Comparison")
+    print(f"DSS + {bias_name} — 3-Way Comparison")
     print("=" * 65)
 
-    # ?????? A) Plain DSS ??????
+    # --- A) Plain DSS ---
     dss_plain = DSS(
         bias=bias,
         n_components=n_components,
@@ -1789,7 +1788,7 @@ def plot_dss_comparison(
         f"max eigenvalue = {ev_plain[0]:.6f}"
     )
 
-    # ?????? B) DSS + smoothing ??????
+    # --- B) DSS + smoothing ---
     dss_smooth = DSS(
         bias=bias,
         n_components=n_components,
@@ -1808,7 +1807,7 @@ def plot_dss_comparison(
         f"max eigenvalue = {ev_smooth[0]:.6f} ({boost:.1f}?? boost)"
     )
 
-    # ?????? C) DSS + smoothing + segmentation ??????
+    # --- C) DSS + smoothing + segmentation ---
     dss_seg = DSS(
         bias=bias,
         n_components=n_components,
@@ -1827,19 +1826,19 @@ def plot_dss_comparison(
     total_removed = sum(seg_n_sel)
     print(
         f"  C) + Segmentation:     {n_segments} seg(s) | "
-        f"n_removed: {min(seg_n_sel)}???{max(seg_n_sel)} "
+        f"n_removed: {min(seg_n_sel)}—{max(seg_n_sel)} "
         f"(total {total_removed}) | "
-        f"eigenvalue range: {min(seg_evals):.4f}???{max(seg_evals):.4f}"
+        f"eigenvalue range: {min(seg_evals):.4f}—{max(seg_evals):.4f}"
     )
 
-    # ?????? PSD computation ??????
+    # —— PSD computation ——
     nperseg = int(sfreq * 4)
     f_psd, psd_orig = signal.welch(data_orig, fs=sfreq, nperseg=nperseg, axis=-1)
     _, psd_A = signal.welch(data_plain, fs=sfreq, nperseg=nperseg, axis=-1)
     _, psd_B = signal.welch(data_smooth, fs=sfreq, nperseg=nperseg, axis=-1)
     _, psd_C = signal.welch(data_seg, fs=sfreq, nperseg=nperseg, axis=-1)
 
-    # ?????? Metrics table ??????
+    # —— Metrics table ——
     labels = ["(A) Plain", "(B) + Smooth", "(C) + Smooth + Seg"]
     cleaned_list = [data_plain, data_smooth, data_seg]
     psd_list = [psd_A, psd_B, psd_C]
@@ -1869,24 +1868,34 @@ def plot_dss_comparison(
         all_metrics.append(metrics)
 
         sr_str = "  ".join(f"{s:>7.1f}" for s in srs)
-        print(f"{label:<22} {sr_str}  {sr_mean:>7.1f}  {sd:>4.2f}  " f"{var_pct:>5.3f}")
+        print(f"{label:<22} {sr_str}  {sr_mean:>7.1f}  {sd:>4.2f}  {var_pct:>5.3f}")
 
-    # ?????? PSD overlay plot ??????
+    # —— PSD overlay plot ——
     fig, axes = plt.subplots(1, 2, figsize=figsize)
 
     # Left: full PSD
     ax = axes[0]
     fmask = f_psd <= 160
     ax.semilogy(
-        f_psd[fmask], psd_orig.mean(0)[fmask], "k", lw=2, alpha=0.4, label="Original"
+        f_psd[fmask],
+        psd_orig.mean(0)[fmask],
+        color=COLORS["before"],
+        lw=2,
+        alpha=0.4,
+        label="Original",
     )
     ax.semilogy(
-        f_psd[fmask], psd_A.mean(0)[fmask], "C0", lw=1.2, alpha=0.7, label="(A) Plain"
+        f_psd[fmask],
+        psd_A.mean(0)[fmask],
+        color=COLORS["primary"],
+        lw=1.2,
+        alpha=0.7,
+        label="(A) Plain",
     )
     ax.semilogy(
         f_psd[fmask],
         psd_B.mean(0)[fmask],
-        "C1",
+        color=COLORS["secondary"],
         lw=1.2,
         alpha=0.7,
         label="(B) + Smooth",
@@ -1894,53 +1903,74 @@ def plot_dss_comparison(
     ax.semilogy(
         f_psd[fmask],
         psd_C.mean(0)[fmask],
-        "C3",
+        color=COLORS["accent"],
         lw=1.5,
         alpha=0.9,
         label="(C) + Smooth + Seg",
     )
     for k in range(1, n_harmonics + 1):
-        ax.axvline(line_freq * k, color="r", ls="--", alpha=0.3)
+        ax.axvline(line_freq * k, color=COLORS["line_marker"], ls="--", alpha=0.3)
     ax.set_xlabel("Frequency (Hz)")
-    ax.set_ylabel("PSD (V??/Hz)")
-    ax.set_title(f"PSD: {bias_name} ??? 3 Modes")
+    ax.set_ylabel("PSD (V²/Hz)")
+    ax.set_title(f"PSD: {bias_name} — 3 Modes")
     ax.legend(fontsize=9)
 
     # Right: zoom on fundamental
     ax = axes[1]
     zoom = (f_psd >= line_freq - 5) & (f_psd <= line_freq + 5)
     ax.semilogy(
-        f_psd[zoom], psd_orig.mean(0)[zoom], "k", lw=2, alpha=0.4, label="Original"
+        f_psd[zoom],
+        psd_orig.mean(0)[zoom],
+        color=COLORS["before"],
+        lw=2,
+        alpha=0.4,
+        label="Original",
     )
     ax.semilogy(
-        f_psd[zoom], psd_A.mean(0)[zoom], "C0", lw=1.5, alpha=0.7, label="(A) Plain"
+        f_psd[zoom],
+        psd_A.mean(0)[zoom],
+        color=COLORS["primary"],
+        lw=1.5,
+        alpha=0.7,
+        label="(A) Plain",
     )
     ax.semilogy(
-        f_psd[zoom], psd_B.mean(0)[zoom], "C1", lw=1.5, alpha=0.7, label="(B) + Smooth"
+        f_psd[zoom],
+        psd_B.mean(0)[zoom],
+        color=COLORS["secondary"],
+        lw=1.5,
+        alpha=0.7,
+        label="(B) + Smooth",
     )
     ax.semilogy(
         f_psd[zoom],
         psd_C.mean(0)[zoom],
-        "C3",
+        color=COLORS["accent"],
         lw=2,
         alpha=0.9,
         label="(C) + Smooth + Seg",
     )
-    ax.axvline(line_freq, color="r", ls="--", alpha=0.5, label=f"{int(line_freq)} Hz")
+    ax.axvline(
+        line_freq,
+        color=COLORS["line_marker"],
+        ls="--",
+        alpha=0.5,
+        label=f"{int(line_freq)} Hz",
+    )
     ax.set_xlabel("Frequency (Hz)")
-    ax.set_ylabel("PSD (V??/Hz)")
-    ax.set_title(f"Zoom: {int(line_freq - 5)}???{int(line_freq + 5)} Hz")
+    ax.set_ylabel("PSD (V²/Hz)")
+    ax.set_title(f"Zoom: {int(line_freq - 5)}—{int(line_freq + 5)} Hz")
     ax.legend(fontsize=9)
 
     if title is None:
-        title = f"{bias_name} ??? Plain vs Smoothing vs Segmented"
+        title = f"{bias_name} — Plain vs Smoothing vs Segmented"
     fig.suptitle(title, fontsize=13, y=1.02)
     plt.tight_layout()
 
     if show:
         plt.show()
 
-    # ?????? Build results dict ??????
+    # —— Build results dict ——
     results = {
         "plain": {
             "estimator": dss_plain,
