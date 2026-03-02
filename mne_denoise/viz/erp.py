@@ -20,6 +20,14 @@ plot_endpoint_summary
     Multipanel storyboard: violins + null-CI overlay + paired slopes.
 plot_pipeline_slopes
     Multi-metric paired subject-level trajectories.
+plot_grand_average_erp
+    Group-mean evoked ± between-subject SEM for each pipeline.
+plot_grand_condition_interaction
+    Group-level condition × pipeline interaction with between-subject error.
+plot_null_distribution
+    Histogram of permutation null with observed statistic and CI.
+plot_forest
+    Per-subject effect-size forest plot with confidence intervals.
 
 Authors
 -------
@@ -1013,6 +1021,542 @@ def plot_pipeline_slopes(
         style_axes(ax)
 
     title = suptitle or "Paired Subject-Level Slopes — Within-Subject Trajectories"
+    fig.suptitle(title, fontsize=FONTS["suptitle"], fontweight="bold")
+    return _finalize_fig(fig, show=show, fname=fname)
+
+
+# =====================================================================
+# plot_grand_average_erp — group-mean evoked ± between-subject SEM
+# =====================================================================
+
+
+def plot_grand_average_erp(
+    all_evokeds,
+    *,
+    channels=("Cz", "Pz"),
+    erp_windows=None,
+    suptitle=None,
+    pipe_order=None,
+    pipe_colors=None,
+    pipe_labels=None,
+    figsize=None,
+    fname=None,
+    show=True,
+):
+    """Group-mean evoked ± between-subject SEM for each pipeline.
+
+    Parameters
+    ----------
+    all_evokeds : dict
+        ``{pipe_tag: list[Evoked]}``.  Each list has one Evoked per
+        subject; the function computes the grand mean and between-subject
+        SEM over these lists.
+    channels : tuple of str
+        Channel names to display (one column per channel).
+    erp_windows : dict | None
+        Shaded ERP time windows.  Default ``DEFAULT_ERP_WINDOWS``.
+    suptitle : str | None
+    pipe_order : list of str | None
+    pipe_colors, pipe_labels : dict | None
+    figsize : tuple | None
+    fname : str | Path | None
+    show : bool
+
+    Returns
+    -------
+    fig : Figure
+    """
+    if pipe_order is None:
+        pipe_order = sorted(all_evokeds.keys())
+    n_ch = len(channels)
+    if figsize is None:
+        figsize = (8 * n_ch, 5)
+
+    fig, axes = pub_figure(1, n_ch, figsize=figsize)
+    if n_ch == 1:
+        axes = np.array([axes])
+
+    for col, ch_name in enumerate(channels):
+        ax = axes.flat[col]
+        for ptag in pipe_order:
+            evoked_list = all_evokeds[ptag]
+            n_sub = len(evoked_list)
+            ci = evoked_list[0].ch_names.index(ch_name)
+            times_ms = evoked_list[0].times * 1000
+
+            # Stack subject data: (n_sub, n_times)
+            stacked = np.array([ev.data[ci] * 1e6 for ev in evoked_list])
+            grand_mean = stacked.mean(axis=0)
+            grand_sem = stacked.std(axis=0, ddof=1) / np.sqrt(n_sub) if n_sub > 1 else np.zeros_like(grand_mean)
+
+            c = _pipe_color(ptag, pipe_colors)
+            ax.plot(
+                times_ms, grand_mean, color=c, lw=1.8, alpha=0.85,
+                label=_pipe_label(ptag, pipe_labels),
+            )
+            if n_sub > 1:
+                ax.fill_between(
+                    times_ms, grand_mean - grand_sem, grand_mean + grand_sem,
+                    color=c, alpha=0.15, lw=0,
+                )
+
+        ax.axvline(0, color=COLORS["gray"], ls="--", alpha=0.5)
+        ax.axhline(0, color=COLORS["gray"], alpha=0.3)
+        _add_erp_windows(ax, erp_windows)
+        ax.set_xlabel("Time (ms)", fontsize=FONTS["label"])
+        ax.set_ylabel("Amplitude (µV)", fontsize=FONTS["label"])
+        ax.set_title(f"Grand Average at {ch_name}", fontsize=FONTS["title"])
+        pub_legend(ax)
+        style_axes(ax)
+
+    n_total = len(next(iter(all_evokeds.values())))
+    title = suptitle or f"Grand-Average Evoked ± Between-Subject SEM (N = {n_total})"
+    fig.suptitle(title, fontsize=FONTS["suptitle"], fontweight="bold")
+    return _finalize_fig(fig, show=show, fname=fname)
+
+
+# =====================================================================
+# plot_grand_condition_interaction — group-level cond × pipeline
+# =====================================================================
+
+
+def plot_grand_condition_interaction(
+    all_diff_waves,
+    all_effect_sizes,
+    times_ms,
+    *,
+    conditions=None,
+    condition_labels=None,
+    erp_windows=None,
+    suptitle=None,
+    pipe_order=None,
+    pipe_colors=None,
+    pipe_labels=None,
+    figsize=None,
+    fname=None,
+    show=True,
+):
+    """Group-level condition × pipeline interaction with between-subject error.
+
+    Produces **two** figures:
+
+    * **Figure 1** (1 × n_conditions): Grand-average difference waves
+      ± between-subject SEM.
+    * **Figure 2** (mean ± SEM of Hedges' *g* per cell, strip + bars).
+
+    Parameters
+    ----------
+    all_diff_waves : dict
+        ``{(condition, pipe_tag): ndarray (n_subjects, n_times)}`` —
+        per-subject difference-wave time series in µV.
+    all_effect_sizes : dict
+        ``{(condition, pipe_tag): 1-D array (n_subjects,)}`` —
+        per-subject Hedges' *g* values.
+    times_ms : ndarray
+        Time vector in milliseconds.
+    conditions : list of str | None
+    condition_labels : dict | None
+    erp_windows : dict | None
+    suptitle : str | None
+    pipe_order, pipe_colors, pipe_labels : list/dict | None
+    figsize : tuple | None
+    fname : str | Path | None
+    show : bool
+
+    Returns
+    -------
+    fig_diff : Figure
+    fig_effect : Figure
+    """
+    if pipe_order is None:
+        pipe_order = DEFAULT_PIPE_ORDER
+    if conditions is None:
+        conditions = sorted({k[0] for k in all_diff_waves})
+    if condition_labels is None:
+        condition_labels = {c: c.title() for c in conditions}
+
+    n_conds = len(conditions)
+
+    # ---- Figure 1: grand-average diff waves ----
+    fig1, axes1 = pub_figure(1, n_conds, figsize=figsize or (6 * n_conds, 5))
+    if n_conds == 1:
+        axes1 = np.array([axes1])
+
+    for i, cond in enumerate(conditions):
+        ax = axes1.flat[i]
+        for ptag in pipe_order:
+            key = (cond, ptag)
+            dw_stack = all_diff_waves.get(key)
+            if dw_stack is None:
+                continue
+            dw_stack = np.asarray(dw_stack)
+            n_sub = dw_stack.shape[0]
+            grand_mean = dw_stack.mean(axis=0)
+            grand_sem = (
+                dw_stack.std(axis=0, ddof=1) / np.sqrt(n_sub)
+                if n_sub > 1
+                else np.zeros_like(grand_mean)
+            )
+            c = _pipe_color(ptag, pipe_colors)
+            ax.plot(
+                times_ms, grand_mean, color=c, lw=1.8, alpha=0.85,
+                label=_pipe_label(ptag, pipe_labels),
+            )
+            ax.fill_between(
+                times_ms, grand_mean - grand_sem, grand_mean + grand_sem,
+                color=c, alpha=0.15, lw=0,
+            )
+        ax.axvline(0, color=COLORS["gray"], ls="--", alpha=0.5)
+        ax.axhline(0, color=COLORS["gray"], alpha=0.3)
+        _add_erp_windows(ax, erp_windows)
+        ax.set_xlabel("Time (ms)", fontsize=FONTS["label"])
+        if i == 0:
+            ax.set_ylabel("Amplitude (µV)", fontsize=FONTS["label"])
+        ax.set_title(condition_labels.get(cond, cond), fontsize=FONTS["title"])
+        pub_legend(ax)
+        style_axes(ax)
+
+    fig1.suptitle(
+        suptitle or "Grand-Average Difference Waves ± Between-Subject SEM",
+        fontsize=FONTS["suptitle"], fontweight="bold",
+    )
+
+    # ---- Figure 2: effect-size mean ± SEM bars + strip ----
+    fig2, (ax_bar, ax_line) = pub_figure(1, 2, figsize=(14, 5))
+
+    x = np.arange(n_conds)
+    bar_w = 0.8 / len(pipe_order)
+
+    for j, ptag in enumerate(pipe_order):
+        means, sems = [], []
+        for cond in conditions:
+            g_arr = np.asarray(all_effect_sizes.get((cond, ptag), []))
+            means.append(g_arr.mean() if len(g_arr) else 0)
+            sems.append(
+                g_arr.std(ddof=1) / np.sqrt(len(g_arr))
+                if len(g_arr) > 1
+                else 0
+            )
+        c = _pipe_color(ptag, pipe_colors)
+        ax_bar.bar(
+            x + j * bar_w, means, bar_w, yerr=sems,
+            color=c, alpha=0.8, edgecolor="white", lw=0.5, capsize=3,
+            label=_pipe_label(ptag, pipe_labels),
+        )
+
+    ax_bar.set_xticks(x + bar_w * (len(pipe_order) - 1) / 2)
+    ax_bar.set_xticklabels(
+        [condition_labels.get(c, c) for c in conditions],
+        fontsize=FONTS["tick"],
+    )
+    ax_bar.set_ylabel("Hedges' g (mean ± SEM)", fontsize=FONTS["label"])
+    ax_bar.set_title("Effect Size by Condition × Pipeline", fontsize=FONTS["title"])
+    ax_bar.axhline(0, color=COLORS["gray"], alpha=0.3)
+    pub_legend(ax_bar)
+    style_axes(ax_bar)
+
+    # Interaction line plot (means ± SEM as error band)
+    for ptag in pipe_order:
+        means = []
+        sems = []
+        for cond in conditions:
+            g_arr = np.asarray(all_effect_sizes.get((cond, ptag), []))
+            means.append(g_arr.mean() if len(g_arr) else 0)
+            sems.append(
+                g_arr.std(ddof=1) / np.sqrt(len(g_arr))
+                if len(g_arr) > 1
+                else 0
+            )
+        means = np.array(means)
+        sems = np.array(sems)
+        c = _pipe_color(ptag, pipe_colors)
+        ax_line.plot(
+            range(n_conds), means, "o-",
+            color=c, lw=2, markersize=8,
+            label=_pipe_label(ptag, pipe_labels),
+        )
+        ax_line.fill_between(
+            range(n_conds), means - sems, means + sems,
+            color=c, alpha=0.15, lw=0,
+        )
+    ax_line.set_xticks(range(n_conds))
+    ax_line.set_xticklabels(
+        [condition_labels.get(c, c) for c in conditions],
+        fontsize=FONTS["tick"],
+    )
+    ax_line.set_ylabel("Hedges' g", fontsize=FONTS["label"])
+    ax_line.set_title("Condition × Pipeline Interaction", fontsize=FONTS["title"])
+    ax_line.axhline(0, color=COLORS["gray"], alpha=0.3)
+    pub_legend(ax_line)
+    style_axes(ax_line)
+
+    fig2.suptitle(
+        "Group-Level Condition × Pipeline Effect-Size Interaction",
+        fontsize=FONTS["suptitle"], fontweight="bold",
+    )
+
+    # Dual-save with suffixes
+    if fname is not None:
+        p = Path(fname)
+        stem, sfx = p.stem, p.suffix
+        _finalize_fig(fig1, show=False, fname=p.with_name(f"{stem}_diffwaves{sfx}"))
+        _finalize_fig(fig2, show=False, fname=p.with_name(f"{stem}_interaction{sfx}"))
+        if show:
+            plt.show()
+    else:
+        _finalize_fig(fig1, show=show, fname=None)
+        _finalize_fig(fig2, show=show, fname=None)
+
+    return fig1, fig2
+
+
+# =====================================================================
+# plot_null_distribution — permutation null histogram
+# =====================================================================
+
+
+def plot_null_distribution(
+    null_values,
+    observed,
+    *,
+    metric_label="Hedges' g",
+    ci=95,
+    n_bins=60,
+    suptitle=None,
+    pipe_color=None,
+    figsize=None,
+    fname=None,
+    show=True,
+):
+    """Histogram of permutation null with observed statistic and CI.
+
+    Parameters
+    ----------
+    null_values : ndarray
+        1-D array of the null distribution (e.g. permuted Hedges' g).
+    observed : float
+        The observed (real) test statistic.
+    metric_label : str
+        X-axis label.
+    ci : int
+        Confidence interval percentage (default 95).
+    n_bins : int
+        Number of histogram bins.
+    suptitle : str | None
+    pipe_color : str | None
+        Color for the observed marker.  Defaults to ``COLORS["red"]``.
+    figsize : tuple | None
+    fname : str | Path | None
+    show : bool
+
+    Returns
+    -------
+    fig : Figure
+    p_value : float
+        Two-tailed p-value: proportion of null values at least as
+        extreme as *observed*.
+    """
+    null_values = np.asarray(null_values)
+    if figsize is None:
+        figsize = (8, 5)
+    if pipe_color is None:
+        pipe_color = COLORS["red"]
+
+    fig, ax = pub_figure(1, 1, figsize=figsize)
+
+    # Histogram
+    ax.hist(
+        null_values, bins=n_bins, color=COLORS["gray"], alpha=0.5,
+        edgecolor="white", linewidth=0.5, density=True, zorder=2,
+        label=f"Null (N = {len(null_values):,})",
+    )
+
+    # CI bounds
+    alpha_tail = (100 - ci) / 2
+    lo, hi = np.percentile(null_values, [alpha_tail, 100 - alpha_tail])
+    ax.axvspan(lo, hi, color=COLORS["gray"], alpha=0.12, zorder=1,
+               label=f"{ci}% CI [{lo:+.3f}, {hi:+.3f}]")
+    ax.axvline(lo, color=COLORS["gray"], ls=":", lw=0.8, alpha=0.6)
+    ax.axvline(hi, color=COLORS["gray"], ls=":", lw=0.8, alpha=0.6)
+
+    # Observed
+    ax.axvline(
+        observed, color=pipe_color, lw=2.5, ls="--", zorder=5,
+        label=f"Observed = {observed:.3f}",
+    )
+
+    # p-value (two-tailed)
+    p_value = float(np.mean(np.abs(null_values) >= np.abs(observed)))
+
+    ax.annotate(
+        f"p = {p_value:.4f}", xy=(observed, ax.get_ylim()[1] * 0.92),
+        fontsize=FONTS["annotation"], fontweight="bold",
+        ha="left" if observed > np.median(null_values) else "right",
+        va="top", color=pipe_color,
+        xytext=(8, 0), textcoords="offset points",
+    )
+
+    ax.set_xlabel(metric_label, fontsize=FONTS["label"])
+    ax.set_ylabel("Density", fontsize=FONTS["label"])
+    pub_legend(ax, fontsize=8)
+    style_axes(ax)
+
+    title = suptitle or f"Permutation Null Distribution — {metric_label}"
+    fig.suptitle(title, fontsize=FONTS["suptitle"], fontweight="bold")
+    return _finalize_fig(fig, show=show, fname=fname), p_value
+
+
+# =====================================================================
+# plot_forest — per-subject effect-size forest plot
+# =====================================================================
+
+
+def plot_forest(
+    df,
+    metric_col="hedges_g",
+    *,
+    ci_col=None,
+    se_col=None,
+    group_col="pipeline",
+    subject_col="subject",
+    target_group=None,
+    baseline_group=None,
+    group_colors=None,
+    group_labels=None,
+    metric_label=None,
+    reference_line=0.0,
+    suptitle=None,
+    figsize=None,
+    fname=None,
+    show=True,
+):
+    """Per-subject effect-size forest plot with CI and pooled mean.
+
+    Each subject is a row; horizontal lines show the 95 % CI (± 1.96
+    SE).  The pooled group mean is drawn at the bottom as a diamond.
+
+    Parameters
+    ----------
+    df : DataFrame
+        Long-form metrics table.
+    metric_col : str
+        Column with the effect-size point estimate (default ``hedges_g``).
+    ci_col : str | None
+        Column with a pre-computed 95 % CI half-width.  If *None* and
+        *se_col* is also *None*, the CI is estimated from the standard
+        deviation of *metric_col* across subjects (very rough).
+    se_col : str | None
+        Column with the standard error per subject.
+    group_col, subject_col : str
+    target_group : str | None
+        Pipeline to display.  Defaults to the last in sorted order.
+    baseline_group : str | None
+        If given, plot that pipeline side-by-side in a lighter shade.
+    group_colors, group_labels : dict | None
+    metric_label : str | None
+    reference_line : float | None
+        Vertical reference line (default 0.0).
+    suptitle : str | None
+    figsize : tuple | None
+    fname : str | Path | None
+    show : bool
+
+    Returns
+    -------
+    fig : Figure
+    """
+    groups = sorted(df[group_col].unique())
+    if target_group is None:
+        target_group = groups[-1]
+    if metric_label is None:
+        metric_label = metric_col.replace("_", " ").title()
+    if group_labels is None:
+        group_labels = {}
+
+    # Get target data
+    df_t = df.loc[df[group_col] == target_group].copy()
+    df_t = df_t.sort_values(metric_col, ascending=True).reset_index(drop=True)
+    subjects = df_t[subject_col].values
+    n_sub = len(subjects)
+    vals = df_t[metric_col].values.astype(float)
+
+    # CI half-widths
+    if ci_col is not None and ci_col in df_t.columns:
+        hw = df_t[ci_col].values.astype(float)
+    elif se_col is not None and se_col in df_t.columns:
+        hw = 1.96 * df_t[se_col].values.astype(float)
+    else:
+        # Rough estimate: pooled SD across subjects
+        sd = vals.std(ddof=1) if n_sub > 1 else 1.0
+        hw = np.full(n_sub, 1.96 * sd / np.sqrt(n_sub))
+
+    if figsize is None:
+        figsize = (8, max(4, n_sub * 0.35 + 2))
+
+    fig, ax = pub_figure(1, 1, figsize=figsize)
+
+    y_pos = np.arange(n_sub)
+    t_color = _pipe_color(target_group, group_colors)
+    t_label = group_labels.get(target_group, target_group)
+
+    # Optional baseline group
+    if baseline_group is not None:
+        df_b = df.loc[df[group_col] == baseline_group].copy()
+        b_color = _pipe_color(baseline_group, group_colors)
+        b_label = group_labels.get(baseline_group, baseline_group)
+        for i, sub in enumerate(subjects):
+            bv = df_b.loc[df_b[subject_col] == sub, metric_col]
+            if len(bv):
+                ax.plot(
+                    bv.iloc[0], y_pos[i], "o",
+                    color=b_color, markersize=5, alpha=0.35, zorder=2,
+                )
+        # Pooled baseline mean marker at bottom
+        b_mean = df_b[metric_col].mean()
+        ax.plot(
+            b_mean, -1.2, "D",
+            color=b_color, markersize=9, zorder=6, alpha=0.5,
+            label=f"{b_label} mean = {b_mean:.3f}",
+        )
+
+    # Target group CIs
+    ax.errorbar(
+        vals, y_pos, xerr=hw,
+        fmt="o", color=t_color, ecolor=t_color, elinewidth=1.2,
+        capsize=3, markersize=5, alpha=0.85, zorder=4,
+        label=t_label,
+    )
+
+    # Pooled target mean (diamond at bottom)
+    t_mean = vals.mean()
+    t_se = vals.std(ddof=1) / np.sqrt(n_sub) if n_sub > 1 else 0
+    ax.errorbar(
+        t_mean, -1.2, xerr=1.96 * t_se,
+        fmt="D", color=t_color, ecolor=t_color, elinewidth=2,
+        capsize=4, markersize=10, zorder=6,
+        label=f"Pooled mean = {t_mean:.3f}",
+    )
+
+    # Reference line
+    if reference_line is not None:
+        ax.axvline(
+            reference_line, color=COLORS["gray"], ls="--", lw=0.8, alpha=0.5,
+        )
+
+    # Aesthetics
+    ax.set_yticks(list(y_pos) + [-1.2])
+    ax.set_yticklabels(
+        list(subjects) + ["Pooled"],
+        fontsize=FONTS["tick"],
+    )
+    ax.set_xlabel(metric_label, fontsize=FONTS["label"])
+    ax.set_ylabel("")
+    ax.invert_yaxis()
+    ax.grid(axis="x", alpha=0.3, zorder=0)
+    pub_legend(ax, fontsize=7, loc="lower right")
+    style_axes(ax)
+
+    title = suptitle or f"Forest Plot — {group_labels.get(target_group, target_group)}"
     fig.suptitle(title, fontsize=FONTS["suptitle"], fontweight="bold")
     return _finalize_fig(fig, show=show, fname=fname)
 

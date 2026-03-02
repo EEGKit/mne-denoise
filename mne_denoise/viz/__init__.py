@@ -74,7 +74,11 @@ from .erp import (
     plot_condition_interaction,
     plot_endpoint_summary,
     plot_erp_signal_diagnostics,
+    plot_forest,
+    plot_grand_average_erp,
+    plot_grand_condition_interaction,
     plot_metric_violins,
+    plot_null_distribution,
     plot_pipeline_slopes,
 )
 
@@ -144,4 +148,8 @@ __all__ = [
     "plot_metric_violins",
     "plot_endpoint_summary",
     "plot_pipeline_slopes",
+    "plot_grand_average_erp",
+    "plot_grand_condition_interaction",
+    "plot_null_distribution",
+    "plot_forest",
 ]
