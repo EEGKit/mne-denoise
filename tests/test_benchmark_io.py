@@ -81,10 +81,12 @@ class TestSaveSubjectBenchmarkResults:
 
     def test_save_condition_metrics_dataframe(self, tmp_path):
         out_dir = tmp_path / "sub-02" / "line_noise" / "dss"
-        df_cond = pd.DataFrame([
-            {"condition": "lab", "R_f0": 0.9},
-            {"condition": "park", "R_f0": 1.1},
-        ])
+        df_cond = pd.DataFrame(
+            [
+                {"condition": "lab", "R_f0": 0.9},
+                {"condition": "park", "R_f0": 1.1},
+            ]
+        )
         save_subject_benchmark_results(
             out_dir,
             subject="sub-02",
@@ -128,9 +130,7 @@ class TestSaveSubjectBenchmarkResults:
     def test_save_none_parts(self, tmp_path):
         """Saving with all None doesn't crash, just creates directory."""
         out_dir = tmp_path / "sub-01" / "line_noise" / "method"
-        save_subject_benchmark_results(
-            out_dir, subject="sub-01", method="method"
-        )
+        save_subject_benchmark_results(out_dir, subject="sub-01", method="method")
         assert out_dir.exists()
 
 
@@ -146,29 +146,25 @@ class TestLoadSubjectBenchmarkResults:
             )
 
     def test_load_basic(self, tmp_path):
-        self._create_subject(
-            tmp_path, "sub-01", {"zapline": {"R_f0": 0.85}}
-        )
-        result = load_subject_benchmark_results(
-            tmp_path / "sub-01" / "line_noise"
-        )
+        self._create_subject(tmp_path, "sub-01", {"zapline": {"R_f0": 0.85}})
+        result = load_subject_benchmark_results(tmp_path / "sub-01" / "line_noise")
         assert result["subject"] == "sub-01"
         assert not result["df"].empty
         assert result["df"].iloc[0]["method"] == "zapline"
 
     def test_load_multiple_methods(self, tmp_path):
         self._create_subject(
-            tmp_path, "sub-01",
+            tmp_path,
+            "sub-01",
             {"zapline": {"R_f0": 0.85}, "dss": {"R_f0": 0.90}},
         )
-        result = load_subject_benchmark_results(
-            tmp_path / "sub-01" / "line_noise"
-        )
+        result = load_subject_benchmark_results(tmp_path / "sub-01" / "line_noise")
         assert len(result["df"]) == 2
 
     def test_load_filter_methods(self, tmp_path):
         self._create_subject(
-            tmp_path, "sub-01",
+            tmp_path,
+            "sub-01",
             {"zapline": {"R_f0": 0.85}, "dss": {"R_f0": 0.90}},
         )
         result = load_subject_benchmark_results(
@@ -186,9 +182,7 @@ class TestLoadSubjectBenchmarkResults:
             condition_metrics=[{"condition": "lab", "R_f0": 0.8}],
             model_info={"n_components": 4},
         )
-        result = load_subject_benchmark_results(
-            tmp_path / "sub-01" / "line_noise"
-        )
+        result = load_subject_benchmark_results(tmp_path / "sub-01" / "line_noise")
         assert not result["df_cond"].empty
         assert "zapline" in result["model_info"]
 
@@ -207,7 +201,10 @@ class TestAggregateBenchmarkResults:
             for method, metrics in methods.items():
                 out_dir = root / sub / "line_noise" / method
                 save_subject_benchmark_results(
-                    out_dir, subject=sub, method=method, metrics=metrics,
+                    out_dir,
+                    subject=sub,
+                    method=method,
+                    metrics=metrics,
                 )
 
     def test_aggregate_basic(self, tmp_path):
@@ -242,9 +239,7 @@ class TestAggregateBenchmarkResults:
             ["sub-01", "sub-02", "sub-03"],
             {"zapline": {"R_f0": 0.85}},
         )
-        grp = aggregate_benchmark_results(
-            tmp_path, subjects=["sub-01", "sub-03"]
-        )
+        grp = aggregate_benchmark_results(tmp_path, subjects=["sub-01", "sub-03"])
         assert len(grp.df_all) == 2
 
     def test_aggregate_filter_methods(self, tmp_path):
@@ -252,7 +247,9 @@ class TestAggregateBenchmarkResults:
             for method in ["zapline", "dss"]:
                 out_dir = tmp_path / sub / "line_noise" / method
                 save_subject_benchmark_results(
-                    out_dir, subject=sub, method=method,
+                    out_dir,
+                    subject=sub,
+                    method=method,
                     metrics={"R_f0": 0.85},
                 )
         grp = aggregate_benchmark_results(tmp_path, methods=["dss"])
@@ -268,7 +265,5 @@ class TestAggregateBenchmarkResults:
     def test_aggregate_missing_subject_dir(self, tmp_path):
         """Subject specified but line_noise dir missing → skip."""
         (tmp_path / "sub-01").mkdir()
-        grp = aggregate_benchmark_results(
-            tmp_path, subjects=["sub-01"]
-        )
+        grp = aggregate_benchmark_results(tmp_path, subjects=["sub-01"])
         assert grp.df_all.empty

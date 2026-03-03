@@ -35,6 +35,7 @@ def close_plots():
 # Synthetic data fixtures
 # =====================================================================
 
+
 @pytest.fixture
 def freqs():
     return np.arange(0, 200, 0.5)
@@ -74,15 +75,17 @@ def single_subject_df():
     """DataFrame for a single subject with method metrics."""
     rows = []
     for method in ["M0", "M1", "M2"]:
-        rows.append({
-            "subject": "sub-01",
-            "method": method,
-            "R_f0": np.random.uniform(0.7, 1.2),
-            "peak_attenuation_db": np.random.uniform(5, 20),
-            "below_noise_pct": np.random.uniform(-5, 5),
-            "overclean_proportion": np.random.uniform(0, 0.3),
-            "underclean_proportion": np.random.uniform(0, 0.3),
-        })
+        rows.append(
+            {
+                "subject": "sub-01",
+                "method": method,
+                "R_f0": np.random.uniform(0.7, 1.2),
+                "peak_attenuation_db": np.random.uniform(5, 20),
+                "below_noise_pct": np.random.uniform(-5, 5),
+                "overclean_proportion": np.random.uniform(0, 0.3),
+                "underclean_proportion": np.random.uniform(0, 0.3),
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -93,21 +96,24 @@ def multi_subject_df():
     rows = []
     for sub in ["sub-01", "sub-02", "sub-03"]:
         for method in ["M0", "M1", "M2"]:
-            rows.append({
-                "subject": sub,
-                "method": method,
-                "R_f0": rng.uniform(0.7, 1.2),
-                "peak_attenuation_db": rng.uniform(5, 20),
-                "below_noise_pct": rng.uniform(-5, 5),
-                "overclean_proportion": rng.uniform(0, 0.3),
-                "underclean_proportion": rng.uniform(0, 0.3),
-            })
+            rows.append(
+                {
+                    "subject": sub,
+                    "method": method,
+                    "R_f0": rng.uniform(0.7, 1.2),
+                    "peak_attenuation_db": rng.uniform(5, 20),
+                    "below_noise_pct": rng.uniform(-5, 5),
+                    "overclean_proportion": rng.uniform(0, 0.3),
+                    "underclean_proportion": rng.uniform(0, 0.3),
+                }
+            )
     return pd.DataFrame(rows)
 
 
 # =====================================================================
 # Helper tests
 # =====================================================================
+
 
 class TestMethodHelpers:
     def test_method_color_known(self):
@@ -138,6 +144,7 @@ class TestMethodHelpers:
 # Plot function tests
 # =====================================================================
 
+
 class TestPlotQcPsd:
     def test_basic(self, freqs, gm_psd, gm_psd_clean):
         fig = plot_qc_psd(freqs, gm_psd, freqs, gm_psd_clean, show=False)
@@ -145,8 +152,13 @@ class TestPlotQcPsd:
 
     def test_with_method_tag(self, freqs, gm_psd, gm_psd_clean):
         fig = plot_qc_psd(
-            freqs, gm_psd, freqs, gm_psd_clean,
-            method_tag="M1", subject="sub-01", show=False,
+            freqs,
+            gm_psd,
+            freqs,
+            gm_psd_clean,
+            method_tag="M1",
+            subject="sub-01",
+            show=False,
         )
         assert isinstance(fig, plt.Figure)
 
@@ -157,23 +169,35 @@ class TestPlotQcPsd:
             "R_per_harmonic": [0.8, 0.9, 0.95],
         }
         fig = plot_qc_psd(
-            freqs, gm_psd, freqs, gm_psd_clean,
-            metrics_dict=metrics, show=False,
+            freqs,
+            gm_psd,
+            freqs,
+            gm_psd_clean,
+            metrics_dict=metrics,
+            show=False,
         )
         assert isinstance(fig, plt.Figure)
 
     def test_custom_harmonics(self, freqs, gm_psd, gm_psd_clean):
         fig = plot_qc_psd(
-            freqs, gm_psd, freqs, gm_psd_clean,
-            harmonics_hz=[60.0, 120.0], show=False,
+            freqs,
+            gm_psd,
+            freqs,
+            gm_psd_clean,
+            harmonics_hz=[60.0, 120.0],
+            show=False,
         )
         assert isinstance(fig, plt.Figure)
 
     def test_save(self, freqs, gm_psd, gm_psd_clean, tmp_path):
         fpath = tmp_path / "qc.png"
         plot_qc_psd(
-            freqs, gm_psd, freqs, gm_psd_clean,
-            fname=str(fpath), show=False,
+            freqs,
+            gm_psd,
+            freqs,
+            gm_psd_clean,
+            fname=str(fpath),
+            show=False,
         )
         assert fpath.exists()
 
@@ -185,16 +209,23 @@ class TestPlotPsdGallery:
 
     def test_with_order(self, freqs, gm_psd, cleaned_psds):
         fig = plot_psd_gallery(
-            freqs, gm_psd, cleaned_psds,
-            method_order=["M2", "M1"], subject="sub-01", show=False,
+            freqs,
+            gm_psd,
+            cleaned_psds,
+            method_order=["M2", "M1"],
+            subject="sub-01",
+            show=False,
         )
         assert isinstance(fig, plt.Figure)
 
     def test_missing_method(self, freqs, gm_psd, cleaned_psds):
         """Method in order but not in cleaned_psds → 'no data' panels."""
         fig = plot_psd_gallery(
-            freqs, gm_psd, cleaned_psds,
-            method_order=["M1", "MISSING"], show=False,
+            freqs,
+            gm_psd,
+            cleaned_psds,
+            method_order=["M1", "MISSING"],
+            show=False,
         )
         assert isinstance(fig, plt.Figure)
 
@@ -202,14 +233,22 @@ class TestPlotPsdGallery:
 class TestPlotSubjectPsdOverlay:
     def test_basic(self, freqs, gm_psd, cleaned_psds):
         fig = plot_subject_psd_overlay(
-            freqs, gm_psd, cleaned_psds, show=False,
+            freqs,
+            gm_psd,
+            cleaned_psds,
+            show=False,
         )
         assert isinstance(fig, plt.Figure)
 
     def test_with_params(self, freqs, gm_psd, cleaned_psds):
         fig = plot_subject_psd_overlay(
-            freqs, gm_psd, cleaned_psds,
-            line_freq=50.0, n_harmonics=2, subject="sub-01", show=False,
+            freqs,
+            gm_psd,
+            cleaned_psds,
+            line_freq=50.0,
+            n_harmonics=2,
+            subject="sub-01",
+            show=False,
         )
         assert isinstance(fig, plt.Figure)
 
@@ -220,7 +259,10 @@ class TestPlotSubjectPsdOverlay:
             "M1": (freqs, np.ones_like(freqs) * 1e-6),
         }
         fig = plot_subject_psd_overlay(
-            freqs, np.ones_like(freqs) * 1e-5, cleaned, show=False,
+            freqs,
+            np.ones_like(freqs) * 1e-5,
+            cleaned,
+            show=False,
         )
         assert isinstance(fig, plt.Figure)
 
@@ -274,15 +316,22 @@ class TestPlotRComparison:
 class TestPlotHarmonicAttenuation:
     def test_basic(self, freqs, gm_psd, cleaned_psds):
         fig = plot_harmonic_attenuation(
-            freqs, gm_psd, cleaned_psds,
-            harmonics_hz=[50.0, 100.0], show=False,
+            freqs,
+            gm_psd,
+            cleaned_psds,
+            harmonics_hz=[50.0, 100.0],
+            show=False,
         )
         assert isinstance(fig, plt.Figure)
 
     def test_with_subject(self, freqs, gm_psd, cleaned_psds):
         fig = plot_harmonic_attenuation(
-            freqs, gm_psd, cleaned_psds,
-            harmonics_hz=[50.0], subject="sub-01", show=False,
+            freqs,
+            gm_psd,
+            cleaned_psds,
+            harmonics_hz=[50.0],
+            subject="sub-01",
+            show=False,
         )
         assert isinstance(fig, plt.Figure)
 

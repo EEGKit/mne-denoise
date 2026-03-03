@@ -29,7 +29,9 @@ class TestExtractDataFromMne:
     def test_epochs(self):
         info = mne.create_info(ch_names=["C1", "C2"], sfreq=100.0, ch_types="eeg")
         data_3d = np.random.randn(5, 2, 100)
-        events = np.column_stack([np.arange(5) * 100, np.zeros(5, int), np.ones(5, int)])
+        events = np.column_stack(
+            [np.arange(5) * 100, np.zeros(5, int), np.ones(5, int)]
+        )
         epochs = mne.EpochsArray(data_3d, info, events=events)
         data, sfreq, mne_type, orig = extract_data_from_mne(epochs)
         assert data.shape == (5, 2, 100)
@@ -88,7 +90,9 @@ class TestReconstructMneObject:
     def test_raw_with_annotations(self):
         info = mne.create_info(ch_names=["C1"], sfreq=100.0, ch_types="eeg")
         raw = mne.io.RawArray(np.random.randn(1, 200), info)
-        raw.set_annotations(mne.Annotations(onset=[0.5], duration=[0.1], description=["bad"]))
+        raw.set_annotations(
+            mne.Annotations(onset=[0.5], duration=[0.1], description=["bad"])
+        )
         new_data = np.random.randn(1, 200)
         out = reconstruct_mne_object(new_data, raw, "raw")
         assert len(out.annotations) > 0
@@ -96,7 +100,9 @@ class TestReconstructMneObject:
     def test_epochs_reconstruction(self):
         info = mne.create_info(ch_names=["C1", "C2"], sfreq=100.0, ch_types="eeg")
         data_3d = np.random.randn(5, 2, 100)
-        events = np.column_stack([np.arange(5) * 100, np.zeros(5, int), np.ones(5, int)])
+        events = np.column_stack(
+            [np.arange(5) * 100, np.zeros(5, int), np.ones(5, int)]
+        )
         epochs = mne.EpochsArray(data_3d, info, events=events, event_id={"stim": 1})
         new_data = np.random.randn(5, 2, 100)
         out = reconstruct_mne_object(new_data, epochs, "epochs")

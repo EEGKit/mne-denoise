@@ -31,6 +31,7 @@ def close_plots():
 # Mock estimator classes
 # =====================================================================
 
+
 class MockDSS:
     """Minimal mock for a fitted, non-segmented DSS estimator."""
 
@@ -69,12 +70,14 @@ class MockSegmentedDSS:
         seg_len = 500
         self.segment_results_ = []
         for i in range(n_segments):
-            self.segment_results_.append({
-                "n_selected": np.random.randint(1, 4),
-                "eigenvalues": np.sort(np.random.rand(10))[::-1],
-                "start": i * seg_len,
-                "end": (i + 1) * seg_len,
-            })
+            self.segment_results_.append(
+                {
+                    "n_selected": np.random.randint(1, 4),
+                    "eigenvalues": np.sort(np.random.rand(10))[::-1],
+                    "start": i * seg_len,
+                    "end": (i + 1) * seg_len,
+                }
+            )
 
 
 class MockBias:
@@ -87,17 +90,20 @@ class MockBias:
 
 class MockBiasCustom:
     """A custom bias for testing _get_bias_name fallback."""
+
     pass
 
 
 class MockBiasNamed:
     """Mock bias with a recognized class-name for renaming."""
+
     pass
 
 
 # =====================================================================
 # Helper function tests
 # =====================================================================
+
 
 class TestGetNSelected:
     def test_from_n_selected(self):
@@ -107,11 +113,13 @@ class TestGetNSelected:
     def test_from_n_removed(self):
         class E:
             n_removed_ = 2
+
         assert _get_n_selected(E()) == 2
 
     def test_fallback_zero(self):
         class E:
             pass
+
         assert _get_n_selected(E()) == 0
 
 
@@ -125,6 +133,7 @@ class TestGetEigenvalues:
     def test_without_eigenvalues(self):
         class E:
             pass
+
         assert _get_eigenvalues(E()) is None
 
 
@@ -142,6 +151,7 @@ class TestGetSegmentResults:
     def test_adaptive_fallback(self):
         class E:
             adaptive_results_ = {"chunk_info": [{"n_removed": 1}]}
+
         sr = _get_segment_results(E())
         assert len(sr) == 1
 
@@ -165,11 +175,13 @@ class TestGetRemoved:
     def test_without(self):
         class E:
             pass
+
         assert _get_removed(E()) is None
 
     def test_removed_attr(self):
         class E:
             removed = np.array([1, 2])
+
         assert _get_removed(E()) is not None
 
 
@@ -177,24 +189,29 @@ class TestGetBiasName:
     def test_known_bias(self):
         class BandpassBias:
             pass
+
         class E:
             bias = BandpassBias()
+
         assert _get_bias_name(E()) == "Bandpass"
 
     def test_unknown_bias(self):
         class E:
             bias = MockBiasCustom()
+
         assert _get_bias_name(E()) == "MockBiasCustom"
 
     def test_no_bias(self):
         class E:
             pass
+
         assert _get_bias_name(E()) == "Unknown"
 
 
 # =====================================================================
 # Plot function tests
 # =====================================================================
+
 
 class TestPlotDssSummary:
     def test_basic_no_data(self):
@@ -231,8 +248,10 @@ class TestPlotDssSummary:
 
     def test_no_eigenvalues(self):
         """Estimator with no eigenvalues → placeholder text."""
+
         class E:
             pass
+
         est = E()
         est.sfreq = 250.0
         fig = plot_dss_summary(est, show=False)
@@ -279,8 +298,11 @@ class TestPlotDssSummary:
         data_before = np.random.randn(4, 500)
         data_after = data_before * 0.8
         fig = plot_dss_summary(
-            est, data_before=data_before, data_after=data_after,
-            sfreq=250.0, show=False,
+            est,
+            data_before=data_before,
+            data_after=data_after,
+            sfreq=250.0,
+            show=False,
         )
         assert isinstance(fig, plt.Figure)
 
@@ -296,8 +318,11 @@ class TestPlotDssSegmentedSummary:
         data_before = np.random.randn(8, 2000)
         data_after = data_before * 0.9
         fig = plot_dss_segmented_summary(
-            est, data_before=data_before, data_after=data_after,
-            sfreq=250.0, show=False,
+            est,
+            data_before=data_before,
+            data_after=data_after,
+            sfreq=250.0,
+            show=False,
         )
         assert isinstance(fig, plt.Figure)
 
@@ -312,14 +337,19 @@ class TestPlotDssSegmentedSummary:
         est = MockSegmentedDSS(n_ch=8)
         ch_names = [f"Ch{i}" for i in range(8)]
         fig = plot_dss_segmented_summary(
-            est, channel_names=ch_names, show=False,
+            est,
+            channel_names=ch_names,
+            show=False,
         )
         assert isinstance(fig, plt.Figure)
 
     def test_custom_title_and_figsize(self):
         est = MockSegmentedDSS()
         fig = plot_dss_segmented_summary(
-            est, title="Custom", figsize=(12, 8), show=False,
+            est,
+            title="Custom",
+            figsize=(12, 8),
+            show=False,
         )
         assert isinstance(fig, plt.Figure)
 
@@ -333,6 +363,7 @@ class TestPlotDssEigenvalues:
     def test_no_eigenvalues(self):
         class E:
             pass
+
         fig = plot_dss_eigenvalues(E(), show=False)
         assert isinstance(fig, plt.Figure)
 
@@ -358,12 +389,14 @@ class TestPlotDssPatterns:
     def test_no_patterns(self):
         class E:
             patterns_ = None
+
         fig = plot_dss_patterns(E(), show=False)
         assert isinstance(fig, plt.Figure)
 
     def test_empty_patterns(self):
         class E:
             patterns_ = np.array([])
+
         fig = plot_dss_patterns(E(), show=False)
         assert isinstance(fig, plt.Figure)
 

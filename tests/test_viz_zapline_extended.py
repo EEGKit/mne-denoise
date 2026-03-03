@@ -29,20 +29,23 @@ def close_plots():
 # Mock helpers
 # =====================================================================
 
+
 def _make_chunk_info(n_chunks=4, sfreq=500, n_times=5000, line_freq=50.0):
     """Create synthetic chunk_info list for adaptive mode."""
     chunk_len = n_times // n_chunks
     info = []
     rng = np.random.RandomState(42)
     for i in range(n_chunks):
-        info.append({
-            "n_removed": rng.randint(1, 4),
-            "fine_freq": line_freq + rng.uniform(-0.3, 0.3),
-            "frequency": line_freq,
-            "artifact_present": rng.random() > 0.2,
-            "start": i * chunk_len,
-            "end": (i + 1) * chunk_len,
-        })
+        info.append(
+            {
+                "n_removed": rng.randint(1, 4),
+                "fine_freq": line_freq + rng.uniform(-0.3, 0.3),
+                "frequency": line_freq,
+                "artifact_present": rng.random() > 0.2,
+                "start": i * chunk_len,
+                "end": (i + 1) * chunk_len,
+            }
+        )
     return info
 
 
@@ -112,6 +115,7 @@ class TestGetNRemoved:
         class R:
             n_removed_ = None
             n_removed = 5
+
         assert _get_n_removed(R()) == 5
 
     def test_dict_input(self):
@@ -120,12 +124,14 @@ class TestGetNRemoved:
     def test_missing(self):
         class R:
             pass
+
         assert _get_n_removed(R()) == 0
 
     def test_none_values(self):
         class R:
             n_removed_ = None
             n_removed = None
+
         assert _get_n_removed(R()) == 0
 
 
@@ -153,6 +159,7 @@ class TestGetRemoved:
     def test_missing(self):
         class R:
             pass
+
         assert _get_removed(R()) is None
 
 
@@ -178,6 +185,7 @@ class TestGetCleaned:
     def test_missing(self):
         class R:
             pass
+
         assert _get_cleaned(R()) is None
 
 
@@ -196,6 +204,7 @@ class TestIsAdaptive:
         class R:
             adaptive = False
             adaptive_results_ = {"chunk_info": []}
+
         assert _is_adaptive(R())
 
     def test_dict_with_chunk_info(self):
@@ -207,6 +216,7 @@ class TestIsAdaptive:
     def test_plain_object(self):
         class R:
             pass
+
         assert not _is_adaptive(R())
 
 
@@ -225,11 +235,13 @@ class TestGetChunkInfo:
     def test_missing(self):
         class R:
             pass
+
         assert _get_chunk_info(R()) == []
 
     def test_none_adaptive_results(self):
         class R:
             adaptive_results_ = None
+
         assert _get_chunk_info(R()) == []
 
 

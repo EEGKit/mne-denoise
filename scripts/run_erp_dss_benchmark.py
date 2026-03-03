@@ -880,7 +880,7 @@ def run_group(subjects, deriv_root=None):
         mne.viz.plot_topomap(
             dss_show.patterns_[:, i], epochs_show.info, axes=ax_t, show=False
         )
-        ax_t.set_title(f"DSS {i+1}\n\u03bb={evals[i]:.4f}", fontsize=9)
+        ax_t.set_title(f"DSS {i + 1}\n\u03bb={evals[i]:.4f}", fontsize=9)
     ax_lab = fig.add_subplot(gs[1, DSS_N_COMPONENTS])
     ax_lab.axis("off")
     ax_lab.text(
@@ -907,7 +907,7 @@ def run_group(subjects, deriv_root=None):
         ax_tc.set_xlabel("Time (ms)")
         if i == 0:
             ax_tc.set_ylabel("Amplitude (a.u.)")
-        ax_tc.set_title(f"DSS {i+1}", fontsize=9)
+        ax_tc.set_title(f"DSS {i + 1}", fontsize=9)
     ax_lab2 = fig.add_subplot(gs[2, DSS_N_COMPONENTS])
     ax_lab2.axis("off")
     ax_lab2.text(
