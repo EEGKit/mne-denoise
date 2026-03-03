@@ -59,16 +59,14 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-
 import mne
 import numpy as np
 import pandas as pd
+from mne.preprocessing import ICA
 from scipy import stats
 from scipy.signal import welch as sp_welch
-
-from mne.preprocessing import ICA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from sklearn.model_selection import cross_val_score, StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -245,9 +243,7 @@ def full_preprocess(sub, ds_path):
     median_var = np.median(ch_var)
     bad_chs = []
     for ci, ch_name in enumerate(raw.ch_names):
-        if ch_var[ci] < median_var * 0.01:
-            bad_chs.append(ch_name)
-        elif ch_var[ci] > median_var * 50:
+        if ch_var[ci] < median_var * 0.01 or ch_var[ci] > median_var * 50:
             bad_chs.append(ch_name)
     raw.info["bads"] = bad_chs
 
@@ -262,7 +258,7 @@ def full_preprocess(sub, ds_path):
     ica = ICA(
         n_components=n_ica,
         method="infomax",
-        fit_params=dict(extended=True),
+        fit_params={"extended": True},
         random_state=RANDOM_STATE,
         max_iter=1000,
     )
@@ -337,7 +333,7 @@ def full_preprocess(sub, ds_path):
     )
 
     n_before = len(epochs)
-    epochs.drop_bad(reject=dict(eeg=REJECT_UV), verbose=False)
+    epochs.drop_bad(reject={"eeg": REJECT_UV}, verbose=False)
     n_after = len(epochs)
 
     kept = epochs.selection
@@ -875,7 +871,7 @@ def run_group(subjects, deriv_root=None):
             xy=(0, evals[0]),
             xytext=(3, evals[0] * 0.9),
             fontsize=10,
-            arrowprops=dict(arrowstyle="->", color="red"),
+            arrowprops={"arrowstyle": "->", "color": "red"},
         )
 
     # Row 2: Topographies

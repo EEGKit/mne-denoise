@@ -11,7 +11,6 @@ matplotlib.use("Agg")
 from mne_denoise.viz.benchmark import (
     DEFAULT_METHOD_COLORS,
     DEFAULT_METHOD_LABELS,
-    DEFAULT_METHOD_ORDER,
     _method_color,
     _method_label,
     plot_harmonic_attenuation,
@@ -172,7 +171,7 @@ class TestPlotQcPsd:
 
     def test_save(self, freqs, gm_psd, gm_psd_clean, tmp_path):
         fpath = tmp_path / "qc.png"
-        fig = plot_qc_psd(
+        plot_qc_psd(
             freqs, gm_psd, freqs, gm_psd_clean,
             fname=str(fpath), show=False,
         )

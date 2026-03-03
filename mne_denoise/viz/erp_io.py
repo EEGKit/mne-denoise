@@ -47,7 +47,6 @@ from collections import namedtuple
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 
 log = logging.getLogger(__name__)
 
@@ -134,6 +133,8 @@ def save_subject_erp_results(
     Calling this function a second time for the same subject overwrites
     existing files.
     """
+    import pandas as pd
+
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -218,6 +219,8 @@ def load_subject_erp_results(sub_dir):
         * ``"diff_waves"`` â€” ``{(cond, pipe): 1-D array}``
         * ``"effect_sizes"`` â€” ``{(cond, pipe): float}``
     """
+    import pandas as pd
+
     sub_dir = Path(sub_dir)
     result = {}
 
@@ -308,6 +311,8 @@ def aggregate_erp_results(deriv_root, *, subjects=None):
         * ``all_effect_sizes`` â€” ``{(cond, pipe): (n_sub,)}``.
         * ``times_ms`` â€” common time vector or *None*.
     """
+    import pandas as pd
+
     deriv_root = Path(deriv_root)
 
     if subjects is None:

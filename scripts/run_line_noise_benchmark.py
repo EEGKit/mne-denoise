@@ -66,11 +66,9 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-
 import mne
 import numpy as np
 import pandas as pd
-from scipy import stats
 
 # ── Ensure mne-denoise is importable ────────────────────────────────────────
 _REPO = Path(__file__).resolve().parent.parent
@@ -78,33 +76,26 @@ if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
 from mne_denoise.qa import (
-    below_noise_distortion,
     compute_all_qa_metrics,
     geometric_mean_psd,
-    noise_surr_ratio,
-    overclean_proportion,
-    peak_attenuation_db,
-    underclean_proportion,
 )
-from mne_denoise.zapline import ZapLine
 from mne_denoise.viz import (
-    plot_qc_psd,
-    plot_psd_gallery,
-    plot_subject_psd_overlay,
-    plot_metric_bars,
-    plot_tradeoff_scatter,
-    plot_tradeoff_and_r,
-    plot_r_comparison,
-    plot_harmonic_attenuation,
-    plot_paired_metrics,
-    set_pub_style,
     DEFAULT_METHOD_COLORS,
     DEFAULT_METHOD_LABELS,
     DEFAULT_METHOD_ORDER,
-    plot_zapline_summary,
     plot_adaptive_summary,
+    plot_harmonic_attenuation,
+    plot_metric_bars,
+    plot_paired_metrics,
+    plot_psd_gallery,
+    plot_qc_psd,
+    plot_subject_psd_overlay,
+    plot_tradeoff_and_r,
+    plot_zapline_summary,
+    set_pub_style,
 )
-from mne_denoise.viz._theme import pub_figure, style_axes, pub_legend, COLORS, FONTS
+from mne_denoise.viz._theme import COLORS, FONTS, pub_legend, style_axes
+from mne_denoise.zapline import ZapLine
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 mne.set_log_level("WARNING")

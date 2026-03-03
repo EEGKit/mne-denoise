@@ -1,7 +1,6 @@
 """Tests for mne_denoise.qa.metrics module."""
 
 import numpy as np
-import pytest
 
 from mne_denoise.qa import peak_attenuation_db
 from mne_denoise.qa.metrics import peak_attenuation_db as _peak_atten_direct

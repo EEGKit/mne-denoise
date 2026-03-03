@@ -48,7 +48,6 @@ from collections import namedtuple
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 
 log = logging.getLogger(__name__)
 
@@ -138,6 +137,8 @@ def save_subject_benchmark_results(
     Calling this function a second time for the same subject / method
     overwrites existing files.
     """
+    import pandas as pd
+
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -196,6 +197,8 @@ def load_subject_benchmark_results(sub_dir, *, methods=None):
         * ``"df_cond"`` — per-condition metrics DataFrame (may be empty).
         * ``"model_info"`` — ``{method: dict}`` of model JSON metadata.
     """
+    import pandas as pd
+
     sub_dir = Path(sub_dir)
     subject = sub_dir.parent.name  # e.g. "sub-01"
 
@@ -269,6 +272,8 @@ def aggregate_benchmark_results(deriv_root, *, subjects=None, methods=None):
         * ``df_all`` — whole-recording subset (``condition == "all"``).
         * ``df_cond`` — per-condition subset (``condition != "all"``).
     """
+    import pandas as pd
+
     deriv_root = Path(deriv_root)
 
     if subjects is None:

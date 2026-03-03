@@ -1,7 +1,6 @@
 """Tests for mne_denoise.viz._metrics module."""
 
 import numpy as np
-import pytest
 
 from mne_denoise.viz._metrics import (
     _spectral_distortion,

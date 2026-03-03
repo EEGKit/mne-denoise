@@ -1,15 +1,13 @@
 """Tests for mne_denoise.utils module."""
 
-import numpy as np
-import pytest
-
 import mne
+import numpy as np
+
 from mne_denoise.utils import (
     _HAS_MNE,
     extract_data_from_mne,
     reconstruct_mne_object,
 )
-
 
 # =====================================================================
 # extract_data_from_mne

@@ -42,7 +42,6 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 from scipy.signal import welch as _welch
 
 from ._theme import COLORS, FONTS, _finalize_fig, pub_figure, pub_legend, style_axes
@@ -395,6 +394,8 @@ def plot_erp_condition_interaction(
     fig_interact : Figure
         Effect-size interaction figure.
     """
+    import pandas as pd
+
     if pipe_order is None:
         pipe_order = DEFAULT_PIPE_ORDER
     if conditions is None:
@@ -625,6 +626,8 @@ def plot_erp_metric_violins(
     -------
     fig : Figure
     """
+    import pandas as pd
+
     sns = _try_import_seaborn()
 
     if metric_labels is None:
@@ -806,6 +809,8 @@ def plot_erp_endpoint_summary(
     -------
     fig : Figure
     """
+    import pandas as pd
+
     sns = _try_import_seaborn()
 
     if metric_labels is None:

@@ -268,7 +268,7 @@ class TestPlotDssSummary:
     def test_save(self, tmp_path):
         est = MockDSS()
         fpath = tmp_path / "dss_summary.png"
-        fig = plot_dss_summary(est, fname=str(fpath), show=False)
+        plot_dss_summary(est, fname=str(fpath), show=False)
         assert fpath.exists()
 
     def test_with_data_computes_removed(self):
