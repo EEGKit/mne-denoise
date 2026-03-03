@@ -28,6 +28,7 @@ Authors: Sina Esmaeili (sina.esmaeili@umontreal.ca)
 from __future__ import annotations
 
 import contextlib
+from pathlib import Path
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -275,6 +276,8 @@ def _finalize_fig(fig, show=True, fname=None, tight=True):
         with contextlib.suppress(Exception):
             fig.tight_layout()
     if fname is not None:
+        fname = Path(fname)
+        fname.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(fname, dpi=300, bbox_inches="tight", pad_inches=0.05)
     if show:
         plt.show()

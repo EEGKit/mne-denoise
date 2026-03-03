@@ -81,6 +81,12 @@ from .erp import (
     plot_null_distribution,
     plot_pipeline_slopes,
 )
+from .erp_io import (
+    ERPGroupData,
+    aggregate_erp_results,
+    load_subject_erp_results,
+    save_subject_erp_results,
+)
 
 __all__ = [
     # Theme
@@ -152,4 +158,9 @@ __all__ = [
     "plot_grand_condition_interaction",
     "plot_null_distribution",
     "plot_forest",
+    # ERP I/O (deferred-group workflow)
+    "ERPGroupData",
+    "save_subject_erp_results",
+    "load_subject_erp_results",
+    "aggregate_erp_results",
 ]
