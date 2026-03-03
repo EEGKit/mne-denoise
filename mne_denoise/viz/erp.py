@@ -45,17 +45,19 @@ import numpy as np
 import pandas as pd
 from scipy.signal import welch as _welch
 
+from ._theme import COLORS, FONTS, _finalize_fig, pub_figure, pub_legend, style_axes
+
 # Suppress seaborn FutureWarning about palette without hue (our calls DO pass
 # hue, but seaborn ≤ 0.13 may still emit the warning internally).
 warnings.filterwarnings(
-    "ignore", category=FutureWarning,
+    "ignore",
+    category=FutureWarning,
     message=r"Passing `palette` without assigning `hue`",
 )
 warnings.filterwarnings(
-    "ignore", message=r"set_ticklabels\(\) should only be used",
+    "ignore",
+    message=r"set_ticklabels\(\) should only be used",
 )
-
-from ._theme import COLORS, FONTS, _finalize_fig, pub_figure, pub_legend, style_axes
 
 # =====================================================================
 # Default pipeline palette (colorblind-safe, Wong 2011)
@@ -92,6 +94,7 @@ _ERP_WIN_COLORS: dict[str, str] = {
 # Helpers
 # =====================================================================
 
+
 def _pipe_color(pipe, pipe_colors=None):
     """Resolve pipeline color."""
     if pipe_colors and pipe in pipe_colors:
@@ -119,12 +122,13 @@ def _try_import_seaborn():
     """Import seaborn or raise a clear error."""
     try:
         import seaborn as sns
+
         return sns
-    except ImportError:
+    except ImportError as err:
         raise ImportError(
             "seaborn is required for this plotting function. "
             "Install it with:  pip install seaborn"
-        )
+        ) from err
 
 
 # =====================================================================
@@ -211,9 +215,11 @@ def plot_erp_signal_diagnostics(
             nperseg = min(256, data.shape[-1])
             freqs, psd = _welch(mean_data[ci], fs=sfreq, nperseg=nperseg)
             ax.semilogy(
-                freqs, psd,
+                freqs,
+                psd,
                 color=_pipe_color(ptag, pipe_colors),
-                lw=1.5, alpha=0.8,
+                lw=1.5,
+                alpha=0.8,
                 label=_pipe_label(ptag, pipe_labels),
             )
         ax.set_xlabel("Frequency (Hz)", fontsize=FONTS["label"])
@@ -230,9 +236,11 @@ def plot_erp_signal_diagnostics(
             ev = pipe_evokeds[ptag]
             ci = ev.ch_names.index(ch_name)
             ax.plot(
-                ev.times * 1000, ev.data[ci] * 1e6,
+                ev.times * 1000,
+                ev.data[ci] * 1e6,
                 color=_pipe_color(ptag, pipe_colors),
-                lw=1.8, alpha=0.85,
+                lw=1.8,
+                alpha=0.85,
                 label=_pipe_label(ptag, pipe_labels),
             )
         ax.axvline(0, color=COLORS["gray"], ls="--", alpha=0.5)
@@ -240,9 +248,7 @@ def plot_erp_signal_diagnostics(
         _add_erp_windows(ax, erp_windows)
         ax.set_xlabel("Time (ms)", fontsize=FONTS["label"])
         ax.set_ylabel("Amplitude (µV)", fontsize=FONTS["label"])
-        ax.set_title(
-            f"Evoked Overlay at {ch_name} (test set)", fontsize=FONTS["title"]
-        )
+        ax.set_title(f"Evoked Overlay at {ch_name} (test set)", fontsize=FONTS["title"])
         pub_legend(ax)
         style_axes(ax)
 
@@ -251,8 +257,12 @@ def plot_erp_signal_diagnostics(
         ax = axes[2, col]
         if dev_mask is None or std_mask is None:
             ax.text(
-                0.5, 0.5, "No condition masks provided",
-                transform=ax.transAxes, ha="center", fontsize=FONTS["label"],
+                0.5,
+                0.5,
+                "No condition masks provided",
+                transform=ax.transAxes,
+                ha="center",
+                fontsize=FONTS["label"],
             )
             style_axes(ax)
             continue
@@ -264,8 +274,11 @@ def plot_erp_signal_diagnostics(
 
             if dev_mask.sum() < 3 or std_mask.sum() < 3:
                 ax.text(
-                    0.5, 0.5, "Insufficient trials",
-                    transform=ax.transAxes, ha="center",
+                    0.5,
+                    0.5,
+                    "Insufficient trials",
+                    transform=ax.transAxes,
+                    ha="center",
                     fontsize=FONTS["label"],
                 )
                 break
@@ -281,12 +294,20 @@ def plot_erp_signal_diagnostics(
             times_ms = _get_times_ms(ep)
             c = _pipe_color(ptag, pipe_colors)
             ax.plot(
-                times_ms, diff, color=c, lw=1.8, alpha=0.85,
+                times_ms,
+                diff,
+                color=c,
+                lw=1.8,
+                alpha=0.85,
                 label=_pipe_label(ptag, pipe_labels),
             )
             ax.fill_between(
-                times_ms, diff - diff_se, diff + diff_se,
-                color=c, alpha=0.15, lw=0,
+                times_ms,
+                diff - diff_se,
+                diff + diff_se,
+                color=c,
+                alpha=0.15,
+                lw=0,
             )
 
         ax.axvline(0, color=COLORS["gray"], ls="--", alpha=0.5)
@@ -398,13 +419,21 @@ def plot_condition_interaction(
                 continue
             c = _pipe_color(ptag, pipe_colors)
             ax.plot(
-                times_ms, dw, color=c, lw=1.8, alpha=0.85,
+                times_ms,
+                dw,
+                color=c,
+                lw=1.8,
+                alpha=0.85,
                 label=_pipe_label(ptag, pipe_labels),
             )
             if se is not None:
                 ax.fill_between(
-                    times_ms, dw - se, dw + se,
-                    color=c, alpha=0.15, lw=0,
+                    times_ms,
+                    dw - se,
+                    dw + se,
+                    color=c,
+                    alpha=0.15,
+                    lw=0,
                 )
         ax.axvline(0, color=COLORS["gray"], ls="--", alpha=0.5)
         ax.axhline(0, color=COLORS["gray"], alpha=0.3)
@@ -435,11 +464,13 @@ def plot_condition_interaction(
             for ptag in pipe_order:
                 g_val = effect_sizes.get((cond, ptag), np.nan)
                 if not np.isnan(g_val):
-                    rows.append({
-                        "Condition": condition_labels.get(cond, cond),
-                        "Pipeline": _pipe_label(ptag, pipe_labels),
-                        "Hedges_g": g_val,
-                    })
+                    rows.append(
+                        {
+                            "Condition": condition_labels.get(cond, cond),
+                            "Pipeline": _pipe_label(ptag, pipe_labels),
+                            "Hedges_g": g_val,
+                        }
+                    )
         df_g = pd.DataFrame(rows)
         if len(df_g):
             cond_order = [condition_labels.get(c, c) for c in conditions]
@@ -448,11 +479,18 @@ def plot_condition_interaction(
                 for p in pipe_order
             }
             sns.stripplot(
-                data=df_g, x="Condition", y="Hedges_g",
-                hue="Pipeline", order=cond_order,
+                data=df_g,
+                x="Condition",
+                y="Hedges_g",
+                hue="Pipeline",
+                order=cond_order,
                 hue_order=[_pipe_label(p, pipe_labels) for p in pipe_order],
-                palette=palette, dodge=True, size=9, alpha=0.85,
-                ax=ax_strip, zorder=5,
+                palette=palette,
+                dodge=True,
+                size=9,
+                alpha=0.85,
+                ax=ax_strip,
+                zorder=5,
             )
     except ImportError:
         # Fallback: simple scatter
@@ -462,15 +500,15 @@ def plot_condition_interaction(
                 if not np.isnan(g_val):
                     offset = (j_p - len(pipe_order) / 2) * 0.15
                     ax_strip.scatter(
-                        i_c + offset, g_val,
+                        i_c + offset,
+                        g_val,
                         color=_pipe_color(ptag, pipe_colors),
-                        s=80, zorder=5,
+                        s=80,
+                        zorder=5,
                         label=_pipe_label(ptag, pipe_labels) if i_c == 0 else "",
                     )
         ax_strip.set_xticks(range(len(conditions)))
-        ax_strip.set_xticklabels(
-            [condition_labels.get(c, c) for c in conditions]
-        )
+        ax_strip.set_xticklabels([condition_labels.get(c, c) for c in conditions])
 
     ax_strip.axhline(0, color=COLORS["gray"], alpha=0.3)
     ax_strip.set_ylabel("Hedges' g", fontsize=FONTS["label"])
@@ -482,9 +520,12 @@ def plot_condition_interaction(
     for ptag in pipe_order:
         vals = [effect_sizes.get((c, ptag), 0.0) for c in conditions]
         ax_line.plot(
-            range(n_conds), vals, "o-",
+            range(n_conds),
+            vals,
+            "o-",
             color=_pipe_color(ptag, pipe_colors),
-            lw=2, markersize=8,
+            lw=2,
+            markersize=8,
             label=_pipe_label(ptag, pipe_labels),
         )
     ax_line.set_xticks(range(n_conds))
@@ -617,8 +658,12 @@ def plot_metric_violins(
                 rows.append({"Group": group_labels.get(g, g), "value": val})
         if not rows:
             ax.text(
-                0.5, 0.5, "No data",
-                transform=ax.transAxes, ha="center", fontsize=FONTS["label"],
+                0.5,
+                0.5,
+                "No data",
+                transform=ax.transAxes,
+                ha="center",
+                fontsize=FONTS["label"],
             )
             style_axes(ax)
             continue
@@ -626,16 +671,36 @@ def plot_metric_violins(
 
         # Violin
         sns.violinplot(
-            data=df_v, x="Group", y="value", hue="Group",
-            order=pretty_order, hue_order=pretty_order, palette=palette,
-            inner=None, linewidth=0.8, alpha=0.3, ax=ax,
-            cut=0, density_norm="width", legend=False,
+            data=df_v,
+            x="Group",
+            y="value",
+            hue="Group",
+            order=pretty_order,
+            hue_order=pretty_order,
+            palette=palette,
+            inner=None,
+            linewidth=0.8,
+            alpha=0.3,
+            ax=ax,
+            cut=0,
+            density_norm="width",
+            legend=False,
         )
         # Swarm
         sns.stripplot(
-            data=df_v, x="Group", y="value", hue="Group",
-            order=pretty_order, hue_order=pretty_order, palette=palette,
-            size=3, alpha=0.7, jitter=0.12, ax=ax, zorder=5, legend=False,
+            data=df_v,
+            x="Group",
+            y="value",
+            hue="Group",
+            order=pretty_order,
+            hue_order=pretty_order,
+            palette=palette,
+            size=3,
+            alpha=0.7,
+            jitter=0.12,
+            ax=ax,
+            zorder=5,
+            legend=False,
         )
 
         # Paired within-subject lines
@@ -643,21 +708,27 @@ def plot_metric_violins(
             for sub in df[subject_col].unique():
                 sub_vals = []
                 for g in group_order:
-                    v = df.loc[
-                        (df[subject_col] == sub) & (df[group_col] == g), mk
-                    ]
+                    v = df.loc[(df[subject_col] == sub) & (df[group_col] == g), mk]
                     sub_vals.append(v.iloc[0] if len(v) else float("nan"))
                 ax.plot(
-                    range(len(group_order)), sub_vals, "-",
-                    color=COLORS["gray"], alpha=0.1, lw=0.4, zorder=1,
+                    range(len(group_order)),
+                    sub_vals,
+                    "-",
+                    color=COLORS["gray"],
+                    alpha=0.1,
+                    lw=0.4,
+                    zorder=1,
                 )
 
         # Baseline reference (group-mean of first group)
         base_vals = df.loc[df[group_col] == group_order[0], mk].dropna()
         if len(base_vals):
             ax.axhline(
-                base_vals.mean(), color=COLORS["gray"],
-                ls="--", lw=0.8, alpha=0.5,
+                base_vals.mean(),
+                color=COLORS["gray"],
+                ls="--",
+                lw=0.8,
+                alpha=0.5,
             )
 
         # Custom reference lines
@@ -755,8 +826,7 @@ def plot_endpoint_summary(
 
     pretty_order = [group_labels.get(g, g) for g in group_order]
     palette = {
-        group_labels.get(g, g): _pipe_color(g, group_colors)
-        for g in group_order
+        group_labels.get(g, g): _pipe_color(g, group_colors) for g in group_order
     }
 
     # ---- Panels A: Violin per metric ----
@@ -774,15 +844,35 @@ def plot_endpoint_summary(
         df_v = pd.DataFrame(rows)
 
         sns.violinplot(
-            data=df_v, x="Group", y="value", hue="Group",
-            order=pretty_order, hue_order=pretty_order, palette=palette,
-            inner=None, linewidth=0.8, alpha=0.3, ax=ax,
-            cut=0, density_norm="width", legend=False,
+            data=df_v,
+            x="Group",
+            y="value",
+            hue="Group",
+            order=pretty_order,
+            hue_order=pretty_order,
+            palette=palette,
+            inner=None,
+            linewidth=0.8,
+            alpha=0.3,
+            ax=ax,
+            cut=0,
+            density_norm="width",
+            legend=False,
         )
         sns.stripplot(
-            data=df_v, x="Group", y="value", hue="Group",
-            order=pretty_order, hue_order=pretty_order, palette=palette,
-            size=3, alpha=0.7, jitter=0.12, ax=ax, zorder=5, legend=False,
+            data=df_v,
+            x="Group",
+            y="value",
+            hue="Group",
+            order=pretty_order,
+            hue_order=pretty_order,
+            palette=palette,
+            size=3,
+            alpha=0.7,
+            jitter=0.12,
+            ax=ax,
+            zorder=5,
+            legend=False,
         )
 
         # Null distribution overlay
@@ -801,8 +891,12 @@ def plot_endpoint_summary(
                 if pipe_x is not None:
                     q025, q975 = np.percentile(null_vals, [2.5, 97.5])
                     ax.fill_between(
-                        [pipe_x - 0.35, pipe_x + 0.35], q025, q975,
-                        color=COLORS["gray"], alpha=0.25, zorder=1,
+                        [pipe_x - 0.35, pipe_x + 0.35],
+                        q025,
+                        q975,
+                        color=COLORS["gray"],
+                        alpha=0.25,
+                        zorder=1,
                         label=f"Null 95% CI\n[{q025:+.2f}, {q975:+.2f}]",
                     )
                     pub_legend(ax, fontsize=6, loc="lower right")
@@ -817,7 +911,8 @@ def plot_endpoint_summary(
         if i == 0:
             ax.set_title(
                 f"A  Violin + Dots (N={n_sub})",
-                fontweight="bold", fontsize=FONTS["tick"],
+                fontweight="bold",
+                fontsize=FONTS["tick"],
             )
 
     # ---- Panel B: Paired slope plot ----
@@ -836,9 +931,13 @@ def plot_endpoint_summary(
             ]
             if len(v_from) and len(v_to):
                 ax_slope.plot(
-                    [0, 1], [v_from.iloc[0], v_to.iloc[0]], "o-",
+                    [0, 1],
+                    [v_from.iloc[0], v_to.iloc[0]],
+                    "o-",
                     color=_pipe_color(slope_to, group_colors),
-                    alpha=0.25, markersize=3, lw=0.7,
+                    alpha=0.25,
+                    markersize=3,
+                    lw=0.7,
                 )
 
         # Group means
@@ -847,23 +946,29 @@ def plot_endpoint_summary(
         lbl_from = group_labels.get(slope_from, slope_from)
         lbl_to = group_labels.get(slope_to, slope_to)
         ax_slope.plot(
-            [0, 1], [mean_from, mean_to], "s-",
+            [0, 1],
+            [mean_from, mean_to],
+            "s-",
             color=_pipe_color(slope_to, group_colors),
-            markersize=10, lw=3, zorder=10,
+            markersize=10,
+            lw=3,
+            zorder=10,
             label=f"Mean: {mean_from:.2f} → {mean_to:.2f}",
         )
 
         # Null CI band on destination end
-        if (
-            null_distributions is not None
-            and null_pipe in null_distributions
-        ):
+        if null_distributions is not None and null_pipe in null_distributions:
             null_g = null_distributions[null_pipe].get("g")
             if null_g is not None and len(null_g):
                 q025, q975 = np.percentile(null_g, [2.5, 97.5])
                 ax_slope.axhspan(
-                    q025, q975, xmin=0.6, xmax=1.0,
-                    color=COLORS["gray"], alpha=0.15, label="Null 95% CI",
+                    q025,
+                    q975,
+                    xmin=0.6,
+                    xmax=1.0,
+                    color=COLORS["gray"],
+                    alpha=0.15,
+                    label="Null 95% CI",
                 )
 
         ax_slope.axhline(0, color=COLORS["gray"], ls="--", alpha=0.3)
@@ -877,14 +982,19 @@ def plot_endpoint_summary(
         )
         ax_slope.set_title(
             f"B  Paired Slopes\n({lbl_from} → {lbl_to})",
-            fontweight="bold", fontsize=FONTS["tick"],
+            fontweight="bold",
+            fontsize=FONTS["tick"],
         )
         pub_legend(ax_slope, fontsize=7, loc="upper left")
         ax_slope.grid(axis="y", alpha=0.3)
     else:
         ax_slope.text(
-            0.5, 0.5, "≥ 2 subjects needed",
-            transform=ax_slope.transAxes, ha="center", fontsize=FONTS["label"],
+            0.5,
+            0.5,
+            "≥ 2 subjects needed",
+            transform=ax_slope.transAxes,
+            ha="center",
+            fontsize=FONTS["label"],
         )
 
     title = suptitle or "ERP Benchmark: Endpoint Summary with Null Control"
@@ -963,34 +1073,41 @@ def plot_pipeline_slopes(
         for sub in df[subject_col].unique():
             sub_vals = []
             for g in group_order:
-                v = df.loc[
-                    (df[subject_col] == sub) & (df[group_col] == g), mk
-                ]
+                v = df.loc[(df[subject_col] == sub) & (df[group_col] == g), mk]
                 sub_vals.append(v.iloc[0] if len(v) else float("nan"))
 
             # Coloured segments connecting adjacent pipelines
             for j in range(len(group_order) - 1):
                 ax.plot(
-                    [j, j + 1], [sub_vals[j], sub_vals[j + 1]],
+                    [j, j + 1],
+                    [sub_vals[j], sub_vals[j + 1]],
                     color=_pipe_color(group_order[j + 1], group_colors),
-                    alpha=0.15, lw=0.6, zorder=1,
+                    alpha=0.15,
+                    lw=0.6,
+                    zorder=1,
                 )
             # Dots at each pipeline
             for j, g in enumerate(group_order):
                 if not np.isnan(sub_vals[j]):
                     ax.scatter(
-                        j, sub_vals[j],
+                        j,
+                        sub_vals[j],
                         color=_pipe_color(g, group_colors),
-                        s=8, alpha=0.4, zorder=2,
+                        s=8,
+                        alpha=0.4,
+                        zorder=2,
                     )
 
         # Group mean
-        means = [
-            df.loc[df[group_col] == g, mk].mean() for g in group_order
-        ]
+        means = [df.loc[df[group_col] == g, mk].mean() for g in group_order]
         ax.plot(
-            range(len(group_order)), means, "s-",
-            color=COLORS["dark"], markersize=9, lw=2.5, zorder=5,
+            range(len(group_order)),
+            means,
+            "s-",
+            color=COLORS["dark"],
+            markersize=9,
+            lw=2.5,
+            zorder=5,
             label="Group mean",
         )
 
@@ -999,9 +1116,13 @@ def plot_pipeline_slopes(
             if not np.isnan(m):
                 fmt = f"{m:.2f}" if abs(m) < 100 else f"{m:.0f}"
                 ax.annotate(
-                    fmt, (j, m), textcoords="offset points",
-                    xytext=(0, 10), fontsize=FONTS["annotation"],
-                    ha="center", fontweight="bold",
+                    fmt,
+                    (j, m),
+                    textcoords="offset points",
+                    xytext=(0, 10),
+                    fontsize=FONTS["annotation"],
+                    ha="center",
+                    fontweight="bold",
                 )
 
         # Reference lines
@@ -1015,8 +1136,11 @@ def plot_pipeline_slopes(
         pub_legend(ax, fontsize=7)
         ax.grid(axis="y", alpha=0.3, zorder=0)
         ax.annotate(
-            f"N = {n_sub}", xy=(0.02, 0.98),
-            xycoords="axes fraction", fontsize=FONTS["annotation"], va="top",
+            f"N = {n_sub}",
+            xy=(0.02, 0.98),
+            xycoords="axes fraction",
+            fontsize=FONTS["annotation"],
+            va="top",
         )
         style_axes(ax)
 
@@ -1087,17 +1211,29 @@ def plot_grand_average_erp(
             # Stack subject data: (n_sub, n_times)
             stacked = np.array([ev.data[ci] * 1e6 for ev in evoked_list])
             grand_mean = stacked.mean(axis=0)
-            grand_sem = stacked.std(axis=0, ddof=1) / np.sqrt(n_sub) if n_sub > 1 else np.zeros_like(grand_mean)
+            grand_sem = (
+                stacked.std(axis=0, ddof=1) / np.sqrt(n_sub)
+                if n_sub > 1
+                else np.zeros_like(grand_mean)
+            )
 
             c = _pipe_color(ptag, pipe_colors)
             ax.plot(
-                times_ms, grand_mean, color=c, lw=1.8, alpha=0.85,
+                times_ms,
+                grand_mean,
+                color=c,
+                lw=1.8,
+                alpha=0.85,
                 label=_pipe_label(ptag, pipe_labels),
             )
             if n_sub > 1:
                 ax.fill_between(
-                    times_ms, grand_mean - grand_sem, grand_mean + grand_sem,
-                    color=c, alpha=0.15, lw=0,
+                    times_ms,
+                    grand_mean - grand_sem,
+                    grand_mean + grand_sem,
+                    color=c,
+                    alpha=0.15,
+                    lw=0,
                 )
 
         ax.axvline(0, color=COLORS["gray"], ls="--", alpha=0.5)
@@ -1199,12 +1335,20 @@ def plot_grand_condition_interaction(
             )
             c = _pipe_color(ptag, pipe_colors)
             ax.plot(
-                times_ms, grand_mean, color=c, lw=1.8, alpha=0.85,
+                times_ms,
+                grand_mean,
+                color=c,
+                lw=1.8,
+                alpha=0.85,
                 label=_pipe_label(ptag, pipe_labels),
             )
             ax.fill_between(
-                times_ms, grand_mean - grand_sem, grand_mean + grand_sem,
-                color=c, alpha=0.15, lw=0,
+                times_ms,
+                grand_mean - grand_sem,
+                grand_mean + grand_sem,
+                color=c,
+                alpha=0.15,
+                lw=0,
             )
         ax.axvline(0, color=COLORS["gray"], ls="--", alpha=0.5)
         ax.axhline(0, color=COLORS["gray"], alpha=0.3)
@@ -1218,7 +1362,8 @@ def plot_grand_condition_interaction(
 
     fig1.suptitle(
         suptitle or "Grand-Average Difference Waves ± Between-Subject SEM",
-        fontsize=FONTS["suptitle"], fontweight="bold",
+        fontsize=FONTS["suptitle"],
+        fontweight="bold",
     )
 
     # ---- Figure 2: effect-size mean ± SEM bars + strip ----
@@ -1233,14 +1378,19 @@ def plot_grand_condition_interaction(
             g_arr = np.asarray(all_effect_sizes.get((cond, ptag), []))
             means.append(g_arr.mean() if len(g_arr) else 0)
             sems.append(
-                g_arr.std(ddof=1) / np.sqrt(len(g_arr))
-                if len(g_arr) > 1
-                else 0
+                g_arr.std(ddof=1) / np.sqrt(len(g_arr)) if len(g_arr) > 1 else 0
             )
         c = _pipe_color(ptag, pipe_colors)
         ax_bar.bar(
-            x + j * bar_w, means, bar_w, yerr=sems,
-            color=c, alpha=0.8, edgecolor="white", lw=0.5, capsize=3,
+            x + j * bar_w,
+            means,
+            bar_w,
+            yerr=sems,
+            color=c,
+            alpha=0.8,
+            edgecolor="white",
+            lw=0.5,
+            capsize=3,
             label=_pipe_label(ptag, pipe_labels),
         )
 
@@ -1263,21 +1413,27 @@ def plot_grand_condition_interaction(
             g_arr = np.asarray(all_effect_sizes.get((cond, ptag), []))
             means.append(g_arr.mean() if len(g_arr) else 0)
             sems.append(
-                g_arr.std(ddof=1) / np.sqrt(len(g_arr))
-                if len(g_arr) > 1
-                else 0
+                g_arr.std(ddof=1) / np.sqrt(len(g_arr)) if len(g_arr) > 1 else 0
             )
         means = np.array(means)
         sems = np.array(sems)
         c = _pipe_color(ptag, pipe_colors)
         ax_line.plot(
-            range(n_conds), means, "o-",
-            color=c, lw=2, markersize=8,
+            range(n_conds),
+            means,
+            "o-",
+            color=c,
+            lw=2,
+            markersize=8,
             label=_pipe_label(ptag, pipe_labels),
         )
         ax_line.fill_between(
-            range(n_conds), means - sems, means + sems,
-            color=c, alpha=0.15, lw=0,
+            range(n_conds),
+            means - sems,
+            means + sems,
+            color=c,
+            alpha=0.15,
+            lw=0,
         )
     ax_line.set_xticks(range(n_conds))
     ax_line.set_xticklabels(
@@ -1292,7 +1448,8 @@ def plot_grand_condition_interaction(
 
     fig2.suptitle(
         "Group-Level Condition × Pipeline Effect-Size Interaction",
-        fontsize=FONTS["suptitle"], fontweight="bold",
+        fontsize=FONTS["suptitle"],
+        fontweight="bold",
     )
 
     # Dual-save with suffixes
@@ -1366,22 +1523,38 @@ def plot_null_distribution(
 
     # Histogram
     ax.hist(
-        null_values, bins=n_bins, color=COLORS["gray"], alpha=0.5,
-        edgecolor="white", linewidth=0.5, density=True, zorder=2,
+        null_values,
+        bins=n_bins,
+        color=COLORS["gray"],
+        alpha=0.5,
+        edgecolor="white",
+        linewidth=0.5,
+        density=True,
+        zorder=2,
         label=f"Null (N = {len(null_values):,})",
     )
 
     # CI bounds
     alpha_tail = (100 - ci) / 2
     lo, hi = np.percentile(null_values, [alpha_tail, 100 - alpha_tail])
-    ax.axvspan(lo, hi, color=COLORS["gray"], alpha=0.12, zorder=1,
-               label=f"{ci}% CI [{lo:+.3f}, {hi:+.3f}]")
+    ax.axvspan(
+        lo,
+        hi,
+        color=COLORS["gray"],
+        alpha=0.12,
+        zorder=1,
+        label=f"{ci}% CI [{lo:+.3f}, {hi:+.3f}]",
+    )
     ax.axvline(lo, color=COLORS["gray"], ls=":", lw=0.8, alpha=0.6)
     ax.axvline(hi, color=COLORS["gray"], ls=":", lw=0.8, alpha=0.6)
 
     # Observed
     ax.axvline(
-        observed, color=pipe_color, lw=2.5, ls="--", zorder=5,
+        observed,
+        color=pipe_color,
+        lw=2.5,
+        ls="--",
+        zorder=5,
         label=f"Observed = {observed:.3f}",
     )
 
@@ -1389,11 +1562,15 @@ def plot_null_distribution(
     p_value = float(np.mean(np.abs(null_values) >= np.abs(observed)))
 
     ax.annotate(
-        f"p = {p_value:.4f}", xy=(observed, ax.get_ylim()[1] * 0.92),
-        fontsize=FONTS["annotation"], fontweight="bold",
+        f"p = {p_value:.4f}",
+        xy=(observed, ax.get_ylim()[1] * 0.92),
+        fontsize=FONTS["annotation"],
+        fontweight="bold",
         ha="left" if observed > np.median(null_values) else "right",
-        va="top", color=pipe_color,
-        xytext=(8, 0), textcoords="offset points",
+        va="top",
+        color=pipe_color,
+        xytext=(8, 0),
+        textcoords="offset points",
     )
 
     ax.set_xlabel(metric_label, fontsize=FONTS["label"])
@@ -1508,22 +1685,40 @@ def plot_forest(
             bv = df_b.loc[df_b[subject_col] == sub, metric_col]
             if len(bv):
                 ax.plot(
-                    bv.iloc[0], y_pos[i], "o",
-                    color=b_color, markersize=5, alpha=0.35, zorder=2,
+                    bv.iloc[0],
+                    y_pos[i],
+                    "o",
+                    color=b_color,
+                    markersize=5,
+                    alpha=0.35,
+                    zorder=2,
                 )
         # Pooled baseline mean marker at bottom
         b_mean = df_b[metric_col].mean()
         ax.plot(
-            b_mean, -1.2, "D",
-            color=b_color, markersize=9, zorder=6, alpha=0.5,
+            b_mean,
+            -1.2,
+            "D",
+            color=b_color,
+            markersize=9,
+            zorder=6,
+            alpha=0.5,
             label=f"{b_label} mean = {b_mean:.3f}",
         )
 
     # Target group CIs
     ax.errorbar(
-        vals, y_pos, xerr=hw,
-        fmt="o", color=t_color, ecolor=t_color, elinewidth=1.2,
-        capsize=3, markersize=5, alpha=0.85, zorder=4,
+        vals,
+        y_pos,
+        xerr=hw,
+        fmt="o",
+        color=t_color,
+        ecolor=t_color,
+        elinewidth=1.2,
+        capsize=3,
+        markersize=5,
+        alpha=0.85,
+        zorder=4,
         label=t_label,
     )
 
@@ -1531,16 +1726,27 @@ def plot_forest(
     t_mean = vals.mean()
     t_se = vals.std(ddof=1) / np.sqrt(n_sub) if n_sub > 1 else 0
     ax.errorbar(
-        t_mean, -1.2, xerr=1.96 * t_se,
-        fmt="D", color=t_color, ecolor=t_color, elinewidth=2,
-        capsize=4, markersize=10, zorder=6,
+        t_mean,
+        -1.2,
+        xerr=1.96 * t_se,
+        fmt="D",
+        color=t_color,
+        ecolor=t_color,
+        elinewidth=2,
+        capsize=4,
+        markersize=10,
+        zorder=6,
         label=f"Pooled mean = {t_mean:.3f}",
     )
 
     # Reference line
     if reference_line is not None:
         ax.axvline(
-            reference_line, color=COLORS["gray"], ls="--", lw=0.8, alpha=0.5,
+            reference_line,
+            color=COLORS["gray"],
+            ls="--",
+            lw=0.8,
+            alpha=0.5,
         )
 
     # Aesthetics

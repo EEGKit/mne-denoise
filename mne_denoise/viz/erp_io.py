@@ -15,10 +15,10 @@ Typical workflow
 ...     deriv_root / sub / "erp_dss",
 ...     subject=sub,
 ...     pipe_evokeds={"C0": ev0, "C1": ev1, "C2": ev2},
-...     diff_waves=diff_waves,        # {(cond, pipe): 1-D array}
-...     effect_sizes=effect_sizes,     # {(cond, pipe): float}
+...     diff_waves=diff_waves,  # {(cond, pipe): 1-D array}
+...     effect_sizes=effect_sizes,  # {(cond, pipe): float}
 ...     times_ms=times_ms,
-...     metrics_df=df_metrics,         # or dict -> converted
+...     metrics_df=df_metrics,  # or dict -> converted
 ... )
 
 **Step 2 — Group aggregation (after all subjects are done):**
@@ -31,8 +31,10 @@ Typical workflow
 **Step 3 — Group plots (no reprocessing needed):**
 
 >>> from mne_denoise.viz import (
-...     plot_grand_average_erp, plot_grand_condition_interaction,
-...     plot_forest, plot_null_distribution,
+...     plot_grand_average_erp,
+...     plot_grand_condition_interaction,
+...     plot_forest,
+...     plot_null_distribution,
 ... )
 >>> plot_grand_average_erp(agg.all_evokeds, fname=fig_dir / "grand_avg.png")
 """
@@ -149,9 +151,7 @@ def save_subject_erp_results(
     if pipe_evokeds is not None:
         npz_kw = {}
         for ptag, ev in pipe_evokeds.items():
-            npz_kw[f"{ptag}_data"] = np.asarray(
-                ev.data if hasattr(ev, "data") else ev
-            )
+            npz_kw[f"{ptag}_data"] = np.asarray(ev.data if hasattr(ev, "data") else ev)
             if hasattr(ev, "ch_names"):
                 npz_kw[f"{ptag}_ch_names"] = np.array(ev.ch_names)
         if times_ms is not None:
@@ -182,13 +182,10 @@ def save_subject_erp_results(
     if effect_sizes is not None:
         # Serialise (cond, pipe) -> float
         meta["effect_sizes"] = {
-            f"{cond}__{ptag}": float(val)
-            for (cond, ptag), val in effect_sizes.items()
+            f"{cond}__{ptag}": float(val) for (cond, ptag), val in effect_sizes.items()
         }
     if diff_waves is not None:
-        meta["diff_wave_keys"] = [
-            f"{cond}__{ptag}" for cond, ptag in diff_waves
-        ]
+        meta["diff_wave_keys"] = [f"{cond}__{ptag}" for cond, ptag in diff_waves]
     with open(out_dir / _META_JSON, "w") as f:
         json.dump(meta, f, indent=2)
 
@@ -317,9 +314,7 @@ def aggregate_erp_results(deriv_root, *, subjects=None):
         subjects = sorted(
             d.name
             for d in deriv_root.iterdir()
-            if d.is_dir()
-            and d.name.startswith("sub-")
-            and (d / "erp_dss").exists()
+            if d.is_dir() and d.name.startswith("sub-") and (d / "erp_dss").exists()
         )
     if not subjects:
         log.warning("No subjects found in %s", deriv_root)
@@ -327,9 +322,9 @@ def aggregate_erp_results(deriv_root, *, subjects=None):
 
     # ── Collect per-subject data ─────────────────────────────────────
     df_frames = []
-    evokeds_by_pipe = {}       # {pipe: [array_sub1, array_sub2, ...]}
-    dw_by_key = {}             # {(cond, pipe): [array_sub1, ...]}
-    es_by_key = {}             # {(cond, pipe): [float_sub1, ...]}
+    evokeds_by_pipe = {}  # {pipe: [array_sub1, array_sub2, ...]}
+    dw_by_key = {}  # {(cond, pipe): [array_sub1, ...]}
+    es_by_key = {}  # {(cond, pipe): [float_sub1, ...]}
     times_ms = None
 
     for sub in subjects:
@@ -362,19 +357,17 @@ def aggregate_erp_results(deriv_root, *, subjects=None):
     df = pd.concat(df_frames, ignore_index=True) if df_frames else pd.DataFrame()
 
     # Stack diff waves: (n_sub, n_times)
-    all_diff_waves = {
-        key: np.array(arrs) for key, arrs in dw_by_key.items()
-    }
+    all_diff_waves = {key: np.array(arrs) for key, arrs in dw_by_key.items()}
 
     # Stack effect sizes: (n_sub,)
-    all_effect_sizes = {
-        key: np.array(vals) for key, vals in es_by_key.items()
-    }
+    all_effect_sizes = {key: np.array(vals) for key, vals in es_by_key.items()}
 
     log.info(
-        "Aggregated %d subjects: %d metric rows, %d pipe tags, "
-        "%d diff-wave keys",
-        len(subjects), len(df), len(evokeds_by_pipe), len(all_diff_waves),
+        "Aggregated %d subjects: %d metric rows, %d pipe tags, %d diff-wave keys",
+        len(subjects),
+        len(df),
+        len(evokeds_by_pipe),
+        len(all_diff_waves),
     )
 
     return ERPGroupData(
