@@ -3,8 +3,9 @@
 import json
 
 import numpy as np
-import pandas as pd
 import pytest
+
+pd = pytest.importorskip("pandas")
 
 from mne_denoise.viz.benchmark_io import (
     LineNoiseGroupData,

@@ -3,8 +3,9 @@
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import pytest
+
+pd = pytest.importorskip("pandas")
 
 matplotlib.use("Agg")
 
