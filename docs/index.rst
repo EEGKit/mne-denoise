@@ -25,3 +25,4 @@ to extract reproducible or rhythmic components while preserving data rank.
    :caption: Project information
 
    development
+   testing
