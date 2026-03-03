@@ -34,12 +34,10 @@ from mne_denoise.viz._utils import (
 from mne_denoise.viz.zapline import (
     plot_cleaning_summary,
     plot_component_scores,
+    plot_zapline_patterns,
 )
 from mne_denoise.viz.zapline import (
-    plot_psd_comparison as plot_zapline_psd,
-)
-from mne_denoise.viz.zapline import (
-    plot_spatial_patterns as plot_zapline_patterns,
+    plot_zapline_psd_comparison as plot_zapline_psd,
 )
 from mne_denoise.zapline import ZapLine
 

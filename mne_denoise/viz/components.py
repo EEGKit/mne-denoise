@@ -68,6 +68,17 @@ def plot_narrowband_scan(
     eig_1d = eigenvalues[:, 0] if eigenvalues.ndim == 2 else eigenvalues
 
     # Plot eigenvalue spectrum
+    if eigenvalues.ndim == 2 and eigenvalues.shape[1] > 1:
+        ax.plot(
+            frequencies,
+            eigenvalues[:, 1:],
+            color=COLORS.get("muted", "#9ca3af"),
+            linestyle="-",
+            alpha=0.6,
+            linewidth=1.5,
+        )
+
+    # Plot dominant component
     ax.plot(
         frequencies,
         eig_1d,

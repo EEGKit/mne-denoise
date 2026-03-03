@@ -3,12 +3,12 @@
 This module provides utilities to **save** per-subject intermediate
 results (evoked arrays, difference-wave arrays, scalar metrics) during
 single-subject processing, and later **load + aggregate** them for
-group-level visualization — *without* re-running preprocessing.
+group-level visualization â€” *without* re-running preprocessing.
 
 Typical workflow
 ----------------
 
-**Step 1 — Per-subject (can be parallelised / run on a cluster):**
+**Step 1 â€” Per-subject (can be parallelised / run on a cluster):**
 
 >>> from mne_denoise.viz.erp_io import save_subject_erp_results
 >>> save_subject_erp_results(
@@ -21,22 +21,22 @@ Typical workflow
 ...     metrics_df=df_metrics,  # or dict -> converted
 ... )
 
-**Step 2 — Group aggregation (after all subjects are done):**
+**Step 2 â€” Group aggregation (after all subjects are done):**
 
 >>> from mne_denoise.viz.erp_io import aggregate_erp_results
 >>> agg = aggregate_erp_results(deriv_root, subjects=None)
 >>> # agg is an ERPGroupData namedtuple with fields:
 >>> #   .df, .all_evokeds, .all_diff_waves, .all_effect_sizes, .times_ms
 
-**Step 3 — Group plots (no reprocessing needed):**
+**Step 3 â€” Group plots (no reprocessing needed):**
 
 >>> from mne_denoise.viz import (
-...     plot_grand_average_erp,
-...     plot_grand_condition_interaction,
-...     plot_forest,
-...     plot_null_distribution,
+...     plot_erp_grand_average,
+...     plot_erp_grand_condition_interaction,
+...     plot_erp_forest,
+...     plot_erp_null_distribution,
 ... )
->>> plot_grand_average_erp(agg.all_evokeds, fname=fig_dir / "grand_avg.png")
+>>> plot_erp_grand_average(agg.all_evokeds, fname=fig_dir / "grand_avg.png")
 """
 
 from __future__ import annotations
@@ -51,7 +51,7 @@ import pandas as pd
 
 log = logging.getLogger(__name__)
 
-# ── Public data container ────────────────────────────────────────────
+# â”€â”€ Public data container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 ERPGroupData = namedtuple(
     "ERPGroupData",
@@ -63,9 +63,9 @@ Aggregated group-level ERP data.
 Fields
 ------
 df : DataFrame
-    Long-form scalar metrics (all subjects × pipelines).
+    Long-form scalar metrics (all subjects Ã— pipelines).
 all_evokeds : dict
-    ``{pipe_tag: list[Evoked]}`` — one Evoked per subject.
+    ``{pipe_tag: list[Evoked]}`` â€” one Evoked per subject.
 all_diff_waves : dict
     ``{(condition, pipe_tag): ndarray (n_subjects, n_times)}``
 all_effect_sizes : dict
@@ -74,7 +74,7 @@ times_ms : ndarray | None
     Common time vector in milliseconds (from the first subject).
 """
 
-# ── File-name conventions ────────────────────────────────────────────
+# â”€â”€ File-name conventions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 _METRICS_TSV = "metrics.tsv"
 _EVOKEDS_NPZ = "evokeds.npz"
@@ -109,14 +109,14 @@ def save_subject_erp_results(
     subject : str
         Subject identifier (e.g. ``"sub-01"``).
     pipe_evokeds : dict | None
-        ``{pipe_tag: Evoked}`` — MNE Evoked objects per pipeline.
+        ``{pipe_tag: Evoked}`` â€” MNE Evoked objects per pipeline.
         Stored as ``{pipe_tag}_data`` (n_ch, n_times) + ``{pipe_tag}_ch_names``
         + ``times`` in :file:`evokeds.npz`.
     diff_waves : dict | None
-        ``{(condition, pipe_tag): 1-D array}`` — difference waves (µV).
+        ``{(condition, pipe_tag): 1-D array}`` â€” difference waves (ÂµV).
         Stored in :file:`diff_waves.npz`.
     effect_sizes : dict | None
-        ``{(condition, pipe_tag): float}`` — Hedges' *g* per cell.
+        ``{(condition, pipe_tag): float}`` â€” Hedges' *g* per cell.
         Stored in :file:`erp_io_meta.json`.
     times_ms : ndarray | None
         Time vector in milliseconds.  Saved in :file:`evokeds.npz`.
@@ -124,7 +124,7 @@ def save_subject_erp_results(
         If given, saved as :file:`metrics.tsv` (appending ``subject``
         and ``pipeline`` columns if not present).
     metrics_dict : dict | None
-        ``{pipe_tag: dict_of_scalars}`` — alternative to *metrics_df*.
+        ``{pipe_tag: dict_of_scalars}`` â€” alternative to *metrics_df*.
         Converted to a DataFrame with ``subject`` and ``pipeline`` cols.
     pipe_order : list of str | None
         Pipeline ordering hint saved to metadata.
@@ -137,7 +137,7 @@ def save_subject_erp_results(
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # ── Metrics TSV ──────────────────────────────────────────────────
+    # â”€â”€ Metrics TSV â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if metrics_df is not None:
         metrics_df.to_csv(out_dir / _METRICS_TSV, sep="\t", index=False)
     elif metrics_dict is not None:
@@ -147,7 +147,7 @@ def save_subject_erp_results(
             rows.append(row)
         pd.DataFrame(rows).to_csv(out_dir / _METRICS_TSV, sep="\t", index=False)
 
-    # ── Evokeds NPZ ─────────────────────────────────────────────────
+    # â”€â”€ Evokeds NPZ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if pipe_evokeds is not None:
         npz_kw = {}
         for ptag, ev in pipe_evokeds.items():
@@ -163,7 +163,7 @@ def save_subject_erp_results(
                 npz_kw["times_ms"] = first.times * 1000
         np.savez_compressed(out_dir / _EVOKEDS_NPZ, **npz_kw)
 
-    # ── Diff-waves NPZ ──────────────────────────────────────────────
+    # â”€â”€ Diff-waves NPZ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if diff_waves is not None:
         npz_kw = {}
         for (cond, ptag), arr in diff_waves.items():
@@ -173,7 +173,7 @@ def save_subject_erp_results(
             npz_kw["times_ms"] = np.asarray(times_ms)
         np.savez_compressed(out_dir / _DIFF_WAVES_NPZ, **npz_kw)
 
-    # ── Metadata JSON ────────────────────────────────────────────────
+    # â”€â”€ Metadata JSON â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     meta = {"subject": subject}
     if pipe_order is not None:
         meta["pipe_order"] = list(pipe_order)
@@ -189,7 +189,7 @@ def save_subject_erp_results(
     with open(out_dir / _META_JSON, "w") as f:
         json.dump(meta, f, indent=2)
 
-    log.info("Saved ERP results for %s → %s", subject, out_dir)
+    log.info("Saved ERP results for %s â†’ %s", subject, out_dir)
 
 
 # =====================================================================
@@ -210,18 +210,18 @@ def load_subject_erp_results(sub_dir):
     result : dict
         Keys (present only if the corresponding file exists):
 
-        * ``"subject"`` — subject label
-        * ``"df"`` — scalar metrics DataFrame
-        * ``"pipe_evokeds"`` — ``{pipe_tag: ndarray (n_ch, n_times)}``
-        * ``"ch_names"`` — ``{pipe_tag: list[str]}``
-        * ``"times_ms"`` — 1-D array
-        * ``"diff_waves"`` — ``{(cond, pipe): 1-D array}``
-        * ``"effect_sizes"`` — ``{(cond, pipe): float}``
+        * ``"subject"`` â€” subject label
+        * ``"df"`` â€” scalar metrics DataFrame
+        * ``"pipe_evokeds"`` â€” ``{pipe_tag: ndarray (n_ch, n_times)}``
+        * ``"ch_names"`` â€” ``{pipe_tag: list[str]}``
+        * ``"times_ms"`` â€” 1-D array
+        * ``"diff_waves"`` â€” ``{(cond, pipe): 1-D array}``
+        * ``"effect_sizes"`` â€” ``{(cond, pipe): float}``
     """
     sub_dir = Path(sub_dir)
     result = {}
 
-    # ── Metadata ─────────────────────────────────────────────────────
+    # â”€â”€ Metadata â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     meta_path = sub_dir / _META_JSON
     meta = {}
     if meta_path.exists():
@@ -229,12 +229,12 @@ def load_subject_erp_results(sub_dir):
             meta = json.load(f)
     result["subject"] = meta.get("subject", sub_dir.parent.name)
 
-    # ── Metrics ──────────────────────────────────────────────────────
+    # â”€â”€ Metrics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     tsv_path = sub_dir / _METRICS_TSV
     if tsv_path.exists():
         result["df"] = pd.read_csv(tsv_path, sep="\t")
 
-    # ── Evokeds ──────────────────────────────────────────────────────
+    # â”€â”€ Evokeds â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     npz_path = sub_dir / _EVOKEDS_NPZ
     if npz_path.exists():
         data = np.load(npz_path, allow_pickle=True)
@@ -252,7 +252,7 @@ def load_subject_erp_results(sub_dir):
         result["pipe_evokeds"] = pipe_evokeds
         result["ch_names"] = ch_names
 
-    # ── Diff waves ───────────────────────────────────────────────────
+    # â”€â”€ Diff waves â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     dw_path = sub_dir / _DIFF_WAVES_NPZ
     if dw_path.exists():
         data = np.load(dw_path, allow_pickle=True)
@@ -266,7 +266,7 @@ def load_subject_erp_results(sub_dir):
                 diff_waves[(cond, ptag)] = data[key]
         result["diff_waves"] = diff_waves
 
-    # ── Effect sizes ─────────────────────────────────────────────────
+    # â”€â”€ Effect sizes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if "effect_sizes" in meta:
         es = {}
         for key, val in meta["effect_sizes"].items():
@@ -278,7 +278,7 @@ def load_subject_erp_results(sub_dir):
 
 
 # =====================================================================
-# aggregate_erp_results — the "deferred group" entry point
+# aggregate_erp_results â€” the "deferred group" entry point
 # =====================================================================
 
 
@@ -302,11 +302,11 @@ def aggregate_erp_results(deriv_root, *, subjects=None):
     data : ERPGroupData
         Named tuple with fields:
 
-        * ``df`` — DataFrame of scalar metrics (all subjects × pipes).
-        * ``all_evokeds`` — ``{pipe_tag: [array, ...]}`` per subject.
-        * ``all_diff_waves`` — ``{(cond, pipe): (n_sub, n_times)}``.
-        * ``all_effect_sizes`` — ``{(cond, pipe): (n_sub,)}``.
-        * ``times_ms`` — common time vector or *None*.
+        * ``df`` â€” DataFrame of scalar metrics (all subjects Ã— pipes).
+        * ``all_evokeds`` â€” ``{pipe_tag: [array, ...]}`` per subject.
+        * ``all_diff_waves`` â€” ``{(cond, pipe): (n_sub, n_times)}``.
+        * ``all_effect_sizes`` â€” ``{(cond, pipe): (n_sub,)}``.
+        * ``times_ms`` â€” common time vector or *None*.
     """
     deriv_root = Path(deriv_root)
 
@@ -320,7 +320,7 @@ def aggregate_erp_results(deriv_root, *, subjects=None):
         log.warning("No subjects found in %s", deriv_root)
         return ERPGroupData(pd.DataFrame(), {}, {}, {}, None)
 
-    # ── Collect per-subject data ─────────────────────────────────────
+    # â”€â”€ Collect per-subject data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     df_frames = []
     evokeds_by_pipe = {}  # {pipe: [array_sub1, array_sub2, ...]}
     dw_by_key = {}  # {(cond, pipe): [array_sub1, ...]}
@@ -330,7 +330,7 @@ def aggregate_erp_results(deriv_root, *, subjects=None):
     for sub in subjects:
         sub_dir = deriv_root / sub / "erp_dss"
         if not sub_dir.exists():
-            log.warning("Skipping %s — no erp_dss dir", sub)
+            log.warning("Skipping %s â€” no erp_dss dir", sub)
             continue
 
         r = load_subject_erp_results(sub_dir)
@@ -353,7 +353,7 @@ def aggregate_erp_results(deriv_root, *, subjects=None):
             for key, val in r["effect_sizes"].items():
                 es_by_key.setdefault(key, []).append(val)
 
-    # ── Assemble outputs ─────────────────────────────────────────────
+    # â”€â”€ Assemble outputs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     df = pd.concat(df_frames, ignore_index=True) if df_frames else pd.DataFrame()
 
     # Stack diff waves: (n_sub, n_times)

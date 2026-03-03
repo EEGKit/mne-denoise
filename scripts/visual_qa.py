@@ -498,8 +498,8 @@ _try("plot_dss_comparison (advanced)", _dss_comparison)
 print("\n── ZapLine ──")
 
 _try(
-    "plot_psd_comparison [zapline]",
-    viz.zapline.plot_psd_comparison,
+    "plot_zapline_psd_comparison [zapline]",
+    viz.zapline.plot_zapline_psd_comparison,
     data_before_zap,
     data_after_zap,
     sfreq=sfreq,
@@ -518,8 +518,8 @@ _try(
 )
 
 _try(
-    "plot_spatial_patterns [zapline]",
-    viz.zapline.plot_spatial_patterns,
+    "plot_zapline_patterns [zapline]",
+    viz.zapline.plot_zapline_patterns,
     zap,
     show=False,
     fname=str(ZAP_DIR / "spatial_patterns.png"),

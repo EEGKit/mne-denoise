@@ -29,6 +29,12 @@ from .benchmark import (
     plot_tradeoff_and_r,
     plot_tradeoff_scatter,
 )
+from .benchmark_io import (
+    LineNoiseGroupData,
+    aggregate_benchmark_results,
+    load_subject_benchmark_results,
+    save_subject_benchmark_results,
+)
 from .comparison import (
     plot_denoising_summary,
     plot_evoked_comparison,
@@ -56,36 +62,34 @@ from .dss import (
     plot_dss_segmented_summary,
     plot_dss_summary,
 )
-from .zapline import (
-    plot_adaptive_summary,
-    plot_cleaning_summary,
-    plot_component_scores,
-    plot_zapline_analytics,
-    plot_zapline_summary,
-)
-from .zapline import plot_psd_comparison as plot_zapline_psd_comparison
-from .zapline import (
-    plot_spatial_patterns as plot_zapline_patterns,
-)
 from .erp import (
     DEFAULT_PIPE_COLORS,
     DEFAULT_PIPE_LABELS,
     DEFAULT_PIPE_ORDER,
-    plot_condition_interaction,
-    plot_endpoint_summary,
+    plot_erp_condition_interaction,
+    plot_erp_endpoint_summary,
+    plot_erp_forest,
+    plot_erp_grand_average,
+    plot_erp_grand_condition_interaction,
+    plot_erp_metric_violins,
+    plot_erp_null_distribution,
+    plot_erp_pipeline_slopes,
     plot_erp_signal_diagnostics,
-    plot_forest,
-    plot_grand_average_erp,
-    plot_grand_condition_interaction,
-    plot_metric_violins,
-    plot_null_distribution,
-    plot_pipeline_slopes,
 )
 from .erp_io import (
     ERPGroupData,
     aggregate_erp_results,
     load_subject_erp_results,
     save_subject_erp_results,
+)
+from .zapline import (
+    plot_adaptive_summary,
+    plot_cleaning_summary,
+    plot_component_scores,
+    plot_zapline_analytics,
+    plot_zapline_patterns,
+    plot_zapline_psd_comparison,
+    plot_zapline_summary,
 )
 
 __all__ = [
@@ -150,17 +154,22 @@ __all__ = [
     "DEFAULT_PIPE_LABELS",
     "DEFAULT_PIPE_ORDER",
     "plot_erp_signal_diagnostics",
-    "plot_condition_interaction",
-    "plot_metric_violins",
-    "plot_endpoint_summary",
-    "plot_pipeline_slopes",
-    "plot_grand_average_erp",
-    "plot_grand_condition_interaction",
-    "plot_null_distribution",
-    "plot_forest",
+    "plot_erp_condition_interaction",
+    "plot_erp_metric_violins",
+    "plot_erp_endpoint_summary",
+    "plot_erp_pipeline_slopes",
+    "plot_erp_grand_average",
+    "plot_erp_grand_condition_interaction",
+    "plot_erp_null_distribution",
+    "plot_erp_forest",
     # ERP I/O (deferred-group workflow)
     "ERPGroupData",
     "save_subject_erp_results",
     "load_subject_erp_results",
     "aggregate_erp_results",
+    # Benchmark I/O (deferred-group workflow)
+    "LineNoiseGroupData",
+    "save_subject_benchmark_results",
+    "load_subject_benchmark_results",
+    "aggregate_benchmark_results",
 ]

@@ -20,7 +20,7 @@ import pytest
 
 matplotlib.use("Agg")
 
-# ── Imports under test ──────────────────────────────────────────────
+# â”€â”€ Imports under test â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 from mne_denoise.viz._theme import _finalize_fig
 from mne_denoise.viz.erp import (
@@ -34,15 +34,15 @@ from mne_denoise.viz.erp import (
     _pipe_color,
     _pipe_label,
     _try_import_seaborn,
-    plot_condition_interaction,
-    plot_endpoint_summary,
+    plot_erp_condition_interaction,
+    plot_erp_endpoint_summary,
+    plot_erp_forest,
+    plot_erp_grand_average,
+    plot_erp_grand_condition_interaction,
+    plot_erp_metric_violins,
+    plot_erp_null_distribution,
+    plot_erp_pipeline_slopes,
     plot_erp_signal_diagnostics,
-    plot_forest,
-    plot_grand_average_erp,
-    plot_grand_condition_interaction,
-    plot_metric_violins,
-    plot_null_distribution,
-    plot_pipeline_slopes,
 )
 from mne_denoise.viz.erp_io import (
     ERPGroupData,
@@ -51,7 +51,7 @@ from mne_denoise.viz.erp_io import (
     save_subject_erp_results,
 )
 
-# ── Close all figures after each test ──────────────────────────────
+# â”€â”€ Close all figures after each test â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 @pytest.fixture(autouse=True)
@@ -60,9 +60,9 @@ def _close_plots():
     plt.close("all")
 
 
-# ═══════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  Shared Fixtures
-# ═══════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 N_EPOCHS = 20
 N_CH = 5
@@ -170,9 +170,9 @@ def metrics_df():
     return pd.DataFrame(rows)
 
 
-# ═══════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  A. Private helpers
-# ═══════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class TestPrivateHelpers:
@@ -231,9 +231,9 @@ class TestPrivateHelpers:
             _get_times_ms(np.zeros((5, 10)))
 
 
-# ═══════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  B. plot_erp_signal_diagnostics
-# ═══════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class TestPlotERPSignalDiagnostics:
@@ -317,15 +317,15 @@ class TestPlotERPSignalDiagnostics:
         assert isinstance(fig, plt.Figure)
 
 
-# ═══════════════════════════════════════════════════════════════════════
-#  C. plot_condition_interaction
-# ═══════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+#  C. plot_erp_condition_interaction
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class TestPlotConditionInteraction:
     def test_basic(self, diff_waves_and_effects, times_ms):
         dw, se, es, conds = diff_waves_and_effects
-        fig1, fig2 = plot_condition_interaction(
+        fig1, fig2 = plot_erp_condition_interaction(
             dw,
             se,
             es,
@@ -339,7 +339,7 @@ class TestPlotConditionInteraction:
     def test_fname_dual_save(self, diff_waves_and_effects, times_ms, tmp_path):
         dw, se, es, conds = diff_waves_and_effects
         fpath = tmp_path / "cond.png"
-        fig1, fig2 = plot_condition_interaction(
+        fig1, fig2 = plot_erp_condition_interaction(
             dw,
             se,
             es,
@@ -358,7 +358,7 @@ class TestPlotConditionInteraction:
         fpath = tmp_path / "cond_show.png"
         with pytest.MonkeyPatch.context() as m:
             m.setattr(plt, "show", lambda *a, **kw: None)
-            fig1, fig2 = plot_condition_interaction(
+            fig1, fig2 = plot_erp_condition_interaction(
                 dw,
                 se,
                 es,
@@ -375,7 +375,7 @@ class TestPlotConditionInteraction:
         dw1 = {k: v for k, v in dw.items() if k[0] == "lab"}
         se1 = {k: v for k, v in se.items() if k[0] == "lab"}
         es1 = {k: v for k, v in es.items() if k[0] == "lab"}
-        fig1, fig2 = plot_condition_interaction(
+        fig1, fig2 = plot_erp_condition_interaction(
             dw1,
             se1,
             es1,
@@ -390,7 +390,7 @@ class TestPlotConditionInteraction:
         dw = {("lab", "C0"): np.zeros(N_TIMES)}
         se = {("lab", "C0"): np.ones(N_TIMES) * 0.1}
         es = {("lab", "C0"): 0.5}
-        fig1, fig2 = plot_condition_interaction(
+        fig1, fig2 = plot_erp_condition_interaction(
             dw,
             se,
             es,
@@ -405,7 +405,7 @@ class TestPlotConditionInteraction:
         """diff_se values of None should not crash."""
         dw, _, es, conds = diff_waves_and_effects
         se_none = dict.fromkeys(dw)
-        fig1, fig2 = plot_condition_interaction(
+        fig1, fig2 = plot_erp_condition_interaction(
             dw,
             se_none,
             es,
@@ -417,7 +417,7 @@ class TestPlotConditionInteraction:
 
     def test_custom_labels(self, diff_waves_and_effects, times_ms):
         dw, se, es, conds = diff_waves_and_effects
-        fig1, fig2 = plot_condition_interaction(
+        fig1, fig2 = plot_erp_condition_interaction(
             dw,
             se,
             es,
@@ -432,14 +432,14 @@ class TestPlotConditionInteraction:
         assert isinstance(fig1, plt.Figure)
 
 
-# ═══════════════════════════════════════════════════════════════════════
-#  D. plot_metric_violins
-# ═══════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+#  D. plot_erp_metric_violins
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class TestPlotMetricViolins:
     def test_basic(self, metrics_df):
-        fig = plot_metric_violins(
+        fig = plot_erp_metric_violins(
             metrics_df,
             ["hedges_g", "auc"],
             metric_labels=["Hedges' g", "AUC"],
@@ -448,7 +448,7 @@ class TestPlotMetricViolins:
         assert isinstance(fig, plt.Figure)
 
     def test_single_metric(self, metrics_df):
-        fig = plot_metric_violins(
+        fig = plot_erp_metric_violins(
             metrics_df,
             ["hedges_g"],
             show=False,
@@ -456,7 +456,7 @@ class TestPlotMetricViolins:
         assert isinstance(fig, plt.Figure)
 
     def test_no_paired(self, metrics_df):
-        fig = plot_metric_violins(
+        fig = plot_erp_metric_violins(
             metrics_df,
             ["hedges_g"],
             show_paired=False,
@@ -465,7 +465,7 @@ class TestPlotMetricViolins:
         assert isinstance(fig, plt.Figure)
 
     def test_reference_lines(self, metrics_df):
-        fig = plot_metric_violins(
+        fig = plot_erp_metric_violins(
             metrics_df,
             ["auc"],
             reference_lines={"auc": [(0.5, {"color": "k", "ls": ":", "alpha": 0.5})]},
@@ -474,7 +474,7 @@ class TestPlotMetricViolins:
         assert isinstance(fig, plt.Figure)
 
     def test_custom_group(self, metrics_df):
-        fig = plot_metric_violins(
+        fig = plot_erp_metric_violins(
             metrics_df,
             ["hedges_g"],
             group_order=["C2", "C0"],
@@ -489,12 +489,12 @@ class TestPlotMetricViolins:
         """A metric column with all NaN should show 'No data' text."""
         df = metrics_df.copy()
         df["empty"] = np.nan
-        fig = plot_metric_violins(df, ["empty"], show=False)
+        fig = plot_erp_metric_violins(df, ["empty"], show=False)
         assert isinstance(fig, plt.Figure)
 
     def test_fname(self, metrics_df, tmp_path):
         fpath = tmp_path / "violins.png"
-        plot_metric_violins(
+        plot_erp_metric_violins(
             metrics_df,
             ["hedges_g"],
             show=False,
@@ -510,18 +510,18 @@ class TestPlotMetricViolins:
                 {"subject": "sub-01", "pipeline": "C2", "hedges_g": 0.8},
             ]
         )
-        fig = plot_metric_violins(df, ["hedges_g"], show=False)
+        fig = plot_erp_metric_violins(df, ["hedges_g"], show=False)
         assert isinstance(fig, plt.Figure)
 
 
-# ═══════════════════════════════════════════════════════════════════════
-#  E. plot_endpoint_summary
-# ═══════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+#  E. plot_erp_endpoint_summary
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class TestPlotEndpointSummary:
     def test_basic(self, metrics_df):
-        fig = plot_endpoint_summary(
+        fig = plot_erp_endpoint_summary(
             metrics_df,
             ["hedges_g", "auc"],
             metric_labels=["Hedges' g", "AUC"],
@@ -532,7 +532,7 @@ class TestPlotEndpointSummary:
     def test_with_null_distributions(self, metrics_df):
         rng = np.random.default_rng(7)
         null = {"C2": {"g": rng.normal(0, 0.1, 500)}}
-        fig = plot_endpoint_summary(
+        fig = plot_erp_endpoint_summary(
             metrics_df,
             ["hedges_g", "auc"],
             null_distributions=null,
@@ -543,7 +543,7 @@ class TestPlotEndpointSummary:
         assert isinstance(fig, plt.Figure)
 
     def test_slope_panel(self, metrics_df):
-        fig = plot_endpoint_summary(
+        fig = plot_erp_endpoint_summary(
             metrics_df,
             ["hedges_g"],
             slope_metric="hedges_g",
@@ -570,7 +570,7 @@ class TestPlotEndpointSummary:
                 },
             ]
         )
-        fig = plot_endpoint_summary(
+        fig = plot_erp_endpoint_summary(
             df,
             ["hedges_g", "auc"],
             show=False,
@@ -579,7 +579,7 @@ class TestPlotEndpointSummary:
 
     def test_auc_reference_line(self, metrics_df):
         """The auc panel should show a horizontal line at 0.5."""
-        fig = plot_endpoint_summary(
+        fig = plot_erp_endpoint_summary(
             metrics_df,
             ["auc"],
             metric_labels=["AUC"],
@@ -589,7 +589,7 @@ class TestPlotEndpointSummary:
 
     def test_fname(self, metrics_df, tmp_path):
         fpath = tmp_path / "summary.png"
-        plot_endpoint_summary(
+        plot_erp_endpoint_summary(
             metrics_df,
             ["hedges_g"],
             show=False,
@@ -598,7 +598,7 @@ class TestPlotEndpointSummary:
         assert fpath.exists()
 
     def test_custom_labels(self, metrics_df):
-        fig = plot_endpoint_summary(
+        fig = plot_erp_endpoint_summary(
             metrics_df,
             ["hedges_g"],
             group_order=["C0", "C2"],
@@ -612,18 +612,18 @@ class TestPlotEndpointSummary:
     def test_empty_metric(self, metrics_df):
         df = metrics_df.copy()
         df["empty"] = np.nan
-        fig = plot_endpoint_summary(df, ["empty"], show=False)
+        fig = plot_erp_endpoint_summary(df, ["empty"], show=False)
         assert isinstance(fig, plt.Figure)
 
 
-# ═══════════════════════════════════════════════════════════════════════
-#  F. plot_pipeline_slopes
-# ═══════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+#  F. plot_erp_pipeline_slopes
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class TestPlotPipelineSlopes:
     def test_basic(self, metrics_df):
-        fig = plot_pipeline_slopes(
+        fig = plot_erp_pipeline_slopes(
             metrics_df,
             ["hedges_g", "auc"],
             metric_labels=["Hedges' g", "AUC"],
@@ -632,7 +632,7 @@ class TestPlotPipelineSlopes:
         assert isinstance(fig, plt.Figure)
 
     def test_single_metric(self, metrics_df):
-        fig = plot_pipeline_slopes(
+        fig = plot_erp_pipeline_slopes(
             metrics_df,
             ["hedges_g"],
             show=False,
@@ -646,11 +646,11 @@ class TestPlotPipelineSlopes:
                 {"subject": "sub-01", "pipeline": "C2", "hedges_g": 0.8},
             ]
         )
-        fig = plot_pipeline_slopes(df, ["hedges_g"], show=False)
+        fig = plot_erp_pipeline_slopes(df, ["hedges_g"], show=False)
         assert fig is None
 
     def test_reference_lines(self, metrics_df):
-        fig = plot_pipeline_slopes(
+        fig = plot_erp_pipeline_slopes(
             metrics_df,
             ["auc"],
             reference_lines={"auc": [(0.5, {"color": "k", "ls": ":"})]},
@@ -659,7 +659,7 @@ class TestPlotPipelineSlopes:
         assert isinstance(fig, plt.Figure)
 
     def test_custom_labels(self, metrics_df):
-        fig = plot_pipeline_slopes(
+        fig = plot_erp_pipeline_slopes(
             metrics_df,
             ["hedges_g"],
             group_order=["C0", "C2"],
@@ -672,7 +672,7 @@ class TestPlotPipelineSlopes:
 
     def test_fname(self, metrics_df, tmp_path):
         fpath = tmp_path / "slopes.png"
-        plot_pipeline_slopes(
+        plot_erp_pipeline_slopes(
             metrics_df,
             ["hedges_g"],
             show=False,
@@ -681,9 +681,9 @@ class TestPlotPipelineSlopes:
         assert fpath.exists()
 
 
-# ═══════════════════════════════════════════════════════════════════════
-#  G. plot_grand_average_erp
-# ═══════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+#  G. plot_erp_grand_average
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class TestPlotGrandAverageERP:
@@ -696,11 +696,11 @@ class TestPlotGrandAverageERP:
         return out
 
     def test_basic(self, all_evokeds):
-        fig = plot_grand_average_erp(all_evokeds, show=False)
+        fig = plot_erp_grand_average(all_evokeds, show=False)
         assert isinstance(fig, plt.Figure)
 
     def test_single_channel(self, all_evokeds):
-        fig = plot_grand_average_erp(
+        fig = plot_erp_grand_average(
             all_evokeds,
             channels=("Cz",),
             show=False,
@@ -710,11 +710,11 @@ class TestPlotGrandAverageERP:
     def test_single_subject(self, evokeds_dict):
         """SEM should be zero with N=1 (no error)."""
         all_ev = {ptag: [ev] for ptag, ev in evokeds_dict.items()}
-        fig = plot_grand_average_erp(all_ev, show=False)
+        fig = plot_erp_grand_average(all_ev, show=False)
         assert isinstance(fig, plt.Figure)
 
     def test_custom_options(self, all_evokeds):
-        fig = plot_grand_average_erp(
+        fig = plot_erp_grand_average(
             all_evokeds,
             channels=("Pz",),
             erp_windows={"P300": (0.25, 0.5)},
@@ -729,13 +729,13 @@ class TestPlotGrandAverageERP:
 
     def test_fname(self, all_evokeds, tmp_path):
         fpath = tmp_path / "grand_avg.png"
-        plot_grand_average_erp(all_evokeds, show=False, fname=str(fpath))
+        plot_erp_grand_average(all_evokeds, show=False, fname=str(fpath))
         assert fpath.exists()
 
 
-# ═══════════════════════════════════════════════════════════════════════
-#  H. plot_grand_condition_interaction
-# ═══════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+#  H. plot_erp_grand_condition_interaction
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class TestPlotGrandConditionInteraction:
@@ -754,7 +754,7 @@ class TestPlotGrandConditionInteraction:
 
     def test_basic(self, group_data, times_ms):
         all_dw, all_es, conds = group_data
-        fig1, fig2 = plot_grand_condition_interaction(
+        fig1, fig2 = plot_erp_grand_condition_interaction(
             all_dw,
             all_es,
             times_ms,
@@ -768,7 +768,7 @@ class TestPlotGrandConditionInteraction:
         all_dw, all_es, _ = group_data
         dw1 = {k: v for k, v in all_dw.items() if k[0] == "lab"}
         es1 = {k: v for k, v in all_es.items() if k[0] == "lab"}
-        fig1, fig2 = plot_grand_condition_interaction(
+        fig1, fig2 = plot_erp_grand_condition_interaction(
             dw1,
             es1,
             times_ms,
@@ -780,7 +780,7 @@ class TestPlotGrandConditionInteraction:
     def test_fname_dual_save(self, group_data, times_ms, tmp_path):
         all_dw, all_es, conds = group_data
         fpath = tmp_path / "grand_cond.png"
-        plot_grand_condition_interaction(
+        plot_erp_grand_condition_interaction(
             all_dw,
             all_es,
             times_ms,
@@ -796,7 +796,7 @@ class TestPlotGrandConditionInteraction:
         fpath = tmp_path / "grand_cond_s.png"
         with pytest.MonkeyPatch.context() as m:
             m.setattr(plt, "show", lambda *a, **kw: None)
-            plot_grand_condition_interaction(
+            plot_erp_grand_condition_interaction(
                 all_dw,
                 all_es,
                 times_ms,
@@ -810,7 +810,7 @@ class TestPlotGrandConditionInteraction:
         """Missing (cond, pipe) keys should be silently skipped."""
         all_dw = {("lab", "C0"): rng.standard_normal((3, N_TIMES))}
         all_es = {("lab", "C0"): np.array([0.5, 0.6, 0.7])}
-        fig1, fig2 = plot_grand_condition_interaction(
+        fig1, fig2 = plot_erp_grand_condition_interaction(
             all_dw,
             all_es,
             times_ms,
@@ -824,7 +824,7 @@ class TestPlotGrandConditionInteraction:
         """N=1 subject should produce zero SEM band."""
         all_dw = {("lab", "C0"): rng.standard_normal((1, N_TIMES))}
         all_es = {("lab", "C0"): np.array([0.5])}
-        fig1, fig2 = plot_grand_condition_interaction(
+        fig1, fig2 = plot_erp_grand_condition_interaction(
             all_dw,
             all_es,
             times_ms,
@@ -836,7 +836,7 @@ class TestPlotGrandConditionInteraction:
 
     def test_custom_labels(self, group_data, times_ms):
         all_dw, all_es, conds = group_data
-        fig1, fig2 = plot_grand_condition_interaction(
+        fig1, fig2 = plot_erp_grand_condition_interaction(
             all_dw,
             all_es,
             times_ms,
@@ -850,31 +850,31 @@ class TestPlotGrandConditionInteraction:
         assert isinstance(fig1, plt.Figure)
 
 
-# ═══════════════════════════════════════════════════════════════════════
-#  I. plot_null_distribution
-# ═══════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+#  I. plot_erp_null_distribution
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class TestPlotNullDistribution:
     def test_basic(self, rng):
         null = rng.normal(0, 0.1, 500)
-        fig, pval = plot_null_distribution(null, observed=0.8, show=False)
+        fig, pval = plot_erp_null_distribution(null, observed=0.8, show=False)
         assert isinstance(fig, plt.Figure)
         assert 0.0 <= pval <= 1.0
 
     def test_observed_in_null_range(self, rng):
         null = rng.normal(0, 1.0, 500)
-        fig, pval = plot_null_distribution(null, observed=0.0, show=False)
+        fig, pval = plot_erp_null_distribution(null, observed=0.0, show=False)
         assert pval > 0.1  # should be non-significant
 
     def test_extreme_observed(self, rng):
         null = rng.normal(0, 0.01, 500)
-        fig, pval = plot_null_distribution(null, observed=10.0, show=False)
+        fig, pval = plot_erp_null_distribution(null, observed=10.0, show=False)
         assert pval < 0.01
 
     def test_custom_options(self, rng):
         null = rng.normal(0, 0.5, 300)
-        fig, pval = plot_null_distribution(
+        fig, pval = plot_erp_null_distribution(
             null,
             observed=0.3,
             metric_label="Effect Size",
@@ -890,7 +890,7 @@ class TestPlotNullDistribution:
     def test_fname(self, rng, tmp_path):
         null = rng.normal(0, 0.1, 100)
         fpath = tmp_path / "null.png"
-        plot_null_distribution(
+        plot_erp_null_distribution(
             null,
             observed=0.5,
             show=False,
@@ -901,18 +901,18 @@ class TestPlotNullDistribution:
     def test_observed_below_median(self, rng):
         """Annotation ha changes when observed < median."""
         null = rng.normal(1.0, 0.1, 500)
-        fig, pval = plot_null_distribution(null, observed=0.5, show=False)
+        fig, pval = plot_erp_null_distribution(null, observed=0.5, show=False)
         assert isinstance(fig, plt.Figure)
 
 
-# ═══════════════════════════════════════════════════════════════════════
-#  J. plot_forest
-# ═══════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+#  J. plot_erp_forest
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class TestPlotForest:
     def test_basic(self, metrics_df):
-        fig = plot_forest(
+        fig = plot_erp_forest(
             metrics_df,
             metric_col="hedges_g",
             show=False,
@@ -920,7 +920,7 @@ class TestPlotForest:
         assert isinstance(fig, plt.Figure)
 
     def test_with_baseline_group(self, metrics_df):
-        fig = plot_forest(
+        fig = plot_erp_forest(
             metrics_df,
             metric_col="hedges_g",
             target_group="C2",
@@ -932,7 +932,7 @@ class TestPlotForest:
     def test_with_se_col(self, metrics_df):
         df = metrics_df.copy()
         df["hedges_g_se"] = 0.1
-        fig = plot_forest(
+        fig = plot_erp_forest(
             df,
             metric_col="hedges_g",
             se_col="hedges_g_se",
@@ -943,7 +943,7 @@ class TestPlotForest:
     def test_with_ci_col(self, metrics_df):
         df = metrics_df.copy()
         df["hedges_g_ci"] = 0.2
-        fig = plot_forest(
+        fig = plot_erp_forest(
             df,
             metric_col="hedges_g",
             ci_col="hedges_g_ci",
@@ -952,7 +952,7 @@ class TestPlotForest:
         assert isinstance(fig, plt.Figure)
 
     def test_custom_options(self, metrics_df):
-        fig = plot_forest(
+        fig = plot_erp_forest(
             metrics_df,
             metric_col="hedges_g",
             target_group="C2",
@@ -967,7 +967,7 @@ class TestPlotForest:
         assert isinstance(fig, plt.Figure)
 
     def test_no_reference_line(self, metrics_df):
-        fig = plot_forest(
+        fig = plot_erp_forest(
             metrics_df,
             metric_col="hedges_g",
             reference_line=None,
@@ -977,7 +977,7 @@ class TestPlotForest:
 
     def test_fname(self, metrics_df, tmp_path):
         fpath = tmp_path / "forest.png"
-        plot_forest(
+        plot_erp_forest(
             metrics_df,
             metric_col="hedges_g",
             show=False,
@@ -992,13 +992,13 @@ class TestPlotForest:
                 {"subject": "sub-01", "pipeline": "C2", "hedges_g": 0.8},
             ]
         )
-        fig = plot_forest(df, metric_col="hedges_g", show=False)
+        fig = plot_erp_forest(df, metric_col="hedges_g", show=False)
         assert isinstance(fig, plt.Figure)
 
 
-# ═══════════════════════════════════════════════════════════════════════
-#  K. _finalize_fig — mkdir fix
-# ═══════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+#  K. _finalize_fig â€” mkdir fix
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class TestFinalizeFigMkdir:
@@ -1032,9 +1032,9 @@ class TestFinalizeFigMkdir:
         assert fpath.exists()
 
 
-# ═══════════════════════════════════════════════════════════════════════
-#  L. erp_io — save / load / aggregate
-# ═══════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+#  L. erp_io â€” save / load / aggregate
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class TestERPIO:
@@ -1273,9 +1273,9 @@ class TestERPIO:
         )
 
 
-# ═══════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  M. Default constants are exported
-# ═══════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 def test_default_constants():

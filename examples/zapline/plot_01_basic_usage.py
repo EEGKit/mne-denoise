@@ -32,7 +32,7 @@ from scipy import signal
 from mne_denoise.viz.zapline import (
     plot_cleaning_summary,
     plot_component_scores,
-    plot_psd_comparison,
+    plot_zapline_psd_comparison,
 )
 from mne_denoise.zapline import ZapLine
 
@@ -139,8 +139,8 @@ print(f"Harmonics processed: {est.n_harmonics_}")
 # --------------------
 # Let's visualize the cleaning effect using the reusable viz function.
 
-# Use plot_psd_comparison for a clean comparison
-plot_psd_comparison(data, cleaned, sfreq, line_freq=50, show=True)
+# Use plot_zapline_psd_comparison for a clean comparison
+plot_zapline_psd_comparison(data, cleaned, sfreq, line_freq=50, show=True)
 
 # %%
 # Component Scores

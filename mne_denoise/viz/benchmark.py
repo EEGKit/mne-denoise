@@ -34,12 +34,9 @@ Hamza Abdelhedi — hamza.abdelhedi@umontreal.ca
 
 from __future__ import annotations
 
-from pathlib import Path
-
-import matplotlib.pyplot as plt
 import numpy as np
 
-from ._theme import COLORS, FONTS, pub_figure, pub_legend, style_axes
+from ._theme import COLORS, FONTS, _finalize_fig, pub_figure, pub_legend, style_axes
 
 # —— Default method palette (colorblind-safe, matches notebook) ---
 DEFAULT_METHOD_COLORS = {
@@ -62,15 +59,6 @@ DEFAULT_METHOD_ORDER = ["M0", "M1", "M2", "M3"]
 # =====================================================================
 # Helpers
 # =====================================================================
-
-
-def _resolve_save(fig, fname, dpi=300):
-    """Optionally save *fig* and return it."""
-    if fname is not None:
-        fname = Path(fname)
-        fname.parent.mkdir(parents=True, exist_ok=True)
-        fig.savefig(fname, dpi=dpi, bbox_inches="tight")
-    return fig
 
 
 def _method_color(method, method_colors=None):
@@ -192,13 +180,7 @@ def plot_qc_psd(
         ax.set_xlabel("Frequency (Hz)", fontsize=FONTS["label"])
         style_axes(ax)
 
-    fig.tight_layout()
-    _resolve_save(fig, fname)
-    if show:
-        plt.show()
-    else:
-        plt.close(fig)
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
 # =====================================================================
@@ -325,13 +307,7 @@ def plot_psd_gallery(
         fontweight="bold",
         y=1.01,
     )
-    fig.tight_layout()
-    _resolve_save(fig, fname)
-    if show:
-        plt.show()
-    else:
-        plt.close(fig)
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
 # =====================================================================
@@ -448,13 +424,7 @@ def plot_subject_psd_overlay(
         fontsize=FONTS["suptitle"],
         fontweight="bold",
     )
-    fig.tight_layout()
-    _resolve_save(fig, fname)
-    if show:
-        plt.show()
-    else:
-        plt.close(fig)
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
 # =====================================================================
@@ -564,13 +534,7 @@ def plot_metric_bars(
         fontsize=FONTS["suptitle"],
         fontweight="bold",
     )
-    fig.tight_layout()
-    _resolve_save(fig, fname)
-    if show:
-        plt.show()
-    else:
-        plt.close(fig)
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
 # =====================================================================
@@ -652,13 +616,7 @@ def plot_tradeoff_scatter(
     ax.axhline(10, color=COLORS["success"], ls=":", alpha=0.4)
     ax.axvline(0, color=COLORS["accent"], ls=":", alpha=0.4, label="No distortion")
 
-    fig.tight_layout()
-    _resolve_save(fig, fname)
-    if show:
-        plt.show()
-    else:
-        plt.close(fig)
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
 # =====================================================================
@@ -753,13 +711,7 @@ def plot_r_comparison(
     pub_legend(ax)
     style_axes(ax, grid=True)
 
-    fig.tight_layout()
-    _resolve_save(fig, fname)
-    if show:
-        plt.show()
-    else:
-        plt.close(fig)
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
 # =====================================================================
@@ -844,13 +796,7 @@ def plot_harmonic_attenuation(
     pub_legend(ax)
     style_axes(ax, grid=True)
 
-    fig.tight_layout()
-    _resolve_save(fig, fname)
-    if show:
-        plt.show()
-    else:
-        plt.close(fig)
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
 # =====================================================================
@@ -930,13 +876,7 @@ def plot_paired_metrics(
     fig.suptitle(
         "Paired Subject-Level Comparison", fontsize=FONTS["suptitle"], fontweight="bold"
     )
-    fig.tight_layout()
-    _resolve_save(fig, fname)
-    if show:
-        plt.show()
-    else:
-        plt.close(fig)
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)
 
 
 # =====================================================================
@@ -1075,10 +1015,4 @@ def plot_tradeoff_and_r(
     style_axes(ax, grid=True)
 
     fig.suptitle("Trade-off Analysis", fontsize=FONTS["suptitle"], fontweight="bold")
-    fig.tight_layout()
-    _resolve_save(fig, fname)
-    if show:
-        plt.show()
-    else:
-        plt.close(fig)
-    return fig
+    return _finalize_fig(fig, show=show, fname=fname)

@@ -22,7 +22,7 @@ from scipy.io import loadmat
 
 from mne_denoise.viz.zapline import (
     plot_cleaning_summary,
-    plot_psd_comparison,
+    plot_zapline_psd_comparison,
 )
 from mne_denoise.zapline import ZapLine
 
@@ -94,7 +94,7 @@ print(f"Cleaned epochs shape: {cleaned_epochs.shape}")
 # ^^^^^^^^^^^^^^^^^^^^
 
 # Use the reusable viz function for PSD comparison
-plot_psd_comparison(data_concat, cleaned, sfreq, line_freq=50, show=True)
+plot_zapline_psd_comparison(data_concat, cleaned, sfreq, line_freq=50, show=True)
 
 # Show comprehensive cleaning summary
 plot_cleaning_summary(data_concat, cleaned, est, sfreq, line_freq=50, show=True)
@@ -152,7 +152,7 @@ if data3_path.exists():
     print(f"Components removed: {est_meg.n_removed_}")
 
     # Use the reusable viz functions
-    plot_psd_comparison(
+    plot_zapline_psd_comparison(
         meg_concat, cleaned_meg, sfreq_meg, line_freq=50, fmax=150, show=True
     )
 
@@ -210,7 +210,7 @@ if example_data_path.exists():
     print(f"Components removed: {est_high.n_removed_}")
 
     # Use the reusable viz functions
-    plot_psd_comparison(
+    plot_zapline_psd_comparison(
         meg_high, cleaned_high, sfreq_high, line_freq=50, fmax=150, show=True
     )
     plot_cleaning_summary(

@@ -24,8 +24,8 @@ from scipy.io import loadmat
 from mne_denoise.viz.zapline import (
     plot_cleaning_summary,
     plot_component_scores,
-    plot_psd_comparison,
-    plot_spatial_patterns,
+    plot_zapline_patterns,
+    plot_zapline_psd_comparison,
 )
 from mne_denoise.zapline import ZapLine
 
@@ -184,7 +184,7 @@ est_scores.fit(data)
 # Use the reusable viz functions
 fig, axes = plt.subplots(1, 2, figsize=(12, 4))
 plot_component_scores(est_scores, ax=axes[0], show=False)
-plot_spatial_patterns(est_scores, n_patterns=3, ax=axes[1], show=False)
+plot_zapline_patterns(est_scores, n_patterns=3, ax=axes[1], show=False)
 plt.tight_layout()
 plt.show()
 
@@ -242,7 +242,7 @@ if meg_data is not None:
     # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     # Use reusable viz function for PSD comparison
-    plot_psd_comparison(
+    plot_zapline_psd_comparison(
         meg_data, cleaned_meg, sfreq_meg, line_freq=60, fmax=150, show=True
     )
 

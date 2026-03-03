@@ -11,28 +11,28 @@ use the shared theme from :mod:`mne_denoise.viz._theme`.
 Functions
 ---------
 plot_erp_signal_diagnostics
-    3×2 QA dashboard: PSD, evoked overlay, difference waves at 2 channels.
-plot_condition_interaction
+    3Ã—2 QA dashboard: PSD, evoked overlay, difference waves at 2 channels.
+plot_erp_condition_interaction
     Per-condition difference waves + Hedges' g effect-size interaction.
-plot_metric_violins
+plot_erp_metric_violins
     Violin + swarm + paired lines for arbitrary metric columns.
-plot_endpoint_summary
+plot_erp_endpoint_summary
     Multipanel storyboard: violins + null-CI overlay + paired slopes.
-plot_pipeline_slopes
+plot_erp_pipeline_slopes
     Multi-metric paired subject-level trajectories.
-plot_grand_average_erp
-    Group-mean evoked ± between-subject SEM for each pipeline.
-plot_grand_condition_interaction
-    Group-level condition × pipeline interaction with between-subject error.
-plot_null_distribution
+plot_erp_grand_average
+    Group-mean evoked Â± between-subject SEM for each pipeline.
+plot_erp_grand_condition_interaction
+    Group-level condition Ã— pipeline interaction with between-subject error.
+plot_erp_null_distribution
     Histogram of permutation null with observed statistic and CI.
-plot_forest
+plot_erp_forest
     Per-subject effect-size forest plot with confidence intervals.
 
 Authors
 -------
-Sina Esmaeili — sina.esmaeili@umontreal.ca
-Hamza Abdelhedi — hamza.abdelhedi@umontreal.ca
+Sina Esmaeili â€” sina.esmaeili@umontreal.ca
+Hamza Abdelhedi â€” hamza.abdelhedi@umontreal.ca
 """
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ from scipy.signal import welch as _welch
 from ._theme import COLORS, FONTS, _finalize_fig, pub_figure, pub_legend, style_axes
 
 # Suppress seaborn FutureWarning about palette without hue (our calls DO pass
-# hue, but seaborn ≤ 0.13 may still emit the warning internally).
+# hue, but seaborn â‰¤ 0.13 may still emit the warning internally).
 warnings.filterwarnings(
     "ignore",
     category=FutureWarning,
@@ -132,7 +132,7 @@ def _try_import_seaborn():
 
 
 # =====================================================================
-# plot_erp_signal_diagnostics — Cell 22 QA Level B
+# plot_erp_signal_diagnostics â€” Cell 22 QA Level B
 # =====================================================================
 
 
@@ -154,7 +154,7 @@ def plot_erp_signal_diagnostics(
     fname=None,
     show=True,
 ):
-    """3×2 QA dashboard: PSD, evoked overlay, difference waves at 2 channels.
+    """3Ã—2 QA dashboard: PSD, evoked overlay, difference waves at 2 channels.
 
     Rows: PSD | Evoked | Difference wave.
     Columns: one per channel in *channels*.
@@ -162,10 +162,10 @@ def plot_erp_signal_diagnostics(
     Parameters
     ----------
     pipe_epochs : dict
-        ``{pipe_tag: Epochs | ndarray}`` — epoched data per pipeline.
+        ``{pipe_tag: Epochs | ndarray}`` â€” epoched data per pipeline.
         If MNE Epochs, ``get_data()`` is called automatically.
     pipe_evokeds : dict
-        ``{pipe_tag: Evoked}`` — grand-averaged evokeds per pipeline.
+        ``{pipe_tag: Evoked}`` â€” grand-averaged evokeds per pipeline.
     channels : tuple of str
         Two channel names to display (default ``("Cz", "Pz")``).
     dev_mask : ndarray of bool | None
@@ -223,7 +223,7 @@ def plot_erp_signal_diagnostics(
                 label=_pipe_label(ptag, pipe_labels),
             )
         ax.set_xlabel("Frequency (Hz)", fontsize=FONTS["label"])
-        ax.set_ylabel("PSD (V²/Hz)", fontsize=FONTS["label"])
+        ax.set_ylabel("PSD (VÂ²/Hz)", fontsize=FONTS["label"])
         ax.set_title(f"Epoch-Averaged PSD at {ch_name}", fontsize=FONTS["title"])
         ax.set_xlim(0, fmax)
         pub_legend(ax)
@@ -247,12 +247,12 @@ def plot_erp_signal_diagnostics(
         ax.axhline(0, color=COLORS["gray"], alpha=0.3)
         _add_erp_windows(ax, erp_windows)
         ax.set_xlabel("Time (ms)", fontsize=FONTS["label"])
-        ax.set_ylabel("Amplitude (µV)", fontsize=FONTS["label"])
+        ax.set_ylabel("Amplitude (ÂµV)", fontsize=FONTS["label"])
         ax.set_title(f"Evoked Overlay at {ch_name} (test set)", fontsize=FONTS["title"])
         pub_legend(ax)
         style_axes(ax)
 
-    # ---- Row 3: Difference waves (deviant − standard) ----
+    # ---- Row 3: Difference waves (deviant âˆ’ standard) ----
     for col, ch_name in enumerate(channels):
         ax = axes[2, col]
         if dev_mask is None or std_mask is None:
@@ -314,7 +314,7 @@ def plot_erp_signal_diagnostics(
         ax.axhline(0, color=COLORS["gray"], alpha=0.3)
         _add_erp_windows(ax, erp_windows)
         ax.set_xlabel("Time (ms)", fontsize=FONTS["label"])
-        ax.set_ylabel("Amplitude (µV)", fontsize=FONTS["label"])
+        ax.set_ylabel("Amplitude (ÂµV)", fontsize=FONTS["label"])
         ax.set_title(
             f"Difference Wave at {ch_name} (test set)", fontsize=FONTS["title"]
         )
@@ -322,9 +322,9 @@ def plot_erp_signal_diagnostics(
         style_axes(ax)
 
     fig.suptitle(
-        f"QA Level B — Signal Diagnostics ({subject}, test set only)"
+        f"QA Level B â€” Signal Diagnostics ({subject}, test set only)"
         if subject
-        else "QA Level B — Signal Diagnostics (test set only)",
+        else "QA Level B â€” Signal Diagnostics (test set only)",
         fontsize=FONTS["suptitle"],
         fontweight="bold",
     )
@@ -332,11 +332,11 @@ def plot_erp_signal_diagnostics(
 
 
 # =====================================================================
-# plot_condition_interaction — Cell 24
+# plot_erp_condition_interaction â€” Cell 24
 # =====================================================================
 
 
-def plot_condition_interaction(
+def plot_erp_condition_interaction(
     diff_waves,
     diff_se,
     effect_sizes,
@@ -357,20 +357,20 @@ def plot_condition_interaction(
 
     Produces **two** figures side-by-side:
 
-    * **Figure 1** (1 × n_conditions): difference-wave overlays per
+    * **Figure 1** (1 Ã— n_conditions): difference-wave overlays per
       condition, with pipelines as traces.
-    * **Figure 2** (1 × 2): stripplot of *g* by condition+pipeline and
-      a condition × pipeline line interaction plot.
+    * **Figure 2** (1 Ã— 2): stripplot of *g* by condition+pipeline and
+      a condition Ã— pipeline line interaction plot.
 
     Parameters
     ----------
     diff_waves : dict
-        ``{(condition, pipe_tag): 1-D array}`` — difference-wave time
-        series in µV.
+        ``{(condition, pipe_tag): 1-D array}`` â€” difference-wave time
+        series in ÂµV.
     diff_se : dict
-        ``{(condition, pipe_tag): 1-D array}`` — standard error envelope.
+        ``{(condition, pipe_tag): 1-D array}`` â€” standard error envelope.
     effect_sizes : dict
-        ``{(condition, pipe_tag): float}`` — Hedges' *g* per cell.
+        ``{(condition, pipe_tag): float}`` â€” Hedges' *g* per cell.
     times_ms : ndarray
         Time vector in milliseconds.
     conditions : list of str | None
@@ -440,15 +440,15 @@ def plot_condition_interaction(
         _add_erp_windows(ax, erp_windows)
         ax.set_xlabel("Time (ms)", fontsize=FONTS["label"])
         if i == 0:
-            ax.set_ylabel("Amplitude (µV)", fontsize=FONTS["label"])
+            ax.set_ylabel("Amplitude (ÂµV)", fontsize=FONTS["label"])
         ax.set_title(condition_labels.get(cond, cond), fontsize=FONTS["title"])
         pub_legend(ax)
         style_axes(ax)
 
     fig1.suptitle(
-        f"Condition × Pipeline: Difference Waves ({subject})"
+        f"Condition Ã— Pipeline: Difference Waves ({subject})"
         if subject
-        else "Condition × Pipeline: Difference Waves",
+        else "Condition Ã— Pipeline: Difference Waves",
         fontsize=FONTS["suptitle"],
         fontweight="bold",
     )
@@ -512,7 +512,7 @@ def plot_condition_interaction(
 
     ax_strip.axhline(0, color=COLORS["gray"], alpha=0.3)
     ax_strip.set_ylabel("Hedges' g", fontsize=FONTS["label"])
-    ax_strip.set_title("Effect Size by Condition × Pipeline", fontsize=FONTS["title"])
+    ax_strip.set_title("Effect Size by Condition Ã— Pipeline", fontsize=FONTS["title"])
     pub_legend(ax_strip)
     style_axes(ax_strip)
 
@@ -534,15 +534,15 @@ def plot_condition_interaction(
         fontsize=FONTS["tick"],
     )
     ax_line.set_ylabel("Hedges' g", fontsize=FONTS["label"])
-    ax_line.set_title("Condition × Pipeline Interaction", fontsize=FONTS["title"])
+    ax_line.set_title("Condition Ã— Pipeline Interaction", fontsize=FONTS["title"])
     ax_line.axhline(0, color=COLORS["gray"], alpha=0.3)
     pub_legend(ax_line)
     style_axes(ax_line)
 
     fig2.suptitle(
-        f"Condition × Pipeline Effect-Size Interaction ({subject})"
+        f"Condition Ã— Pipeline Effect-Size Interaction ({subject})"
         if subject
-        else "Condition × Pipeline Effect-Size Interaction",
+        else "Condition Ã— Pipeline Effect-Size Interaction",
         fontsize=FONTS["suptitle"],
         fontweight="bold",
     )
@@ -563,11 +563,11 @@ def plot_condition_interaction(
 
 
 # =====================================================================
-# plot_metric_violins — Cell 26  (generic for any benchmark)
+# plot_erp_metric_violins â€” Cell 26  (generic for any benchmark)
 # =====================================================================
 
 
-def plot_metric_violins(
+def plot_erp_metric_violins(
     df,
     metric_cols,
     metric_labels=None,
@@ -748,11 +748,11 @@ def plot_metric_violins(
 
 
 # =====================================================================
-# plot_endpoint_summary — Cell 30  (multipanel storyboard)
+# plot_erp_endpoint_summary â€” Cell 30  (multipanel storyboard)
 # =====================================================================
 
 
-def plot_endpoint_summary(
+def plot_erp_endpoint_summary(
     df,
     metric_cols,
     metric_labels=None,
@@ -953,7 +953,7 @@ def plot_endpoint_summary(
             markersize=10,
             lw=3,
             zorder=10,
-            label=f"Mean: {mean_from:.2f} → {mean_to:.2f}",
+            label=f"Mean: {mean_from:.2f} â†’ {mean_to:.2f}",
         )
 
         # Null CI band on destination end
@@ -981,7 +981,7 @@ def plot_endpoint_summary(
             fontsize=FONTS["label"],
         )
         ax_slope.set_title(
-            f"B  Paired Slopes\n({lbl_from} → {lbl_to})",
+            f"B  Paired Slopes\n({lbl_from} â†’ {lbl_to})",
             fontweight="bold",
             fontsize=FONTS["tick"],
         )
@@ -991,7 +991,7 @@ def plot_endpoint_summary(
         ax_slope.text(
             0.5,
             0.5,
-            "≥ 2 subjects needed",
+            "â‰¥ 2 subjects needed",
             transform=ax_slope.transAxes,
             ha="center",
             fontsize=FONTS["label"],
@@ -1003,11 +1003,11 @@ def plot_endpoint_summary(
 
 
 # =====================================================================
-# plot_pipeline_slopes — Cell 32
+# plot_erp_pipeline_slopes â€” Cell 32
 # =====================================================================
 
 
-def plot_pipeline_slopes(
+def plot_erp_pipeline_slopes(
     df,
     metric_cols,
     metric_labels=None,
@@ -1144,17 +1144,17 @@ def plot_pipeline_slopes(
         )
         style_axes(ax)
 
-    title = suptitle or "Paired Subject-Level Slopes — Within-Subject Trajectories"
+    title = suptitle or "Paired Subject-Level Slopes â€” Within-Subject Trajectories"
     fig.suptitle(title, fontsize=FONTS["suptitle"], fontweight="bold")
     return _finalize_fig(fig, show=show, fname=fname)
 
 
 # =====================================================================
-# plot_grand_average_erp — group-mean evoked ± between-subject SEM
+# plot_erp_grand_average â€” group-mean evoked Â± between-subject SEM
 # =====================================================================
 
 
-def plot_grand_average_erp(
+def plot_erp_grand_average(
     all_evokeds,
     *,
     channels=("Cz", "Pz"),
@@ -1167,7 +1167,7 @@ def plot_grand_average_erp(
     fname=None,
     show=True,
 ):
-    """Group-mean evoked ± between-subject SEM for each pipeline.
+    """Group-mean evoked Â± between-subject SEM for each pipeline.
 
     Parameters
     ----------
@@ -1240,23 +1240,23 @@ def plot_grand_average_erp(
         ax.axhline(0, color=COLORS["gray"], alpha=0.3)
         _add_erp_windows(ax, erp_windows)
         ax.set_xlabel("Time (ms)", fontsize=FONTS["label"])
-        ax.set_ylabel("Amplitude (µV)", fontsize=FONTS["label"])
+        ax.set_ylabel("Amplitude (ÂµV)", fontsize=FONTS["label"])
         ax.set_title(f"Grand Average at {ch_name}", fontsize=FONTS["title"])
         pub_legend(ax)
         style_axes(ax)
 
     n_total = len(next(iter(all_evokeds.values())))
-    title = suptitle or f"Grand-Average Evoked ± Between-Subject SEM (N = {n_total})"
+    title = suptitle or f"Grand-Average Evoked Â± Between-Subject SEM (N = {n_total})"
     fig.suptitle(title, fontsize=FONTS["suptitle"], fontweight="bold")
     return _finalize_fig(fig, show=show, fname=fname)
 
 
 # =====================================================================
-# plot_grand_condition_interaction — group-level cond × pipeline
+# plot_erp_grand_condition_interaction â€” group-level cond Ã— pipeline
 # =====================================================================
 
 
-def plot_grand_condition_interaction(
+def plot_erp_grand_condition_interaction(
     all_diff_waves,
     all_effect_sizes,
     times_ms,
@@ -1272,21 +1272,21 @@ def plot_grand_condition_interaction(
     fname=None,
     show=True,
 ):
-    """Group-level condition × pipeline interaction with between-subject error.
+    """Group-level condition Ã— pipeline interaction with between-subject error.
 
     Produces **two** figures:
 
-    * **Figure 1** (1 × n_conditions): Grand-average difference waves
-      ± between-subject SEM.
-    * **Figure 2** (mean ± SEM of Hedges' *g* per cell, strip + bars).
+    * **Figure 1** (1 Ã— n_conditions): Grand-average difference waves
+      Â± between-subject SEM.
+    * **Figure 2** (mean Â± SEM of Hedges' *g* per cell, strip + bars).
 
     Parameters
     ----------
     all_diff_waves : dict
-        ``{(condition, pipe_tag): ndarray (n_subjects, n_times)}`` —
-        per-subject difference-wave time series in µV.
+        ``{(condition, pipe_tag): ndarray (n_subjects, n_times)}`` â€”
+        per-subject difference-wave time series in ÂµV.
     all_effect_sizes : dict
-        ``{(condition, pipe_tag): 1-D array (n_subjects,)}`` —
+        ``{(condition, pipe_tag): 1-D array (n_subjects,)}`` â€”
         per-subject Hedges' *g* values.
     times_ms : ndarray
         Time vector in milliseconds.
@@ -1355,18 +1355,18 @@ def plot_grand_condition_interaction(
         _add_erp_windows(ax, erp_windows)
         ax.set_xlabel("Time (ms)", fontsize=FONTS["label"])
         if i == 0:
-            ax.set_ylabel("Amplitude (µV)", fontsize=FONTS["label"])
+            ax.set_ylabel("Amplitude (ÂµV)", fontsize=FONTS["label"])
         ax.set_title(condition_labels.get(cond, cond), fontsize=FONTS["title"])
         pub_legend(ax)
         style_axes(ax)
 
     fig1.suptitle(
-        suptitle or "Grand-Average Difference Waves ± Between-Subject SEM",
+        suptitle or "Grand-Average Difference Waves Â± Between-Subject SEM",
         fontsize=FONTS["suptitle"],
         fontweight="bold",
     )
 
-    # ---- Figure 2: effect-size mean ± SEM bars + strip ----
+    # ---- Figure 2: effect-size mean Â± SEM bars + strip ----
     fig2, (ax_bar, ax_line) = pub_figure(1, 2, figsize=(14, 5))
 
     x = np.arange(n_conds)
@@ -1399,13 +1399,13 @@ def plot_grand_condition_interaction(
         [condition_labels.get(c, c) for c in conditions],
         fontsize=FONTS["tick"],
     )
-    ax_bar.set_ylabel("Hedges' g (mean ± SEM)", fontsize=FONTS["label"])
-    ax_bar.set_title("Effect Size by Condition × Pipeline", fontsize=FONTS["title"])
+    ax_bar.set_ylabel("Hedges' g (mean Â± SEM)", fontsize=FONTS["label"])
+    ax_bar.set_title("Effect Size by Condition Ã— Pipeline", fontsize=FONTS["title"])
     ax_bar.axhline(0, color=COLORS["gray"], alpha=0.3)
     pub_legend(ax_bar)
     style_axes(ax_bar)
 
-    # Interaction line plot (means ± SEM as error band)
+    # Interaction line plot (means Â± SEM as error band)
     for ptag in pipe_order:
         means = []
         sems = []
@@ -1441,13 +1441,13 @@ def plot_grand_condition_interaction(
         fontsize=FONTS["tick"],
     )
     ax_line.set_ylabel("Hedges' g", fontsize=FONTS["label"])
-    ax_line.set_title("Condition × Pipeline Interaction", fontsize=FONTS["title"])
+    ax_line.set_title("Condition Ã— Pipeline Interaction", fontsize=FONTS["title"])
     ax_line.axhline(0, color=COLORS["gray"], alpha=0.3)
     pub_legend(ax_line)
     style_axes(ax_line)
 
     fig2.suptitle(
-        "Group-Level Condition × Pipeline Effect-Size Interaction",
+        "Group-Level Condition Ã— Pipeline Effect-Size Interaction",
         fontsize=FONTS["suptitle"],
         fontweight="bold",
     )
@@ -1468,11 +1468,11 @@ def plot_grand_condition_interaction(
 
 
 # =====================================================================
-# plot_null_distribution — permutation null histogram
+# plot_erp_null_distribution â€” permutation null histogram
 # =====================================================================
 
 
-def plot_null_distribution(
+def plot_erp_null_distribution(
     null_values,
     observed,
     *,
@@ -1578,17 +1578,17 @@ def plot_null_distribution(
     pub_legend(ax, fontsize=8)
     style_axes(ax)
 
-    title = suptitle or f"Permutation Null Distribution — {metric_label}"
+    title = suptitle or f"Permutation Null Distribution â€” {metric_label}"
     fig.suptitle(title, fontsize=FONTS["suptitle"], fontweight="bold")
     return _finalize_fig(fig, show=show, fname=fname), p_value
 
 
 # =====================================================================
-# plot_forest — per-subject effect-size forest plot
+# plot_erp_forest â€” per-subject effect-size forest plot
 # =====================================================================
 
 
-def plot_forest(
+def plot_erp_forest(
     df,
     metric_col="hedges_g",
     *,
@@ -1609,7 +1609,7 @@ def plot_forest(
 ):
     """Per-subject effect-size forest plot with CI and pooled mean.
 
-    Each subject is a row; horizontal lines show the 95 % CI (± 1.96
+    Each subject is a row; horizontal lines show the 95 % CI (Â± 1.96
     SE).  The pooled group mean is drawn at the bottom as a diamond.
 
     Parameters
@@ -1762,7 +1762,9 @@ def plot_forest(
     pub_legend(ax, fontsize=7, loc="lower right")
     style_axes(ax)
 
-    title = suptitle or f"Forest Plot — {group_labels.get(target_group, target_group)}"
+    title = (
+        suptitle or f"Forest Plot â€” {group_labels.get(target_group, target_group)}"
+    )
     fig.suptitle(title, fontsize=FONTS["suptitle"], fontweight="bold")
     return _finalize_fig(fig, show=show, fname=fname)
 
@@ -1776,7 +1778,7 @@ def _ch_index(epochs_or_array, ch_name):
     """Get channel index from Epochs or assume array ordering."""
     if hasattr(epochs_or_array, "ch_names"):
         return epochs_or_array.ch_names.index(ch_name)
-    # Fallback — caller must provide integer directly
+    # Fallback â€” caller must provide integer directly
     return int(ch_name)
 
 

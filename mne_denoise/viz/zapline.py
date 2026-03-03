@@ -4,11 +4,11 @@ Provides reusable plotting utilities for ZapLine analysis and results.
 
 Functions
 ---------
-plot_psd_comparison
+plot_zapline_psd_comparison
     Compare power spectral density before and after cleaning.
 plot_component_scores
     Visualize DSS component eigenvalues with removal threshold.
-plot_spatial_patterns
+plot_zapline_patterns
     Display spatial patterns of noise components.
 plot_cleaning_summary
     Combined multi-panel summary figure.
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     pass
 
 
-def plot_psd_comparison(
+def plot_zapline_psd_comparison(
     data_before: np.ndarray,
     data_after: np.ndarray,
     sfreq: float,
@@ -73,8 +73,8 @@ def plot_psd_comparison(
 
     Examples
     --------
-    >>> from mne_denoise.viz import plot_psd_comparison
-    >>> plot_psd_comparison(data, cleaned, sfreq=1000, line_freq=50)
+    >>> from mne_denoise.viz import plot_zapline_psd_comparison
+    >>> plot_zapline_psd_comparison(data, cleaned, sfreq=1000, line_freq=50)
     """
     if ax is None:
         fig, ax = plt.subplots(figsize=(10, 4))
@@ -209,7 +209,7 @@ def plot_component_scores(
     return _finalize_fig(fig, show=show, fname=fname)
 
 
-def plot_spatial_patterns(
+def plot_zapline_patterns(
     estimator,
     n_patterns: int = 3,
     ax: plt.Axes | None = None,
@@ -238,9 +238,9 @@ def plot_spatial_patterns(
 
     Examples
     --------
-    >>> from mne_denoise.viz import plot_spatial_patterns
+    >>> from mne_denoise.viz import plot_zapline_patterns
     >>> zapline = ZapLine(sfreq=1000, line_freq=50).fit(data)
-    >>> plot_spatial_patterns(zapline, n_patterns=3)
+    >>> plot_zapline_patterns(zapline, n_patterns=3)
     """
     if ax is None:
         fig, ax = plt.subplots(figsize=(8, 4))
@@ -330,7 +330,7 @@ def plot_cleaning_summary(
     fig, axes = plt.subplots(2, 2, figsize=(12, 8))
 
     # PSD comparison
-    plot_psd_comparison(
+    plot_zapline_psd_comparison(
         data_before, data_after, sfreq, line_freq=line_freq, ax=axes[0, 0], show=False
     )
 
@@ -338,7 +338,7 @@ def plot_cleaning_summary(
     plot_component_scores(estimator, ax=axes[0, 1], show=False)
 
     # Spatial patterns
-    plot_spatial_patterns(estimator, ax=axes[1, 0], show=False)
+    plot_zapline_patterns(estimator, ax=axes[1, 0], show=False)
 
     # Statistics text
     ax = axes[1, 1]
