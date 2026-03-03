@@ -64,6 +64,7 @@ test = [
   "pytest>=7.4.0",
   "pytest-cov>=4.1.0",
   "pytest-timeout>=2.2.0",
+  "pandas>=1.5",
 ]
 dev = [
   "mne-denoise[test]",
