@@ -754,7 +754,7 @@ def plot_harmonic_attenuation(
     -------
     fig : Figure
     """
-    from ..qa.metrics import peak_attenuation_db as _atten
+    from ..qa import peak_attenuation_db as _atten
 
     if method_order is None:
         method_order = [

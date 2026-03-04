@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy import signal
 
-from ._metrics import _spectral_distortion, _suppression_ratio, _variance_removed
+from ..qa import spectral_distortion, suppression_ratio, variance_removed
 from ._theme import (
     COLORS,
     DEFAULT_FIGSIZE,
@@ -1820,12 +1820,16 @@ def plot_dss_comparison(
 
     all_metrics = []
     for label, cleaned, psd_after in zip(labels, cleaned_list, psd_list):
-        srs = [_suppression_ratio(f_psd, psd_orig, psd_after, h) for h in harmonics]
+        srs = [suppression_ratio(f_psd, psd_orig, psd_after, h) for h in harmonics]
         sr_mean = np.mean(srs)
-        sd = _spectral_distortion(
-            f_psd, psd_orig, psd_after, line_freq=line_freq, n_harm=n_harmonics
+        sd = spectral_distortion(
+            f_psd,
+            psd_orig,
+            psd_after,
+            line_freq=line_freq,
+            n_harmonics=n_harmonics,
         )
-        var_pct = _variance_removed(data_orig, cleaned)
+        var_pct = variance_removed(data_orig, cleaned)
         metrics = {
             "sr_harmonics": srs,
             "sr_mean": sr_mean,
