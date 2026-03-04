@@ -256,8 +256,8 @@ _try(
 )
 
 _try(
-    "plot_evoked_comparison",
-    viz.plot_evoked_comparison,
+    "plot_evoked_gfp_comparison",
+    viz.plot_evoked_gfp_comparison,
     evoked_orig,
     evoked_denoised,
     show=False,
@@ -265,8 +265,8 @@ _try(
 )
 
 _try(
-    "plot_time_course_comparison",
-    viz.plot_time_course_comparison,
+    "plot_channel_time_course_comparison",
+    viz.plot_channel_time_course_comparison,
     epochs_train,
     epochs_denoised,
     picks=["Cz", "Pz"],
@@ -275,8 +275,8 @@ _try(
 )
 
 _try(
-    "plot_power_map",
-    viz.plot_power_map,
+    "plot_power_ratio_map",
+    viz.plot_power_ratio_map,
     epochs_train,
     epochs_denoised,
     info=info,
@@ -306,8 +306,8 @@ _try(
 )
 
 _try(
-    "plot_overlay_comparison",
-    viz.plot_overlay_comparison,
+    "plot_signal_overlay",
+    viz.plot_signal_overlay,
     epochs_train,
     epochs_denoised,
     show=False,
@@ -320,7 +320,7 @@ def _spectral_psd():
     # Use DSS sources as "components"
     sources = dss.transform(epochs_train)  # (n_epochs, n_comp, n_times)
     avg_sources = sources.mean(axis=0)  # (n_comp, n_times)
-    return viz.plot_spectral_psd_comparison(
+    return viz.plot_component_psd_comparison(
         epochs_train,
         avg_sources,
         sfreq=sfreq,
@@ -331,7 +331,7 @@ def _spectral_psd():
     )
 
 
-_try("plot_spectral_psd_comparison", _spectral_psd)
+_try("plot_component_psd_comparison", _spectral_psd)
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -340,16 +340,16 @@ _try("plot_spectral_psd_comparison", _spectral_psd)
 print("\n── Components ──")
 
 _try(
-    "plot_score_curve",
-    viz.plot_score_curve,
+    "plot_component_score_curve",
+    viz.plot_component_score_curve,
     dss,
     show=False,
     fname=str(COMPS_DIR / "score_curve.png"),
 )
 
 _try(
-    "plot_spatial_patterns [components]",
-    viz.components.plot_spatial_patterns,
+    "plot_component_patterns",
+    viz.plot_component_patterns,
     dss,
     info=info,
     n_components=5,
@@ -369,8 +369,8 @@ _try(
 )
 
 _try(
-    "plot_component_image",
-    viz.plot_component_image,
+    "plot_component_epochs_image",
+    viz.plot_component_epochs_image,
     dss,
     data=epochs_train,
     n_components=3,
@@ -393,7 +393,7 @@ def _narrowband_scan():
     freqs = np.arange(1, 41)
     evals = np.random.default_rng(42).exponential(0.1, size=len(freqs))
     evals[9] = 0.8  # spike at 10 Hz
-    return viz.plot_narrowband_scan(
+    return viz.plot_narrowband_score_scan(
         freqs,
         evals,
         peak_freq=10.0,
@@ -402,7 +402,7 @@ def _narrowband_scan():
     )
 
 
-_try("plot_narrowband_scan", _narrowband_scan)
+_try("plot_narrowband_score_scan", _narrowband_scan)
 
 
 def _tf_mask():
@@ -410,7 +410,7 @@ def _tf_mask():
     freqs = np.arange(1, 41)
     mask = np.zeros((len(freqs), len(times)))
     mask[8:12, 30:70] = 1.0  # 9–12 Hz, 100–500 ms
-    return viz.plot_tf_mask(
+    return viz.plot_time_frequency_mask(
         mask,
         times,
         freqs,
@@ -420,7 +420,7 @@ def _tf_mask():
     )
 
 
-_try("plot_tf_mask", _tf_mask)
+_try("plot_time_frequency_mask", _tf_mask)
 
 
 def _component_spectrogram():
@@ -443,17 +443,6 @@ _try("plot_component_spectrogram", _component_spectrogram)
 # ══════════════════════════════════════════════════════════════════════
 print("\n── DSS ──")
 
-_try("plot_dss_eigenvalues", viz.plot_dss_eigenvalues, dss, show=False)
-
-_try(
-    "plot_dss_patterns",
-    viz.plot_dss_patterns,
-    dss,
-    info=info,
-    max_components=5,
-    show=False,
-)
-
 # plot_dss_summary expects 2D (n_channels, n_times) data
 _try(
     "plot_dss_summary",
@@ -471,14 +460,14 @@ _try(
 
 
 def _dss_comparison():
-    """Run plot_dss_comparison which fits + compares internally.
+    """Run plot_dss_mode_comparison which fits + compares internally.
 
     NOTE: Requires DSS with smooth/segmented params — skipped if unavailable.
     """
     from mne_denoise.dss import CombFilterBias
 
     comb_bias = CombFilterBias(fundamental_freq=LINE_FREQ, sfreq=sfreq)
-    return viz.plot_dss_comparison(
+    return viz.plot_dss_mode_comparison(
         comb_bias,
         raw,
         n_components=10,
@@ -489,7 +478,7 @@ def _dss_comparison():
     )
 
 
-_try("plot_dss_comparison (advanced)", _dss_comparison)
+_try("plot_dss_mode_comparison (advanced)", _dss_comparison)
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -498,8 +487,8 @@ _try("plot_dss_comparison (advanced)", _dss_comparison)
 print("\n── ZapLine ──")
 
 _try(
-    "plot_zapline_psd_comparison [zapline]",
-    viz.zapline.plot_zapline_psd_comparison,
+    "plot_psd_comparison [zapline arrays]",
+    viz.plot_psd_comparison,
     data_before_zap,
     data_after_zap,
     sfreq=sfreq,
@@ -510,24 +499,24 @@ _try(
 )
 
 _try(
-    "plot_component_scores [zapline]",
-    viz.zapline.plot_component_scores,
+    "plot_component_score_curve [zapline]",
+    viz.plot_component_score_curve,
     zap,
     show=False,
     fname=str(ZAP_DIR / "component_scores.png"),
 )
 
 _try(
-    "plot_zapline_patterns [zapline]",
-    viz.zapline.plot_zapline_patterns,
+    "plot_component_patterns [zapline]",
+    viz.plot_component_patterns,
     zap,
     show=False,
     fname=str(ZAP_DIR / "spatial_patterns.png"),
 )
 
 _try(
-    "plot_cleaning_summary [zapline]",
-    viz.zapline.plot_cleaning_summary,
+    "plot_zapline_cleaning_summary",
+    viz.plot_zapline_cleaning_summary,
     data_before_zap,
     data_after_zap,
     zap,
@@ -602,8 +591,24 @@ _try(
     "plot_metric_bars",
     viz.plot_metric_bars,
     df_bench,
-    method_order=METHOD_ORDER,
-    method_colors=METHOD_COLORS,
+    group_col="method",
+    metric_cols=[
+        "R_f0",
+        "peak_attenuation_db",
+        "below_noise_pct",
+        "overclean_proportion",
+        "underclean_proportion",
+    ],
+    metric_labels=[
+        "R(f0) - 1",
+        "Peak Attenuation (dB)",
+        "Sub-Peak dPower (%) - 0",
+        "Overclean Fraction",
+        "Underclean Fraction",
+    ],
+    lower_better=[True, False, True, True, True],
+    group_order=METHOD_ORDER,
+    group_colors=METHOD_COLORS,
     show=False,
     fname=str(BENCH_DIR / "metric_bars.png"),
 )
@@ -612,37 +617,56 @@ _try(
     "plot_tradeoff_scatter",
     viz.plot_tradeoff_scatter,
     df_bench,
-    method_order=METHOD_ORDER,
-    method_colors=METHOD_COLORS,
-    method_labels=METHOD_LABELS,
+    group_col="method",
+    x_col="below_noise_pct",
+    y_col="peak_attenuation_db",
+    group_order=METHOD_ORDER,
+    group_colors=METHOD_COLORS,
+    group_labels=METHOD_LABELS,
+    x_label="Sub-Peak dPower (%) - closer to 0 is better",
+    y_label="Peak Attenuation (dB) - higher is better",
+    reference_x=0.0,
+    reference_y=10.0,
     show=False,
     fname=str(BENCH_DIR / "tradeoff_scatter.png"),
 )
 
 _try(
-    "plot_r_comparison",
-    viz.plot_r_comparison,
+    "plot_single_metric_comparison",
+    viz.plot_single_metric_comparison,
     df_bench,
-    method_order=METHOD_ORDER,
-    method_colors=METHOD_COLORS,
-    method_labels=METHOD_LABELS,
+    group_col="method",
+    metric_col="R_f0",
+    metric_label="R(f0) - Noise-Surround Ratio",
+    group_order=METHOD_ORDER,
+    group_colors=METHOD_COLORS,
+    group_labels=METHOD_LABELS,
+    title="Residual Line Noise — R(f₀)",
+    reference_value=1.0,
+    reference_label="Ideal (R=1)",
     show=False,
-    fname=str(BENCH_DIR / "r_comparison.png"),
+    fname=str(BENCH_DIR / "metric_comparison.png"),
 )
 
 _try(
-    "plot_paired_metrics",
-    viz.plot_paired_metrics,
+    "plot_metric_slopes",
+    viz.plot_metric_slopes,
     df_bench,
-    method_order=METHOD_ORDER,
-    method_colors=METHOD_COLORS,
+    group_col="method",
+    metric_specs=[
+        ("peak_attenuation_db", "Peak Attenuation (dB)"),
+        ("below_noise_pct", "Sub-Peak dPower (%)"),
+        ("R_f0", "R(f0)"),
+    ],
+    group_order=METHOD_ORDER,
+    group_colors=METHOD_COLORS,
     show=False,
-    fname=str(BENCH_DIR / "paired_metrics.png"),
+    fname=str(BENCH_DIR / "metric_slopes.png"),
 )
 
 _try(
-    "plot_tradeoff_and_r",
-    viz.plot_tradeoff_and_r,
+    "plot_metric_tradeoff_summary",
+    viz.plot_metric_tradeoff_summary,
     df_bench,
     method_order=METHOD_ORDER,
     method_colors=METHOD_COLORS,
@@ -675,15 +699,17 @@ nyquist = sfreq / 2.0
 harmonics_hz = [LINE_FREQ * (h + 1) for h in range(3) if LINE_FREQ * (h + 1) < nyquist]
 
 _try(
-    "plot_qc_psd",
-    viz.plot_qc_psd,
+    "plot_psd_zoom_comparison",
+    viz.plot_psd_zoom_comparison,
     freqs_b,
     gm_before,
     cleaned_psds["C2"][0],
     cleaned_psds["C2"][1],
-    method_tag="C2",
-    subject=SUB,
-    harmonics_hz=harmonics_hz,
+    series_name="C2",
+    title=SUB,
+    zoom_freqs=harmonics_hz,
+    series_colors=METHOD_COLORS,
+    series_labels=METHOD_LABELS,
     fmax=sfreq / 2,
     show=False,
     fname=str(BENCH_DIR / "qc_psd.png"),
@@ -695,28 +721,28 @@ _try(
     freqs_b,
     gm_before,
     cleaned_psds,
-    harmonics_hz=harmonics_hz,
+    zoom_freqs=harmonics_hz,
     fmax=sfreq / 2,
-    subject=SUB,
-    method_order=list(cleaned_psds.keys()),
-    method_colors=METHOD_COLORS,
-    method_labels=METHOD_LABELS,
+    title=SUB,
+    series_order=list(cleaned_psds.keys()),
+    series_colors=METHOD_COLORS,
+    series_labels=METHOD_LABELS,
     show=False,
     fname=str(BENCH_DIR / "psd_gallery.png"),
 )
 
 _try(
-    "plot_subject_psd_overlay",
-    viz.plot_subject_psd_overlay,
+    "plot_psd_overlay",
+    viz.plot_psd_overlay,
     freqs_b,
     gm_before,
     cleaned_psds,
-    line_freq=LINE_FREQ,
+    focus_freq=LINE_FREQ,
     fmax=sfreq / 2,
-    subject=SUB,
-    method_order=list(cleaned_psds.keys()),
-    method_colors=METHOD_COLORS,
-    method_labels=METHOD_LABELS,
+    title=SUB,
+    series_order=list(cleaned_psds.keys()),
+    series_colors=METHOD_COLORS,
+    series_labels=METHOD_LABELS,
     show=False,
     fname=str(BENCH_DIR / "subject_psd_overlay.png"),
 )
@@ -729,9 +755,9 @@ _try(
     cleaned_psds,
     harmonics_hz=harmonics_hz,
     subject=SUB,
-    method_order=list(cleaned_psds.keys()),
-    method_colors=METHOD_COLORS,
-    method_labels=METHOD_LABELS,
+    series_order=list(cleaned_psds.keys()),
+    series_colors=METHOD_COLORS,
+    series_labels=METHOD_LABELS,
     show=False,
     fname=str(BENCH_DIR / "harmonic_attenuation.png"),
 )

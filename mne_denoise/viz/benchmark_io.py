@@ -35,9 +35,28 @@ Typical workflow
 >>> from mne_denoise.viz import (
 ...     plot_metric_bars,
 ...     plot_tradeoff_scatter,
-...     plot_subject_psd_grid,
+...     plot_psd_gallery,
 ... )
->>> plot_metric_bars(grp.df_all, fname=fig_dir / "metric_bars.png")
+>>> plot_metric_bars(
+...     grp.df_all,
+...     group_col="method",
+...     metric_cols=[
+...         "R_f0",
+...         "peak_attenuation_db",
+...         "below_noise_pct",
+...         "overclean_proportion",
+...         "underclean_proportion",
+...     ],
+...     metric_labels=[
+...         "R(f0) - 1",
+...         "Peak Attenuation (dB)",
+...         "Sub-Peak dPower (%) - 0",
+...         "Overclean Fraction",
+...         "Underclean Fraction",
+...     ],
+...     lower_better=[True, False, True, True, True],
+...     fname=fig_dir / "metric_bars.png",
+... )
 """
 
 from __future__ import annotations

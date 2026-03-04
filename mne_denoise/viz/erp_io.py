@@ -31,12 +31,12 @@ Typical workflow
 **Step 3 â€” Group plots (no reprocessing needed):**
 
 >>> from mne_denoise.viz import (
-...     plot_erp_grand_average,
+...     plot_grand_average_evokeds,
 ...     plot_erp_grand_condition_interaction,
-...     plot_erp_forest,
-...     plot_erp_null_distribution,
+...     plot_forest,
+...     plot_null_distribution,
 ... )
->>> plot_erp_grand_average(agg.all_evokeds, fname=fig_dir / "grand_avg.png")
+>>> plot_grand_average_evokeds(agg.all_evokeds, fname=fig_dir / "grand_avg.png")
 """
 
 from __future__ import annotations

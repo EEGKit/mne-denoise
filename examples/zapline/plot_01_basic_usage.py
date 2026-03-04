@@ -29,10 +29,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy import signal
 
-from mne_denoise.viz.zapline import (
-    plot_cleaning_summary,
-    plot_component_scores,
-    plot_zapline_psd_comparison,
+from mne_denoise.viz import (
+    plot_component_score_curve,
+    plot_psd_comparison,
+    plot_zapline_cleaning_summary,
 )
 from mne_denoise.zapline import ZapLine
 
@@ -139,22 +139,22 @@ print(f"Harmonics processed: {est.n_harmonics_}")
 # --------------------
 # Let's visualize the cleaning effect using the reusable viz function.
 
-# Use plot_zapline_psd_comparison for a clean comparison
-plot_zapline_psd_comparison(data, cleaned, sfreq, line_freq=50, show=True)
+# Use plot_psd_comparison for a clean comparison
+plot_psd_comparison(data, cleaned, sfreq=sfreq, line_freq=50, show=True)
 
 # %%
 # Component Scores
 # ----------------
 # View the DSS component scores to understand what was removed.
 
-plot_component_scores(est, show=True)
+plot_component_score_curve(est, show=True)
 
 # %%
 # Cleaning Summary
 # ----------------
 # A comprehensive summary combining PSD, scores, and statistics.
 
-plot_cleaning_summary(data, cleaned, est, sfreq, line_freq=50, show=True)
+plot_zapline_cleaning_summary(data, cleaned, est, sfreq, line_freq=50, show=True)
 
 # %%
 # Quantify Reduction

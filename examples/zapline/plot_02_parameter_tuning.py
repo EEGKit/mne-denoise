@@ -21,11 +21,11 @@ import numpy as np
 from scipy import signal
 from scipy.io import loadmat
 
-from mne_denoise.viz.zapline import (
-    plot_cleaning_summary,
-    plot_component_scores,
-    plot_zapline_patterns,
-    plot_zapline_psd_comparison,
+from mne_denoise.viz import (
+    plot_component_patterns,
+    plot_component_score_curve,
+    plot_psd_comparison,
+    plot_zapline_cleaning_summary,
 )
 from mne_denoise.zapline import ZapLine
 
@@ -183,8 +183,8 @@ est_scores.fit(data)
 
 # Use the reusable viz functions
 fig, axes = plt.subplots(1, 2, figsize=(12, 4))
-plot_component_scores(est_scores, ax=axes[0], show=False)
-plot_zapline_patterns(est_scores, n_patterns=3, ax=axes[1], show=False)
+plot_component_score_curve(est_scores, ax=axes[0], show=False)
+plot_component_patterns(est_scores, n_components=3, ax=axes[1], show=False)
 plt.tight_layout()
 plt.show()
 
@@ -242,12 +242,17 @@ if meg_data is not None:
     # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     # Use reusable viz function for PSD comparison
-    plot_zapline_psd_comparison(
-        meg_data, cleaned_meg, sfreq_meg, line_freq=60, fmax=150, show=True
+    plot_psd_comparison(
+        meg_data,
+        cleaned_meg,
+        sfreq=sfreq_meg,
+        line_freq=60,
+        fmax=150,
+        show=True,
     )
 
     # Show comprehensive summary
-    plot_cleaning_summary(
+    plot_zapline_cleaning_summary(
         meg_data, cleaned_meg, est_meg, sfreq_meg, line_freq=60, show=True
     )
 

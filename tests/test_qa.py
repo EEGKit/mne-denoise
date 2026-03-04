@@ -1,7 +1,6 @@
 """Tests for mne_denoise.qa module."""
 
 import numpy as np
-import pytest
 
 import mne_denoise.qa as qa
 from mne_denoise.qa import (
@@ -11,8 +10,8 @@ from mne_denoise.qa import (
     variance_removed,
 )
 
-
 # --- peak_attenuation_db ---
+
 
 def test_peak_attenuation_1d_basic():
     """Peak is halved → ~3 dB attenuation."""
@@ -49,10 +48,10 @@ def test_peak_attenuation_out_of_range():
     freqs = np.arange(0, 50, 0.5)
     psd_before = np.ones_like(freqs)
     psd_after = np.ones_like(freqs)
-    
+
     # 1D
     assert np.isnan(peak_attenuation_db(freqs, psd_before, psd_after, 100.0))
-    
+
     # 2D
     psd_before_2d = np.ones((3, len(freqs)))
     psd_after_2d = np.ones((3, len(freqs)))
@@ -81,6 +80,7 @@ def test_peak_attenuation_custom_bandwidth():
 
 
 # --- suppression_ratio ---
+
 
 def test_suppression_ratio_basic():
     """Test suppression_ratio with 1D and 2D input."""
@@ -115,6 +115,7 @@ def test_suppression_ratio_full_suppression():
 
 # --- spectral_distortion ---
 
+
 def test_spectral_distortion_basic():
     """Identical PSDs outside harmonics → 0 distortion."""
     freqs = np.arange(0, 200, 0.5)
@@ -141,6 +142,7 @@ def test_spectral_distortion_no_safe_freqs():
 
 # --- variance_removed ---
 
+
 def test_variance_removed_basic():
     """Test basic variance removal calculation."""
     x = np.array([1.0, -1.0, 1.0, -1.0])
@@ -155,6 +157,7 @@ def test_variance_removed_zero_var():
 
 
 # --- Re-export ---
+
 
 def test_reexport_matches():
     """Ensure direct import matches the module attribute."""

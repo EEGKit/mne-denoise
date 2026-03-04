@@ -39,10 +39,10 @@ from mne_denoise.dss.denoisers import (
 )
 from mne_denoise.dss.variants import ssvep_dss
 from mne_denoise.viz import (
+    plot_channel_time_course_comparison,
+    plot_component_psd_comparison,
     plot_component_summary,
     plot_psd_comparison,
-    plot_spectral_psd_comparison,
-    plot_time_course_comparison,
 )
 
 # %%
@@ -120,7 +120,7 @@ plot_component_summary(dss_peak, data=raw_alpha, n_components=3, show=False)
 plt.show(block=False)
 
 # Comparison
-plot_spectral_psd_comparison(
+plot_component_psd_comparison(
     raw_alpha, sources_peak, sfreq, peak_freq=alpha_freq, show=False
 )
 plt.gcf().axes[0].set_title("Single Frequency: Original PSD")
@@ -184,7 +184,7 @@ print(f"\nWrapper DSS Eigenvalues: {dss_wrapper.eigenvalues_[:5]}")
 print("(Should match manual approach)")
 
 # PSD comparison
-plot_spectral_psd_comparison(
+plot_component_psd_comparison(
     raw_ssvep, sources_comb, sfreq, peak_freq=f_stim, fmax=50, show=False
 )
 plt.gcf().axes[0].set_title("SSVEP: Original PSD")
@@ -416,7 +416,7 @@ raw_denoised = mne.io.RawArray(
 )
 
 # Time series comparison
-plot_time_course_comparison(
+plot_channel_time_course_comparison(
     raw_channel,
     raw_denoised,
     start=0,

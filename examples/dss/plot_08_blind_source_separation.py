@@ -26,7 +26,7 @@ from mne_denoise.dss import IterativeDSS, KurtosisDenoiser, TanhMaskDenoiser, be
 from mne_denoise.viz import (
     plot_component_summary,
     plot_component_time_series,
-    plot_overlay_comparison,
+    plot_signal_overlay,
 )
 
 print(__doc__)
@@ -289,7 +289,7 @@ comp_raw = mne.io.RawArray(
     sources[blink_idx : blink_idx + 1], mne.create_info(1, raw.info["sfreq"], "misc")
 )
 
-plot_overlay_comparison(
+plot_signal_overlay(
     eog_raw,
     comp_raw,
     start=10,

@@ -27,7 +27,7 @@ def peak_attenuation_db(
     target_freq: float,
     bandwidth: float = 2.0,
 ) -> np.ndarray:
-    """Attenuation (dB) of the spectral peak at *target_freq*.
+    r"""Attenuation (dB) of the spectral peak at *target_freq*.
 
     This metric compares the strongest spectral value in a narrow frequency
     window before and after cleaning. A search mask is built around
@@ -110,7 +110,7 @@ def suppression_ratio(
     target_freq: float,
     bandwidth: float = 2.0,
 ) -> float:
-    """Suppression ratio (dB) at a single target frequency.
+    r"""Suppression ratio (dB) at a single target frequency.
 
     This metric summarizes how much power was reduced within a frequency
     window centered on ``target_freq``. Unlike :func:`peak_attenuation_db`,
@@ -189,7 +189,7 @@ def spectral_distortion(
     n_harmonics: int = 3,
     bandwidth: float = 2.0,
 ) -> float:
-    """Spectral distortion (dB RMS) at non-harmonic frequencies.
+    r"""Spectral distortion (dB RMS) at non-harmonic frequencies.
 
     This measures how much the cleaning process changed the spectrum
     outside of the target line-noise frequencies. Harmonic neighborhoods are
@@ -259,7 +259,7 @@ def spectral_distortion(
 
 
 def variance_removed(data_before: np.ndarray, data_after: np.ndarray) -> float:
-    """Percentage of total variance removed.
+    r"""Percentage of total variance removed.
 
     This metric compares the total variance of the cleaned data to the total
     variance of the original data:
@@ -301,6 +301,7 @@ def variance_removed(data_before: np.ndarray, data_after: np.ndarray) -> float:
     if var_before == 0:
         return 0.0
     return 100.0 * (1.0 - np.var(data_after) / var_before)
+
 
 # TODO: Implement and export the remaining QA metrics used in the
 # benchmark scripts. The following are referenced in

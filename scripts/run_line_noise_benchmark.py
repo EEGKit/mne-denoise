@@ -83,18 +83,18 @@ from mne_denoise.viz import (
     DEFAULT_METHOD_COLORS,
     DEFAULT_METHOD_LABELS,
     DEFAULT_METHOD_ORDER,
-    plot_adaptive_summary,
     plot_harmonic_attenuation,
     plot_metric_bars,
-    plot_paired_metrics,
+    plot_metric_slopes,
+    plot_metric_tradeoff_summary,
     plot_psd_gallery,
-    plot_qc_psd,
-    plot_subject_psd_overlay,
-    plot_tradeoff_and_r,
+    plot_psd_overlay,
+    plot_psd_zoom_comparison,
+    plot_zapline_adaptive_summary,
     plot_zapline_summary,
     set_theme,
 )
-from mne_denoise.viz._theme import COLORS, FONTS, themed_legend, style_axes
+from mne_denoise.viz.theme import COLORS, FONTS, style_axes, themed_legend
 from mne_denoise.zapline import ZapLine
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
@@ -355,7 +355,7 @@ METHODS = {
 
 _DIAG_DISPATCH = {
     "M1": plot_zapline_summary,
-    "M2": plot_adaptive_summary,
+    "M2": plot_zapline_adaptive_summary,
 }
 
 
@@ -426,14 +426,30 @@ def save_outputs(
     # 3. QC PSD figure
     freqs_b, gm_b = geometric_mean_psd(raw_before)
     freqs_a, gm_a = geometric_mean_psd(raw_after)
-    fig_psd = plot_qc_psd(
+    zoom_annotations = None
+    if metrics_dict:
+        atten = metrics_dict.get("attenuation_per_harmonic_db", [])
+        r_vals = metrics_dict.get("R_per_harmonic", [])
+        zoom_annotations = []
+        for idx in range(min(3, len(metrics_dict.get("harmonics_hz", [])))):
+            if idx < len(atten) and idx < len(r_vals):
+                zoom_annotations.append(
+                    f"atten={atten[idx]:.1f} dB, R={r_vals[idx]:.2f}"
+                )
+
+    fig_psd = plot_psd_zoom_comparison(
         freqs_b,
         gm_b,
         freqs_a,
         gm_a,
-        method_tag=method_tag,
-        subject=sub,
-        metrics_dict=metrics_dict,
+        series_name=method_tag,
+        title=f"{sub} — {METHOD_LABELS.get(method_tag, method_tag)}",
+        zoom_freqs=metrics_dict.get("harmonics_hz", [50.0, 100.0, 150.0])[:3]
+        if metrics_dict
+        else [50.0, 100.0, 150.0],
+        zoom_annotations=zoom_annotations,
+        series_colors=METHOD_COLORS,
+        series_labels=METHOD_LABELS,
         fmax=PSD_FMAX,
         show=False,
     )
@@ -605,18 +621,18 @@ def process_subject(sub, ds_path=None, deriv_root=None):
 
     # ── Per-subject PSD comparison figure ────────────────────────────────
     sub_fig_dir = deriv_root / sub / "line_noise"
-    plot_subject_psd_overlay(
+    plot_psd_overlay(
         freqs_base,
         gm_base,
         cleaned_psds,
-        line_freq=LINE_FREQ,
+        focus_freq=LINE_FREQ,
         fmax=PSD_FMAX,
         n_harmonics=LINE_HARMONICS,
-        subject=sub,
-        method_order=METHOD_ORDER,
-        method_colors=METHOD_COLORS,
-        method_labels=METHOD_LABELS,
-        save_path=sub_fig_dir / "psd_comparison.png",
+        title=sub,
+        series_order=METHOD_ORDER,
+        series_colors=METHOD_COLORS,
+        series_labels=METHOD_LABELS,
+        fname=sub_fig_dir / "psd_comparison.png",
         show=False,
     )
     plt.close("all")
@@ -717,13 +733,13 @@ def run_group(subjects, deriv_root=None):
         freqs_base,
         gm_base,
         cleaned_psds,
-        harmonics_hz=harmonics_show,
+        zoom_freqs=harmonics_show,
         fmax=PSD_FMAX,
-        subject=sub_show,
-        method_order=METHOD_ORDER[1:],
-        method_colors=METHOD_COLORS,
-        method_labels=METHOD_LABELS,
-        save_path=group_dir / "psd_gallery.png",
+        title=sub_show,
+        series_order=METHOD_ORDER[1:],
+        series_colors=METHOD_COLORS,
+        series_labels=METHOD_LABELS,
+        fname=group_dir / "psd_gallery.png",
         show=False,
     )
     plt.close("all")
@@ -732,31 +748,53 @@ def run_group(subjects, deriv_root=None):
     df_plot = df_all.dropna(subset=["peak_attenuation_db"])
     plot_metric_bars(
         df_plot,
-        method_order=METHOD_ORDER,
-        method_colors=METHOD_COLORS,
-        save_path=group_dir / "metric_bars.png",
+        group_col="method",
+        metric_cols=[
+            "R_f0",
+            "peak_attenuation_db",
+            "below_noise_pct",
+            "overclean_proportion",
+            "underclean_proportion",
+        ],
+        metric_labels=[
+            "R(f0) - 1",
+            "Peak Attenuation (dB)",
+            "Sub-Peak dPower (%) - 0",
+            "Overclean Fraction",
+            "Underclean Fraction",
+        ],
+        lower_better=[True, False, True, True, True],
+        group_order=METHOD_ORDER,
+        group_colors=METHOD_COLORS,
+        fname=group_dir / "metric_bars.png",
         show=False,
     )
     plt.close("all")
 
     # ── QA Step 2c: Trade-off + R ────────────────────────────────────────
-    plot_tradeoff_and_r(
+    plot_metric_tradeoff_summary(
         df_plot,
         method_order=METHOD_ORDER,
         method_colors=METHOD_COLORS,
         method_labels=METHOD_LABELS,
-        save_path=group_dir / "tradeoff_and_r.png",
+        fname=group_dir / "tradeoff_and_r.png",
         show=False,
     )
     plt.close("all")
 
     # ── QA Step 3: Paired Comparison ─────────────────────────────────────
     if df_plot["subject"].nunique() > 1:
-        plot_paired_metrics(
+        plot_metric_slopes(
             df_plot,
-            method_order=METHOD_ORDER,
-            method_colors=METHOD_COLORS,
-            save_path=group_dir / "paired_metrics.png",
+            group_col="method",
+            metric_specs=[
+                ("peak_attenuation_db", "Peak Attenuation (dB)"),
+                ("below_noise_pct", "Sub-Peak dPower (%)"),
+                ("R_f0", "R(f0)"),
+            ],
+            group_order=METHOD_ORDER,
+            group_colors=METHOD_COLORS,
+            fname=group_dir / "metric_slopes.png",
             show=False,
         )
         plt.close("all")
@@ -785,10 +823,10 @@ def run_group(subjects, deriv_root=None):
         cleaned_psds_h,
         harmonics_hz=harmonics_hz,
         subject=sub_h,
-        method_order=METHOD_ORDER[1:],
-        method_colors=METHOD_COLORS,
-        method_labels=METHOD_LABELS,
-        save_path=group_dir / "harmonic_attenuation.png",
+        series_order=METHOD_ORDER[1:],
+        series_colors=METHOD_COLORS,
+        series_labels=METHOD_LABELS,
+        fname=group_dir / "harmonic_attenuation.png",
         show=False,
     )
     plt.close("all")

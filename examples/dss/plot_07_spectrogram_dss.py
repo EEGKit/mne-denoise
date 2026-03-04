@@ -32,12 +32,12 @@ from scipy import signal as sp_signal
 from mne_denoise.dss import DSS, IterativeDSS
 from mne_denoise.dss.denoisers import SpectrogramBias, SpectrogramDenoiser
 from mne_denoise.viz import (
+    plot_channel_time_course_comparison,
     plot_component_spectrogram,
     plot_component_summary,
-    plot_overlay_comparison,
+    plot_signal_overlay,
     plot_spectrogram_comparison,
-    plot_tf_mask,
-    plot_time_course_comparison,
+    plot_time_frequency_mask,
 )
 
 # %%
@@ -158,7 +158,7 @@ print(
 )
 
 # Visualize mask
-plot_tf_mask(
+plot_time_frequency_mask(
     mask_fixed,
     t_grid,
     freq_axis,
@@ -212,7 +212,7 @@ plt.gcf().suptitle("Spectrogram Comparison: Original vs Extracted Spindles")
 plt.show(block=False)
 
 # Plot comparison
-plot_overlay_comparison(
+plot_signal_overlay(
     signal_spindle,
     comp0_tf,
     title="Spindle Reconstruction: Ground Truth vs SpectrogramBias Component",
@@ -327,7 +327,9 @@ comp_raw_meg = mne.io.RawArray(
 raw_single_meg = raw_somato.copy().pick([0])
 
 # --- Time Course Comparison ---
-plot_time_course_comparison(raw_single_meg, comp_raw_meg, start=0, stop=5, show=False)
+plot_channel_time_course_comparison(
+    raw_single_meg, comp_raw_meg, start=0, stop=5, show=False
+)
 plt.gcf().suptitle("Real MEG: Original vs TF-DSS Component 0 (Gamma Bursts)")
 plt.show(block=False)
 

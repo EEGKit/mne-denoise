@@ -69,15 +69,36 @@ Visualization
    mne_denoise.viz.plot_component_summary
    mne_denoise.viz.plot_component_time_series
    mne_denoise.viz.plot_component_spectrogram
+   mne_denoise.viz.plot_component_score_curve
+   mne_denoise.viz.plot_component_patterns
+   mne_denoise.viz.plot_component_epochs_image
    mne_denoise.viz.plot_psd_comparison
-   mne_denoise.viz.plot_time_course_comparison
+   mne_denoise.viz.plot_evoked_gfp_comparison
+   mne_denoise.viz.plot_channel_time_course_comparison
+   mne_denoise.viz.plot_power_ratio_map
    mne_denoise.viz.plot_spectrogram_comparison
-   mne_denoise.viz.plot_overlay_comparison
-   mne_denoise.viz.plot_narrowband_scan
-   mne_denoise.viz.plot_tf_mask
+   mne_denoise.viz.plot_signal_overlay
+   mne_denoise.viz.plot_component_psd_comparison
+   mne_denoise.viz.plot_grand_average_evokeds
+   mne_denoise.viz.plot_narrowband_score_scan
+   mne_denoise.viz.plot_time_frequency_mask
+   mne_denoise.viz.plot_metric_bars
+   mne_denoise.viz.plot_tradeoff_scatter
+   mne_denoise.viz.plot_single_metric_comparison
+   mne_denoise.viz.plot_metric_slopes
+   mne_denoise.viz.plot_metric_violins
+   mne_denoise.viz.plot_null_distribution
+   mne_denoise.viz.plot_forest
+   mne_denoise.viz.plot_harmonic_attenuation
+   mne_denoise.viz.plot_metric_tradeoff_summary
 
-   mne_denoise.viz.plot_zapline_analytics
-   mne_denoise.viz.plot_cleaning_summary
-   mne_denoise.viz.plot_component_scores
-   mne_denoise.viz.plot_zapline_patterns
-   mne_denoise.viz.plot_zapline_psd_comparison
+   mne_denoise.viz.plot_zapline_cleaning_summary
+   mne_denoise.viz.plot_zapline_adaptive_summary
+   mne_denoise.viz.plot_denoising_summary
+   mne_denoise.viz.plot_dss_summary
+   mne_denoise.viz.plot_dss_segmented_summary
+   mne_denoise.viz.plot_dss_mode_comparison
+   mne_denoise.viz.plot_erp_signal_diagnostics
+   mne_denoise.viz.plot_erp_condition_interaction
+   mne_denoise.viz.plot_erp_endpoint_summary
+   mne_denoise.viz.plot_erp_grand_condition_interaction
