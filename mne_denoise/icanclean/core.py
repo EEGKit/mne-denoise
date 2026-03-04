@@ -24,12 +24,21 @@ References
        How to Remove Artifacts using Reference Noise Recordings.
        arXiv:2201.11798.
 
-.. [2] Hotelling, H. (1936). Relations between two sets of variates.
-       Biometrika, 28(3/4), 321-377.
+.. [2] Downey, R. J., & Ferris, D. P. (2023). iCanClean Removes Motion,
+       Muscle, Eye, and Line-Noise Artifacts from Phantom EEG. Sensors,
+       23(19), 8214. doi:10.3390/s23198214.
 
-.. [3] Pion-Tonachini, L., et al. (2019). ICLabel: An automated
-       electroencephalographic independent component classifier, dataset, and
-       website. NeuroImage, 198, 181-197.
+.. [3] Gonsisko, C. B., Ferris, D. P., & Downey, R. J. (2023). iCanClean
+       Improves ICA of Mobile Brain Imaging with EEG. Sensors, 23(2), 928.
+       doi:10.3390/s23020928.
+
+.. [4] Nordin, A. D., Hairston, W. D., & Ferris, D. P. (2018).
+       Dual-electrode motion artifact cancellation for mobile
+       electroencephalography. J Neural Eng, 15(5), 056024.
+       doi:10.1088/1741-2552/aad7d7.
+
+.. [5] Hotelling, H. (1936). Relations between two sets of variates.
+       Biometrika, 28(3/4), 321-377.
 """
 
 from __future__ import annotations
@@ -189,6 +198,14 @@ class ICanClean(BaseEstimator, TransformerMixin):
     .. [1] Downey, R. J., & Ferris, D. P. (2022). The iCanClean Algorithm:
            How to Remove Artifacts using Reference Noise Recordings.
            arXiv:2201.11798.
+
+    .. [2] Downey, R. J., & Ferris, D. P. (2023). iCanClean Removes Motion,
+           Muscle, Eye, and Line-Noise Artifacts from Phantom EEG. Sensors,
+           23(19), 8214. doi:10.3390/s23198214.
+
+    .. [3] Gonsisko, C. B., Ferris, D. P., & Downey, R. J. (2023). iCanClean
+           Improves ICA of Mobile Brain Imaging with EEG. Sensors, 23(2), 928.
+           doi:10.3390/s23020928.
     """
 
     def __init__(
@@ -455,7 +472,7 @@ class ICanClean(BaseEstimator, TransformerMixin):
         all_filters: list[np.ndarray] = []
         all_patterns: list[np.ndarray] = []
 
-        # Running R² accumulator for adaptive threshold
+        # Running R\u00b2 accumulator for adaptive threshold
         running_r2: list[float] = []
 
         for start in starts:
@@ -559,7 +576,7 @@ class ICanClean(BaseEstimator, TransformerMixin):
 
     @staticmethod
     def _adaptive_threshold(running_r2: list[float]) -> float:
-        """Compute adaptive R² threshold from running distribution."""
+        """Compute adaptive R\u00b2 threshold from running distribution."""
         if len(running_r2) > 10:
             return float(np.percentile(running_r2, 95))
         return 0.95

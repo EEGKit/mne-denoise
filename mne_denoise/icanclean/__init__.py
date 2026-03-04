@@ -15,8 +15,19 @@ References
        How to Remove Artifacts using Reference Noise Recordings.
        arXiv:2201.11798.
 
-.. [2] Hotelling, H. (1936). Relations between two sets of variates.
-       Biometrika, 28(3/4), 321-377.
+.. [2] Downey, R. J., & Ferris, D. P. (2023). iCanClean Removes Motion,
+       Muscle, Eye, and Line-Noise Artifacts from Phantom EEG. Sensors,
+       23(19), 8214. doi:10.3390/s23198214.
+
+.. [3] Gonsisko, C. B., Ferris, D. P., & Downey, R. J. (2023). iCanClean
+       Improves ICA of Mobile Brain Imaging with EEG. Sensors, 23(2), 928.
+       doi:10.3390/s23020928.
+
+Licensing Note
+--------------
+The EEGLAB iCanClean plugin states that the software implements patented
+methods (WO2022061322A1). This implementation derives entirely from the
+published papers above and uses standard signal-processing operations.
 """
 
 from .core import ICanClean

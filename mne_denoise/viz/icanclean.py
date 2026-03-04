@@ -48,7 +48,7 @@ def plot_correlation_scores(
 
     corr = icanclean.correlations_
     if corr.size == 0:
-        raise ValueError("No correlations stored — was ICanClean fitted?")
+        raise ValueError("No correlations stored \u2014 was ICanClean fitted?")
 
     if ax is None:
         fig, ax = plt.subplots(figsize=(10, 4))
@@ -68,7 +68,7 @@ def plot_correlation_scores(
 
     ax.set_xlabel("Window index")
     ax.set_ylabel("$R^2$")
-    ax.set_title("ICanClean — Canonical Correlation Scores per Window")
+    ax.set_title("ICanClean \u2014 Canonical Correlation Scores per Window")
     ax.set_ylim(-0.02, 1.02)
     if n_comp <= 10:
         ax.legend(fontsize=7, ncols=min(n_comp + 1, 5))
@@ -104,7 +104,7 @@ def plot_removal_summary(
 
     n_removed = icanclean.n_removed_
     if n_removed is None or len(n_removed) == 0:
-        raise ValueError("No removal data — was ICanClean fitted?")
+        raise ValueError("No removal data \u2014 was ICanClean fitted?")
 
     if ax is None:
         fig, ax = plt.subplots(figsize=(10, 3))
@@ -115,7 +115,7 @@ def plot_removal_summary(
     ax.axhline(n_removed.mean(), color="red", ls="--", lw=1, label=f"mean={n_removed.mean():.1f}")
     ax.set_xlabel("Window index")
     ax.set_ylabel("Components removed")
-    ax.set_title("ICanClean — Components Removed per Window")
+    ax.set_title("ICanClean \u2014 Components Removed per Window")
     ax.legend()
     fig.tight_layout()
 
@@ -182,8 +182,8 @@ def plot_psd_comparison(
     ax.semilogy(f[freq_mask], psd_before[freq_mask], label="Before", alpha=0.8)
     ax.semilogy(f[freq_mask], psd_after[freq_mask], label="After", alpha=0.8)
     ax.set_xlabel("Frequency (Hz)")
-    ax.set_ylabel("PSD (V²/Hz)")
-    ax.set_title("ICanClean — Before / After PSD")
+    ax.set_ylabel("PSD (V\u00b2/Hz)")
+    ax.set_title("ICanClean \u2014 Before / After PSD")
     ax.legend()
     fig.tight_layout()
 
@@ -246,7 +246,7 @@ def plot_timeseries_comparison(
     ax.plot(t[mask], data_after[channel, mask], label="After", alpha=0.8, lw=0.8)
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("Amplitude")
-    ax.set_title(f"ICanClean — Channel {channel} Time Series")
+    ax.set_title(f"ICanClean \u2014 Channel {channel} Time Series")
     ax.legend()
     fig.tight_layout()
 

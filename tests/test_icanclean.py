@@ -105,7 +105,7 @@ class TestCanonicalCorrelation:
         assert np.all(R <= 1.0 + 1e-10)
 
     def test_perfect_correlation(self):
-        """Perfectly correlated signals give R ≈ 1."""
+        """Perfectly correlated signals give R \u2248 1."""
         t = np.linspace(0, 1, 500)
         X = np.column_stack([np.sin(2 * np.pi * t), np.cos(2 * np.pi * t)])
         Y = X @ np.array([[0.5, 0.3], [-0.2, 0.8]])  # linear transform
