@@ -20,6 +20,18 @@ from .components import (
     plot_spatial_patterns,
     plot_tf_mask,
 )
+from .icanclean import (
+    plot_correlation_scores as plot_icanclean_correlations,
+)
+from .icanclean import (
+    plot_psd_comparison as plot_icanclean_psd_comparison,
+)
+from .icanclean import (
+    plot_removal_summary as plot_icanclean_removal_summary,
+)
+from .icanclean import (
+    plot_timeseries_comparison as plot_icanclean_timeseries,
+)
 from .zapline import (
     plot_cleaning_summary,
     plot_component_scores,
@@ -55,4 +67,9 @@ __all__ = [
     "plot_component_scores",
     "plot_zapline_patterns",
     "plot_zapline_psd_comparison",
+    # ICanClean plots
+    "plot_icanclean_correlations",
+    "plot_icanclean_removal_summary",
+    "plot_icanclean_psd_comparison",
+    "plot_icanclean_timeseries",
 ]
