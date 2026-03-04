@@ -1,4 +1,4 @@
-"""Tests for mne_denoise.viz.benchmark_io module."""
+"""Tests for mne_denoise.benchmarks.io module."""
 
 import json
 
@@ -7,7 +7,7 @@ import pytest
 
 pd = pytest.importorskip("pandas")
 
-from mne_denoise.viz.benchmark_io import (
+from mne_denoise.benchmarks.io import (
     LineNoiseGroupData,
     _NumpyEncoder,
     aggregate_benchmark_results,

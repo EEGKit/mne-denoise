@@ -12,13 +12,13 @@ exposed as ``plot_metric_violins``, ``plot_metric_slopes``,
 ``plot_null_distribution``, and ``plot_forest``; grouped evoked overlays are
 exposed as ``plot_grand_average_evokeds``.
 
-Add deferred-group I/O helpers (``mne_denoise.viz.erp_io``):
+Add deferred-group I/O helpers (``mne_denoise.benchmarks.erp_io``):
 ``ERPGroupData``, ``save_subject_erp_results``,
 ``load_subject_erp_results``, and ``aggregate_erp_results`` for scalable
 multi-subject ERP workflows.
 
 Add deferred-group I/O helpers for line-noise benchmarks
-(``mne_denoise.viz.benchmark_io``): ``LineNoiseGroupData``,
+(``mne_denoise.benchmarks.io``): ``LineNoiseGroupData``,
 ``save_subject_benchmark_results``, ``load_subject_benchmark_results``, and
 ``aggregate_benchmark_results``.
 

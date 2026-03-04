@@ -604,7 +604,6 @@ __all__ = [
     "style_axes",
     "themed_figure",
     "themed_legend",
-    "_finalize_fig",
     "get_theme_rc",
     "use_theme",
     "set_theme",

@@ -8,7 +8,7 @@ from mne_denoise.viz import (
     plot_zapline_cleaning_summary,
     plot_zapline_summary,
 )
-from mne_denoise.viz.summary import (
+from mne_denoise.viz._utils import (
     _get_chunk_info,
     _get_cleaned,
     _get_zapline_n_removed,

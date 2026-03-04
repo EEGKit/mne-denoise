@@ -1,11 +1,5 @@
 """Visualization functions for MNE-Denoise."""
 
-from .benchmark_io import (
-    LineNoiseGroupData,
-    aggregate_benchmark_results,
-    load_subject_benchmark_results,
-    save_subject_benchmark_results,
-)
 from .components import (
     plot_component_epochs_image,
     plot_component_patterns,
@@ -13,12 +7,6 @@ from .components import (
     plot_component_spectrogram,
     plot_component_summary,
     plot_component_time_series,
-)
-from .erp_io import (
-    ERPGroupData,
-    aggregate_erp_results,
-    load_subject_erp_results,
-    save_subject_erp_results,
 )
 from .signals import (
     plot_channel_time_course_comparison,
@@ -156,14 +144,4 @@ __all__ = [
     "plot_erp_condition_interaction",
     "plot_erp_endpoint_summary",
     "plot_erp_grand_condition_interaction",
-    # ERP I/O (deferred-group workflow)
-    "ERPGroupData",
-    "save_subject_erp_results",
-    "load_subject_erp_results",
-    "aggregate_erp_results",
-    # Benchmark I/O (deferred-group workflow)
-    "LineNoiseGroupData",
-    "save_subject_benchmark_results",
-    "load_subject_benchmark_results",
-    "aggregate_benchmark_results",
 ]

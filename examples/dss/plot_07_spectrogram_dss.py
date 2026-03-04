@@ -216,7 +216,7 @@ plot_signal_overlay(
     signal_spindle,
     comp0_tf,
     title="Spindle Reconstruction: Ground Truth vs SpectrogramBias Component",
-    scale_denoised=True,
+    scale_after=True,
     show=False,
 )
 plt.show(block=False)
@@ -294,71 +294,80 @@ plt.show(block=False)
 
 print("\n--- Part 3: Real MEG Data (Gamma Bursts) ---")
 
-# Download somato dataset (will skip if already downloaded)
-data_path = somato.data_path(verbose=True)
+# Download somato dataset if available
+data_path = somato.data_path(download=True, verbose=True)
 raw_path = data_path / "sub-01" / "meg" / "sub-01_task-somato_meg.fif"
 
-raw_somato = mne.io.read_raw_fif(raw_path, preload=True, verbose=False)
-raw_somato.pick_types(meg="grad", eeg=False, eog=False, stim=False, exclude="bads")
-# Use broader band and keep more data
-raw_somato.filter(1, 100, fir_design="firwin", verbose=False)  # Broad band first
-raw_somato.crop(0, 60)  # 60 seconds for more data
+if raw_path.exists():
+    raw_somato = mne.io.read_raw_fif(raw_path, preload=True, verbose=False)
+    raw_somato.pick_types(meg="grad", eeg=False, eog=False, stim=False, exclude="bads")
+    # Use broader band and keep more data
+    raw_somato.filter(1, 100, fir_design="firwin", verbose=False)  # Broad band first
+    raw_somato.crop(0, 60)  # 60 seconds for more data
 
-print(f"MEG Data: {len(raw_somato.ch_names)} channels, {raw_somato.times[-1]:.1f}s")
+    print(f"MEG Data: {len(raw_somato.ch_names)} channels, {raw_somato.times[-1]:.1f}s")
 
-# Apply SpectrogramDenoiser
-spec_denoiser_meg = SpectrogramDenoiser(
-    threshold_percentile=95,  # Top 5% of TF energy
-    nperseg=256,
-)
+    # Apply SpectrogramDenoiser
+    spec_denoiser_meg = SpectrogramDenoiser(
+        threshold_percentile=95,  # Top 5% of TF energy
+        nperseg=256,
+    )
 
-idss_meg = IterativeDSS(denoiser=spec_denoiser_meg, n_components=3, max_iter=3)
+    idss_meg = IterativeDSS(denoiser=spec_denoiser_meg, n_components=3, max_iter=3)
 
-idss_meg.fit(raw_somato)
-print("\nIterativeDSS on MEG data converged")
+    idss_meg.fit(raw_somato)
+    print("\nIterativeDSS on MEG data converged")
 
-# Visualize (skip topomaps - use time series)
-sources_meg = idss_meg.transform(raw_somato)
+    # Visualize (skip topomaps - use time series)
+    sources_meg = idss_meg.transform(raw_somato)
 
-# Create Raw for visualization
-comp_raw_meg = mne.io.RawArray(
-    sources_meg[:1], mne.create_info(1, raw_somato.info["sfreq"], "misc")
-)
-raw_single_meg = raw_somato.copy().pick([0])
+    # Create Raw for visualization
+    comp_raw_meg = mne.io.RawArray(
+        sources_meg[:1], mne.create_info(1, raw_somato.info["sfreq"], "misc")
+    )
+    raw_single_meg = raw_somato.copy().pick([0])
 
-# --- Time Course Comparison ---
-plot_channel_time_course_comparison(
-    raw_single_meg, comp_raw_meg, start=0, stop=5, show=False
-)
-plt.gcf().suptitle("Real MEG: Original vs TF-DSS Component 0 (Gamma Bursts)")
-plt.show(block=False)
+    # --- Time Course Comparison ---
+    plot_channel_time_course_comparison(
+        raw_single_meg, comp_raw_meg, start=0, stop=5, show=False
+    )
+    plt.gcf().suptitle("Real MEG: Original vs TF-DSS Component 0 (Gamma Bursts)")
+    plt.show(block=False)
 
-# --- Spectrogram Comparison (Pre/Post) ---
-# Compares broadband raw data vs the broadband component
-plot_spectrogram_comparison(raw_single_meg, comp_raw_meg, fmin=1, fmax=100, show=False)
-plt.gcf().suptitle("Spectrogram Comparison: Raw Data vs Extracted Component")
-plt.show(block=False)
+    # --- Spectrogram Comparison (Pre/Post) ---
+    # Compares broadband raw data vs the broadband component
+    plot_spectrogram_comparison(
+        raw_single_meg, comp_raw_meg, fmin=1, fmax=100, show=False
+    )
+    plt.gcf().suptitle("Spectrogram Comparison: Raw Data vs Extracted Component")
+    plt.show(block=False)
 
-# --- Component Spectrogram (Single Component TFR) ---
-# Zoom into the component's frequency content
-freqs = np.arange(10, 50, 2)
-plot_component_spectrogram(
-    sources_meg[0],
-    sfreq=raw_somato.info["sfreq"],
-    freqs=freqs,
-    title="TF-DSS Component 0: Extracted Transient Oscillations",
-    show=False,
-)
-plt.show(block=False)
+    # --- Component Spectrogram (Single Component TFR) ---
+    # Zoom into the component's frequency content
+    freqs = np.arange(10, 50, 2)
+    plot_component_spectrogram(
+        sources_meg[0],
+        sfreq=raw_somato.info["sfreq"],
+        freqs=freqs,
+        title="TF-DSS Component 0: Extracted Transient Oscillations",
+        show=False,
+    )
+    plt.show(block=False)
 
-# --- Full Component Summary (with Topomaps!) ---
-# Now that we have info, we can show topomaps
-# Note: IterativeDSS stores patterns, so plot_component_summary can extract them.
-print("\nPlotting full component dashboard (including Topomaps)...")
-plot_component_summary(idss_meg, data=raw_somato, n_components=1, show=False)
-plt.gcf().suptitle("TF-DSS Component 0 Dashboard")
-plt.show(block=False)
+    # --- Full Component Summary (with Topomaps!) ---
+    # Now that we have info, we can show topomaps
+    # Note: IterativeDSS stores patterns, so plot_component_summary can extract them.
+    print("\nPlotting full component dashboard (including Topomaps)...")
+    plot_component_summary(idss_meg, data=raw_somato, n_components=1, show=False)
+    plt.gcf().suptitle("TF-DSS Component 0 Dashboard")
+    plt.show(block=False)
 
-print("\nSuccessfully extracted transient gamma oscillations using TF masking!")
+    print("\nSuccessfully extracted transient gamma oscillations using TF masking!")
+else:
+    print(
+        "\nSkipping Part 3: Somato dataset not found at "
+        f"{raw_path}. Run this example with the dataset available to reproduce the "
+        "real MEG section."
+    )
 
 plt.show()

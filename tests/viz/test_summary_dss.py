@@ -1,10 +1,16 @@
 """Tests for DSS-related summary helpers and plots."""
 
 import matplotlib.pyplot as plt
+import mne
 import numpy as np
 
-from mne_denoise.viz import plot_dss_segmented_summary, plot_dss_summary
-from mne_denoise.viz.summary import (
+from mne_denoise.dss.denoisers import LineNoiseBias
+from mne_denoise.viz import (
+    plot_dss_mode_comparison,
+    plot_dss_segmented_summary,
+    plot_dss_summary,
+)
+from mne_denoise.viz._utils import (
     _get_bias_name,
     _get_dss_removed,
     _get_eigenvalues,
@@ -84,6 +90,22 @@ class MockBiasNamed:
     """Mock bias with a recognized class-name for renaming."""
 
     pass
+
+
+def _make_line_noise_raw(
+    n_ch: int = 6, n_times: int = 1200, sfreq: float = 200.0, line_freq: float = 50.0
+):
+    """Create a small Raw object with synthetic line-noise contamination."""
+    rng = np.random.default_rng(123)
+    times = np.arange(n_times) / sfreq
+    line = np.sin(2 * np.pi * line_freq * times)
+    noise = 0.05 * rng.standard_normal((n_ch, n_times))
+    mix = rng.uniform(0.5, 1.5, size=(n_ch, 1))
+    data = noise + mix * line
+    info = mne.create_info(
+        [f"EEG{i}" for i in range(n_ch)], sfreq=sfreq, ch_types="eeg"
+    )
+    return mne.io.RawArray(data, info, verbose=False)
 
 
 # =====================================================================
@@ -338,3 +360,49 @@ class TestPlotDssSegmentedSummary:
             show=False,
         )
         assert isinstance(fig, plt.Figure)
+
+
+class TestPlotDssModeComparison:
+    def test_mode_comparison_basic(self):
+        raw = _make_line_noise_raw()
+        bias = LineNoiseBias(
+            freq=50.0, sfreq=raw.info["sfreq"], method="fft", n_harmonics=3
+        )
+
+        fig, results = plot_dss_mode_comparison(
+            bias,
+            raw,
+            n_components=6,
+            n_select="auto",
+            selection_method="combined",
+            line_freq=50.0,
+            n_harmonics=3,
+            show=False,
+        )
+
+        assert isinstance(fig, plt.Figure)
+        assert set(results) == {"plain", "smooth", "segmented"}
+        for mode in ("plain", "smooth", "segmented"):
+            assert "metrics" in results[mode]
+            assert "data" in results[mode]
+            assert "cleaned_raw" in results[mode]
+            assert "estimator" in results[mode]
+
+    def test_mode_comparison_save(self, tmp_path):
+        raw = _make_line_noise_raw()
+        bias = LineNoiseBias(
+            freq=50.0, sfreq=raw.info["sfreq"], method="fft", n_harmonics=2
+        )
+        out = tmp_path / "dss_mode_comparison.png"
+
+        fig, _ = plot_dss_mode_comparison(
+            bias,
+            raw,
+            n_components=4,
+            n_harmonics=2,
+            show=False,
+            fname=str(out),
+        )
+
+        assert isinstance(fig, plt.Figure)
+        assert out.exists()

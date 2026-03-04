@@ -178,7 +178,8 @@ plt.show()
 
 print("\nPart 3: Understanding component scores")
 
-est_scores = ZapLine(line_freq=50, sfreq=sfreq, n_remove="auto")
+# Use a fixed removal count to guarantee selected components for pattern plots.
+est_scores = ZapLine(line_freq=50, sfreq=sfreq, n_remove=3)
 est_scores.fit(data)
 
 # Use the reusable viz functions

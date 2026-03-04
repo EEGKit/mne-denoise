@@ -23,7 +23,19 @@ from mne_denoise.viz import (
     plot_erp_signal_diagnostics,
 )
 from mne_denoise.viz._seaborn import _try_import_seaborn
-from mne_denoise.viz.erp_io import (
+
+
+def _seaborn_available():
+    """Return True if seaborn is importable."""
+    try:
+        import seaborn  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
+from mne_denoise.benchmarks.erp_io import (
     ERPGroupData,
     aggregate_erp_results,
     load_subject_erp_results,
@@ -175,6 +187,7 @@ class TestPrivateHelpers:
     def test_pipe_label_unknown_falls_back(self):
         assert _pipe_label("ZZZ") == "ZZZ"
 
+    @pytest.mark.skipif(not _seaborn_available(), reason="seaborn not installed")
     def test_try_import_seaborn(self):
         sns = _try_import_seaborn()
         assert hasattr(sns, "violinplot")
@@ -386,6 +399,7 @@ class TestPlotConditionInteraction:
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
+@pytest.mark.skipif(not _seaborn_available(), reason="seaborn not installed")
 class TestPlotMetricViolins:
     def test_basic(self, metrics_df):
         fig = plot_metric_violins(
@@ -474,6 +488,7 @@ class TestPlotMetricViolins:
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
+@pytest.mark.skipif(not _seaborn_available(), reason="seaborn not installed")
 class TestPlotEndpointSummary:
     def test_basic(self, metrics_df):
         fig = plot_erp_endpoint_summary(
