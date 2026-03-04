@@ -29,7 +29,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy import signal
 
-from ._theme import COLORS, FONTS, _finalize_fig, pub_legend, style_axes
+from ._theme import COLORS, FONTS, _finalize_fig, themed_legend, style_axes
 
 if TYPE_CHECKING:
     pass
@@ -673,7 +673,7 @@ def plot_adaptive_summary(
     )
     ax_a.set_xlim(-0.6, n_chunks - 0.4)
     ax_a.yaxis.set_major_locator(mticker.MaxNLocator(integer=True))
-    pub_legend(
+    themed_legend(
         ax_a,
         loc="upper left",
         handles=[
@@ -730,7 +730,7 @@ def plot_adaptive_summary(
     freq_range = max(fine_freqs) - min(fine_freqs)
     freq_pad = max(0.02, freq_range * 0.20)
     ax_b.set_ylim(min(fine_freqs) - freq_pad, max(fine_freqs) + freq_pad)
-    pub_legend(ax_b, loc="upper left")
+    themed_legend(ax_b, loc="upper left")
 
     # =================================================================
     # (c) Segment timeline
@@ -780,7 +780,7 @@ def plot_adaptive_summary(
             loc="left",
             pad=6,
         )
-        pub_legend(
+        themed_legend(
             ax_c,
             loc="upper right",
             handles=[
@@ -970,7 +970,7 @@ def plot_adaptive_summary(
             loc="left",
             pad=6,
         )
-        pub_legend(ax_e, loc="upper right")
+        themed_legend(ax_e, loc="upper right")
     else:
         scores = getattr(result, "eigenvalues_", None)
         if scores is not None and isinstance(scores, np.ndarray) and scores.size:
@@ -1257,7 +1257,7 @@ def plot_zapline_summary(
                 zorder=4,
             )
 
-        pub_legend(
+        themed_legend(
             ax_a,
             loc="upper right",
             handles=[
@@ -1388,7 +1388,7 @@ def plot_zapline_summary(
                 step = max(1, n_ch // 12)
                 ax_b.set_xticks(x_ch[::step])
 
-            pub_legend(ax_b, loc="upper right")
+            themed_legend(ax_b, loc="upper right")
         else:
             ax_b.text(
                 0.5,
@@ -1555,7 +1555,7 @@ def plot_zapline_summary(
         ax_d.set_xlabel("Time (s)", fontsize=F["label"])
         ax_d.set_ylabel("Amplitude (a.u.)", fontsize=F["label"])
         ax_d.set_yticks([])
-        pub_legend(ax_d, loc="upper right")
+        themed_legend(ax_d, loc="upper right")
     elif sources is not None and sources.size > 0:
         ax_d.text(
             0.5,
@@ -1643,7 +1643,7 @@ def plot_zapline_summary(
         ax_e.set_xlabel("Frequency (Hz)", fontsize=F["label"])
         ax_e.set_ylabel(r"PSD (V$^2\!$/Hz)", fontsize=F["label"])
         ax_e.set_xlim(0, fmax)
-        pub_legend(ax_e, loc="upper right")
+        themed_legend(ax_e, loc="upper right")
     else:
         ax_e.text(
             0.5,

@@ -37,6 +37,7 @@ Hamza Abdelhedi â€” hamza.abdelhedi@umontreal.ca
 
 from __future__ import annotations
 
+import contextlib
 import warnings
 from pathlib import Path
 
@@ -44,29 +45,19 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.signal import welch as _welch
 
-from ._theme import COLORS, FONTS, _finalize_fig, pub_figure, pub_legend, style_axes
-
-# Suppress seaborn FutureWarning about palette without hue (our calls DO pass
-# hue, but seaborn â‰¤ 0.13 may still emit the warning internally).
-warnings.filterwarnings(
-    "ignore",
-    category=FutureWarning,
-    message=r"Passing `palette` without assigning `hue`",
-)
-warnings.filterwarnings(
-    "ignore",
-    message=r"set_ticklabels\(\) should only be used",
+from ._theme import (
+    COLORS,
+    DEFAULT_PIPE_COLORS,
+    FONTS,
+    _finalize_fig,
+    themed_figure,
+    themed_legend,
+    style_axes,
 )
 
 # =====================================================================
 # Default pipeline palette (colorblind-safe, Wong 2011)
 # =====================================================================
-DEFAULT_PIPE_COLORS: dict[str, str] = {
-    "C0": COLORS["dark"],
-    "C1": COLORS["green"],
-    "C2": COLORS["red"],
-}
-
 DEFAULT_PIPE_LABELS: dict[str, str] = {
     "C0": "Baseline",
     "C1": "Paper (ICA)",
@@ -128,6 +119,22 @@ def _try_import_seaborn():
             "seaborn is required for this plotting function. "
             "Install it with:  pip install seaborn"
         ) from err
+
+
+@contextlib.contextmanager
+def _suppress_seaborn_plot_warnings():
+    """Suppress known seaborn/matplotlib warnings only around plot calls."""
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            category=FutureWarning,
+            message=r"Passing `palette` without assigning `hue`",
+        )
+        warnings.filterwarnings(
+            "ignore",
+            message=r"set_ticklabels\(\) should only be used",
+        )
+        yield
 
 
 # =====================================================================
@@ -199,7 +206,7 @@ def plot_erp_signal_diagnostics(
         figsize = (16, 14)
 
     n_ch = len(channels)
-    fig, axes = pub_figure(3, n_ch, figsize=figsize)
+    fig, axes = themed_figure(3, n_ch, figsize=figsize)
     if n_ch == 1:
         axes = axes[:, np.newaxis]
 
@@ -225,7 +232,7 @@ def plot_erp_signal_diagnostics(
         ax.set_ylabel("PSD (VÂ²/Hz)", fontsize=FONTS["label"])
         ax.set_title(f"Epoch-Averaged PSD at {ch_name}", fontsize=FONTS["title"])
         ax.set_xlim(0, fmax)
-        pub_legend(ax)
+        themed_legend(ax)
         style_axes(ax)
 
     # ---- Row 2: Evoked overlay ----
@@ -248,7 +255,7 @@ def plot_erp_signal_diagnostics(
         ax.set_xlabel("Time (ms)", fontsize=FONTS["label"])
         ax.set_ylabel("Amplitude (ÂµV)", fontsize=FONTS["label"])
         ax.set_title(f"Evoked Overlay at {ch_name} (test set)", fontsize=FONTS["title"])
-        pub_legend(ax)
+        themed_legend(ax)
         style_axes(ax)
 
     # ---- Row 3: Difference waves (deviant âˆ’ standard) ----
@@ -317,7 +324,7 @@ def plot_erp_signal_diagnostics(
         ax.set_title(
             f"Difference Wave at {ch_name} (test set)", fontsize=FONTS["title"]
         )
-        pub_legend(ax)
+        themed_legend(ax)
         style_axes(ax)
 
     fig.suptitle(
@@ -406,7 +413,7 @@ def plot_erp_condition_interaction(
     n_conds = len(conditions)
 
     # ---- Figure 1: difference waves ----
-    fig1, axes1 = pub_figure(1, n_conds, figsize=figsize or (6 * n_conds, 5))
+    fig1, axes1 = themed_figure(1, n_conds, figsize=figsize or (6 * n_conds, 5))
     if n_conds == 1:
         axes1 = np.array([axes1])
 
@@ -443,7 +450,7 @@ def plot_erp_condition_interaction(
         if i == 0:
             ax.set_ylabel("Amplitude (ÂµV)", fontsize=FONTS["label"])
         ax.set_title(condition_labels.get(cond, cond), fontsize=FONTS["title"])
-        pub_legend(ax)
+        themed_legend(ax)
         style_axes(ax)
 
     fig1.suptitle(
@@ -455,7 +462,7 @@ def plot_erp_condition_interaction(
     )
 
     # ---- Figure 2: effect-size interaction ----
-    fig2, (ax_strip, ax_line) = pub_figure(1, 2, figsize=(14, 5))
+    fig2, (ax_strip, ax_line) = themed_figure(1, 2, figsize=(14, 5))
 
     # Left: strip plot (seaborn optional)
     try:
@@ -479,20 +486,21 @@ def plot_erp_condition_interaction(
                 _pipe_label(p, pipe_labels): _pipe_color(p, pipe_colors)
                 for p in pipe_order
             }
-            sns.stripplot(
-                data=df_g,
-                x="Condition",
-                y="Hedges_g",
-                hue="Pipeline",
-                order=cond_order,
-                hue_order=[_pipe_label(p, pipe_labels) for p in pipe_order],
-                palette=palette,
-                dodge=True,
-                size=9,
-                alpha=0.85,
-                ax=ax_strip,
-                zorder=5,
-            )
+            with _suppress_seaborn_plot_warnings():
+                sns.stripplot(
+                    data=df_g,
+                    x="Condition",
+                    y="Hedges_g",
+                    hue="Pipeline",
+                    order=cond_order,
+                    hue_order=[_pipe_label(p, pipe_labels) for p in pipe_order],
+                    palette=palette,
+                    dodge=True,
+                    size=9,
+                    alpha=0.85,
+                    ax=ax_strip,
+                    zorder=5,
+                )
     except ImportError:
         # Fallback: simple scatter
         for i_c, cond in enumerate(conditions):
@@ -514,7 +522,7 @@ def plot_erp_condition_interaction(
     ax_strip.axhline(0, color=COLORS["gray"], alpha=0.3)
     ax_strip.set_ylabel("Hedges' g", fontsize=FONTS["label"])
     ax_strip.set_title("Effect Size by Condition Ã— Pipeline", fontsize=FONTS["title"])
-    pub_legend(ax_strip)
+    themed_legend(ax_strip)
     style_axes(ax_strip)
 
     # Right: interaction line plot
@@ -537,7 +545,7 @@ def plot_erp_condition_interaction(
     ax_line.set_ylabel("Hedges' g", fontsize=FONTS["label"])
     ax_line.set_title("Condition Ã— Pipeline Interaction", fontsize=FONTS["title"])
     ax_line.axhline(0, color=COLORS["gray"], alpha=0.3)
-    pub_legend(ax_line)
+    themed_legend(ax_line)
     style_axes(ax_line)
 
     fig2.suptitle(
@@ -642,7 +650,7 @@ def plot_erp_metric_violins(
     if figsize is None:
         figsize = (4 * n_met, 5.5)
 
-    fig, axes = pub_figure(1, n_met, figsize=figsize)
+    fig, axes = themed_figure(1, n_met, figsize=figsize)
     if n_met == 1:
         axes = np.array([axes])
 
@@ -673,38 +681,39 @@ def plot_erp_metric_violins(
         df_v = pd.DataFrame(rows)
 
         # Violin
-        sns.violinplot(
-            data=df_v,
-            x="Group",
-            y="value",
-            hue="Group",
-            order=pretty_order,
-            hue_order=pretty_order,
-            palette=palette,
-            inner=None,
-            linewidth=0.8,
-            alpha=0.3,
-            ax=ax,
-            cut=0,
-            density_norm="width",
-            legend=False,
-        )
-        # Swarm
-        sns.stripplot(
-            data=df_v,
-            x="Group",
-            y="value",
-            hue="Group",
-            order=pretty_order,
-            hue_order=pretty_order,
-            palette=palette,
-            size=3,
-            alpha=0.7,
-            jitter=0.12,
-            ax=ax,
-            zorder=5,
-            legend=False,
-        )
+        with _suppress_seaborn_plot_warnings():
+            sns.violinplot(
+                data=df_v,
+                x="Group",
+                y="value",
+                hue="Group",
+                order=pretty_order,
+                hue_order=pretty_order,
+                palette=palette,
+                inner=None,
+                linewidth=0.8,
+                alpha=0.3,
+                ax=ax,
+                cut=0,
+                density_norm="width",
+                legend=False,
+            )
+            # Swarm
+            sns.stripplot(
+                data=df_v,
+                x="Group",
+                y="value",
+                hue="Group",
+                order=pretty_order,
+                hue_order=pretty_order,
+                palette=palette,
+                size=3,
+                alpha=0.7,
+                jitter=0.12,
+                ax=ax,
+                zorder=5,
+                legend=False,
+            )
 
         # Paired within-subject lines
         if show_paired and n_sub > 1:
@@ -848,37 +857,38 @@ def plot_erp_endpoint_summary(
             continue
         df_v = pd.DataFrame(rows)
 
-        sns.violinplot(
-            data=df_v,
-            x="Group",
-            y="value",
-            hue="Group",
-            order=pretty_order,
-            hue_order=pretty_order,
-            palette=palette,
-            inner=None,
-            linewidth=0.8,
-            alpha=0.3,
-            ax=ax,
-            cut=0,
-            density_norm="width",
-            legend=False,
-        )
-        sns.stripplot(
-            data=df_v,
-            x="Group",
-            y="value",
-            hue="Group",
-            order=pretty_order,
-            hue_order=pretty_order,
-            palette=palette,
-            size=3,
-            alpha=0.7,
-            jitter=0.12,
-            ax=ax,
-            zorder=5,
-            legend=False,
-        )
+        with _suppress_seaborn_plot_warnings():
+            sns.violinplot(
+                data=df_v,
+                x="Group",
+                y="value",
+                hue="Group",
+                order=pretty_order,
+                hue_order=pretty_order,
+                palette=palette,
+                inner=None,
+                linewidth=0.8,
+                alpha=0.3,
+                ax=ax,
+                cut=0,
+                density_norm="width",
+                legend=False,
+            )
+            sns.stripplot(
+                data=df_v,
+                x="Group",
+                y="value",
+                hue="Group",
+                order=pretty_order,
+                hue_order=pretty_order,
+                palette=palette,
+                size=3,
+                alpha=0.7,
+                jitter=0.12,
+                ax=ax,
+                zorder=5,
+                legend=False,
+            )
 
         # Null distribution overlay
         if (
@@ -904,7 +914,7 @@ def plot_erp_endpoint_summary(
                         zorder=1,
                         label=f"Null 95% CI\n[{q025:+.2f}, {q975:+.2f}]",
                     )
-                    pub_legend(ax, fontsize=6, loc="lower right")
+                    themed_legend(ax, fontsize=6, loc="lower right")
 
         if mk == "auc":
             ax.axhline(0.5, color="k", ls=":", lw=0.7, alpha=0.5)
@@ -990,7 +1000,7 @@ def plot_erp_endpoint_summary(
             fontweight="bold",
             fontsize=FONTS["tick"],
         )
-        pub_legend(ax_slope, fontsize=7, loc="upper left")
+        themed_legend(ax_slope, fontsize=7, loc="upper left")
         ax_slope.grid(axis="y", alpha=0.3)
     else:
         ax_slope.text(
@@ -1067,7 +1077,7 @@ def plot_erp_pipeline_slopes(
     if figsize is None:
         figsize = (n_met * 4, 5)
 
-    fig, axes = pub_figure(1, n_met, figsize=figsize)
+    fig, axes = themed_figure(1, n_met, figsize=figsize)
     if n_met == 1:
         axes = np.array([axes])
 
@@ -1138,7 +1148,7 @@ def plot_erp_pipeline_slopes(
         ax.set_xticks(range(len(group_order)))
         ax.set_xticklabels(x_labels, fontsize=FONTS["tick"], rotation=30, ha="right")
         ax.set_ylabel(ml, fontsize=FONTS["label"])
-        pub_legend(ax, fontsize=7)
+        themed_legend(ax, fontsize=7)
         ax.grid(axis="y", alpha=0.3, zorder=0)
         ax.annotate(
             f"N = {n_sub}",
@@ -1201,7 +1211,7 @@ def plot_erp_grand_average(
     if figsize is None:
         figsize = (8 * n_ch, 5)
 
-    fig, axes = pub_figure(1, n_ch, figsize=figsize)
+    fig, axes = themed_figure(1, n_ch, figsize=figsize)
     if n_ch == 1:
         axes = np.array([axes])
 
@@ -1247,7 +1257,7 @@ def plot_erp_grand_average(
         ax.set_xlabel("Time (ms)", fontsize=FONTS["label"])
         ax.set_ylabel("Amplitude (ÂµV)", fontsize=FONTS["label"])
         ax.set_title(f"Grand Average at {ch_name}", fontsize=FONTS["title"])
-        pub_legend(ax)
+        themed_legend(ax)
         style_axes(ax)
 
     n_total = len(next(iter(all_evokeds.values())))
@@ -1319,7 +1329,7 @@ def plot_erp_grand_condition_interaction(
     n_conds = len(conditions)
 
     # ---- Figure 1: grand-average diff waves ----
-    fig1, axes1 = pub_figure(1, n_conds, figsize=figsize or (6 * n_conds, 5))
+    fig1, axes1 = themed_figure(1, n_conds, figsize=figsize or (6 * n_conds, 5))
     if n_conds == 1:
         axes1 = np.array([axes1])
 
@@ -1362,7 +1372,7 @@ def plot_erp_grand_condition_interaction(
         if i == 0:
             ax.set_ylabel("Amplitude (ÂµV)", fontsize=FONTS["label"])
         ax.set_title(condition_labels.get(cond, cond), fontsize=FONTS["title"])
-        pub_legend(ax)
+        themed_legend(ax)
         style_axes(ax)
 
     fig1.suptitle(
@@ -1372,7 +1382,7 @@ def plot_erp_grand_condition_interaction(
     )
 
     # ---- Figure 2: effect-size mean Â± SEM bars + strip ----
-    fig2, (ax_bar, ax_line) = pub_figure(1, 2, figsize=(14, 5))
+    fig2, (ax_bar, ax_line) = themed_figure(1, 2, figsize=(14, 5))
 
     x = np.arange(n_conds)
     bar_w = 0.8 / len(pipe_order)
@@ -1407,7 +1417,7 @@ def plot_erp_grand_condition_interaction(
     ax_bar.set_ylabel("Hedges' g (mean Â± SEM)", fontsize=FONTS["label"])
     ax_bar.set_title("Effect Size by Condition Ã— Pipeline", fontsize=FONTS["title"])
     ax_bar.axhline(0, color=COLORS["gray"], alpha=0.3)
-    pub_legend(ax_bar)
+    themed_legend(ax_bar)
     style_axes(ax_bar)
 
     # Interaction line plot (means Â± SEM as error band)
@@ -1448,7 +1458,7 @@ def plot_erp_grand_condition_interaction(
     ax_line.set_ylabel("Hedges' g", fontsize=FONTS["label"])
     ax_line.set_title("Condition Ã— Pipeline Interaction", fontsize=FONTS["title"])
     ax_line.axhline(0, color=COLORS["gray"], alpha=0.3)
-    pub_legend(ax_line)
+    themed_legend(ax_line)
     style_axes(ax_line)
 
     fig2.suptitle(
@@ -1524,7 +1534,7 @@ def plot_erp_null_distribution(
     if pipe_color is None:
         pipe_color = COLORS["red"]
 
-    fig, ax = pub_figure(1, 1, figsize=figsize)
+    fig, ax = themed_figure(1, 1, figsize=figsize)
 
     # Histogram
     ax.hist(
@@ -1580,7 +1590,7 @@ def plot_erp_null_distribution(
 
     ax.set_xlabel(metric_label, fontsize=FONTS["label"])
     ax.set_ylabel("Density", fontsize=FONTS["label"])
-    pub_legend(ax, fontsize=8)
+    themed_legend(ax, fontsize=8)
     style_axes(ax)
 
     title = suptitle or f"Permutation Null Distribution â€” {metric_label}"
@@ -1675,7 +1685,7 @@ def plot_erp_forest(
     if figsize is None:
         figsize = (8, max(4, n_sub * 0.35 + 2))
 
-    fig, ax = pub_figure(1, 1, figsize=figsize)
+    fig, ax = themed_figure(1, 1, figsize=figsize)
 
     y_pos = np.arange(n_sub)
     t_color = _pipe_color(target_group, group_colors)
@@ -1764,7 +1774,7 @@ def plot_erp_forest(
     ax.set_ylabel("")
     ax.invert_yaxis()
     ax.grid(axis="x", alpha=0.3, zorder=0)
-    pub_legend(ax, fontsize=7, loc="lower right")
+    themed_legend(ax, fontsize=7, loc="lower right")
     style_axes(ax)
 
     title = (

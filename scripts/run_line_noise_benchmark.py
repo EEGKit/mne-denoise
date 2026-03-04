@@ -92,9 +92,9 @@ from mne_denoise.viz import (
     plot_subject_psd_overlay,
     plot_tradeoff_and_r,
     plot_zapline_summary,
-    set_pub_style,
+    set_theme,
 )
-from mne_denoise.viz._theme import COLORS, FONTS, pub_legend, style_axes
+from mne_denoise.viz._theme import COLORS, FONTS, themed_legend, style_axes
 from mne_denoise.zapline import ZapLine
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
@@ -647,7 +647,7 @@ def run_group(subjects, deriv_root=None):
     group_dir = deriv_root / "group" / "line_noise"
     group_dir.mkdir(parents=True, exist_ok=True)
 
-    set_pub_style()
+    set_theme()
 
     # ── Re-read per-subject metrics TSVs ─────────────────────────────────
     frames = []
@@ -828,7 +828,7 @@ def run_group(subjects, deriv_root=None):
         if ax_idx == 0:
             ax.set_ylabel("R(f₀)", fontsize=FONTS["label"])
         style_axes(ax)
-    pub_legend(axes[0], loc="upper right")
+    themed_legend(axes[0], loc="upper right")
     fig.tight_layout()
     fig.savefig(group_dir / "condition_r_f0_bars.png", dpi=300, bbox_inches="tight")
     plt.close(fig)

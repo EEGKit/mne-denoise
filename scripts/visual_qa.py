@@ -201,43 +201,43 @@ data_after_zap = raw.get_data()
 print("\n── Theme ──")
 
 
-def test_use_style():
-    """Test use_style context manager."""
-    with viz.use_style():
+def test_use_theme():
+    """Test use_theme context manager."""
+    with viz.use_theme():
         fig, ax = plt.subplots()
         ax.plot([0, 1, 2], [0, 1, 4], label="test")
-        ax.set_title("use_style() context manager")
+        ax.set_title("use_theme() context manager")
         ax.legend()
-        fig.savefig(THEME_DIR / "use_style.png", dpi=150, bbox_inches="tight")
+        fig.savefig(THEME_DIR / "use_theme.png", dpi=150, bbox_inches="tight")
     return fig
 
 
-_try("use_style", test_use_style)
+_try("use_theme", test_use_theme)
 
 
-def test_pub_figure():
-    """Test pub_figure helper."""
-    fig, ax = viz.pub_figure()
+def test_themed_figure():
+    """Test themed_figure helper."""
+    fig, ax = viz.themed_figure()
     ax.plot(np.linspace(0, 10, 50), np.sin(np.linspace(0, 10, 50)))
-    ax.set_title("pub_figure()")
-    fig.savefig(THEME_DIR / "pub_figure.png", dpi=150, bbox_inches="tight")
+    ax.set_title("themed_figure()")
+    fig.savefig(THEME_DIR / "themed_figure.png", dpi=150, bbox_inches="tight")
     return fig
 
 
-_try("pub_figure", test_pub_figure)
+_try("themed_figure", test_themed_figure)
 
 
 def test_get_color():
-    """Verify _get_color returns correct colors for all keys."""
-    from mne_denoise.viz import _get_color
+    """Verify get_color returns correct colors for all keys."""
+    from mne_denoise.viz import get_color
 
     for key in ["blue", "orange", "green", "dss", "zapline", "clean"]:
-        c = _get_color(key)
-        assert c is not None, f"_get_color({key!r}) returned None"
+        c = get_color(key)
+        assert c is not None, f"get_color({key!r}) returned None"
     return True
 
 
-_try("_get_color", test_get_color)
+_try("get_color", test_get_color)
 
 
 # ══════════════════════════════════════════════════════════════════════

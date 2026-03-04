@@ -1,5 +1,6 @@
 """Unit tests for mne_denoise.viz module."""
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import mne
 import numpy as np
@@ -624,30 +625,56 @@ def test_zapline_viz_show(zapline_data, fitted_zapline):
 # =============================================================================
 
 
-def test_use_style_context_manager():
-    """Test that use_style restores rcParams on exit."""
-    from mne_denoise.viz._theme import use_style
+def test_use_theme_context_manager():
+    """Test that use_theme restores rcParams on exit and accepts overrides."""
+    from mne_denoise.viz._theme import get_theme_rc, use_theme
 
     # Record a known param before
     before = plt.rcParams["axes.spines.top"]
-    with use_style():
-        # Inside the context manager publication style should be active
+    custom_edge = "#444444"
+    with use_theme(rc={"axes.edgecolor": custom_edge}):
+        # Inside the context manager the package theme should be active
         in_ctx = plt.rcParams["axes.spines.top"]
-        assert in_ctx is False  # _PUB_RC turns off top spine
+        assert in_ctx is False  # _THEME_RC turns off top spine
+        assert mpl.colors.to_hex(plt.rcParams["axes.edgecolor"]).lower() == custom_edge
     # After exit, rcParams should be restored
     assert plt.rcParams["axes.spines.top"] == before
+    assert get_theme_rc({"axes.edgecolor": custom_edge})["axes.edgecolor"] == custom_edge
+    assert get_theme_rc()["axes.edgecolor"] != custom_edge
 
 
 def test_get_color():
-    """Test _get_color helper returns expected values."""
-    from mne_denoise.viz._theme import COLORS, METHOD_COLORS, _get_color
+    """Test get_color helper returns expected values."""
+    from mne_denoise.viz._theme import (
+        COLORS,
+        DEFAULT_METHOD_COLORS,
+        DEFAULT_PIPE_COLORS,
+        METHOD_COLORS,
+        get_color,
+    )
 
     # Known method
-    assert _get_color("dss") == METHOD_COLORS["dss"]
+    assert get_color("dss") == METHOD_COLORS["dss"]
+    assert get_color("M1") == DEFAULT_METHOD_COLORS["M1"]
+    assert get_color("C2") == DEFAULT_PIPE_COLORS["C2"]
     # Unknown method returns fallback (COLORS["dark"] by default)
-    assert _get_color("nonexistent_xyz") == COLORS["dark"]
+    assert get_color("nonexistent_xyz") == COLORS["dark"]
     # With explicit fallback
-    assert _get_color("nonexistent_xyz", fallback="#aabbcc") == "#aabbcc"
+    assert get_color("nonexistent_xyz", fallback="#aabbcc") == "#aabbcc"
+
+
+def test_set_theme_and_themed_figure_rc_overrides():
+    """Test rc overrides for set_theme and themed_figure."""
+    from mne_denoise.viz._theme import themed_figure, set_theme
+
+    custom_edge = "#223344"
+    with mpl.rc_context():
+        set_theme(rc={"axes.edgecolor": custom_edge})
+        assert mpl.colors.to_hex(plt.rcParams["axes.edgecolor"]).lower() == custom_edge
+
+    fig, ax = themed_figure(rc={"axes.edgecolor": custom_edge})
+    assert mpl.colors.to_hex(ax.spines["bottom"].get_edgecolor()).lower() == custom_edge
+    plt.close(fig)
 
 
 def test_finalize_fig_basic():

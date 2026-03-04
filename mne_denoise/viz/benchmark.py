@@ -36,15 +36,15 @@ from __future__ import annotations
 
 import numpy as np
 
-from ._theme import COLORS, FONTS, _finalize_fig, pub_figure, pub_legend, style_axes
-
-# —— Default method palette (colorblind-safe, matches notebook) ---
-DEFAULT_METHOD_COLORS = {
-    "M0": COLORS["gray"],
-    "M1": COLORS["blue"],
-    "M2": COLORS["orange"],
-    "M3": COLORS["purple"],
-}
+from ._theme import (
+    COLORS,
+    DEFAULT_METHOD_COLORS,
+    FONTS,
+    _finalize_fig,
+    themed_figure,
+    themed_legend,
+    style_axes,
+)
 
 DEFAULT_METHOD_LABELS = {
     "M0": "Baseline (no cleaning)",
@@ -134,7 +134,7 @@ def plot_qc_psd(
     n_harm = min(len(harmonics_hz), 3)
     n_cols = 1 + n_harm
 
-    fig, axes = pub_figure(1, n_cols, figsize=(4 * n_cols, 4))
+    fig, axes = themed_figure(1, n_cols, figsize=(4 * n_cols, 4))
     if not isinstance(axes, np.ndarray):
         axes = np.array([axes])
 
@@ -154,7 +154,7 @@ def plot_qc_psd(
     ax.set_xlabel("Frequency (Hz)", fontsize=FONTS["label"])
     ax.set_ylabel("PSD (V²/Hz)", fontsize=FONTS["label"])
     ax.set_title(f"{subject} — {label_str}", fontsize=FONTS["title"])
-    pub_legend(ax)
+    themed_legend(ax)
     ax.set_xlim(0, fmax)
     style_axes(ax)
 
@@ -239,7 +239,7 @@ def plot_psd_gallery(
     n_rows = len(method_order)
     n_cols = 1 + len(harmonics_hz)
 
-    fig, axes = pub_figure(n_rows, n_cols, figsize=(4 * n_cols, 3.5 * n_rows))
+    fig, axes = themed_figure(n_rows, n_cols, figsize=(4 * n_cols, 3.5 * n_rows))
     if n_rows == 1:
         axes = axes[np.newaxis, :]
 
@@ -279,7 +279,7 @@ def plot_psd_gallery(
         if row_i == 0:
             ax.set_title("Full PSD", fontsize=FONTS["title"])
         ax.set_xlim(0, fmax)
-        pub_legend(ax, fontsize=6)
+        themed_legend(ax, fontsize=6)
         style_axes(ax)
 
         # Columns 1+: harmonic zoom
@@ -360,7 +360,7 @@ def plot_subject_psd_overlay(
     if method_order is None:
         method_order = sorted(cleaned_psds.keys())
 
-    fig, axes = pub_figure(1, 2, figsize=(16, 5))
+    fig, axes = themed_figure(1, 2, figsize=(16, 5))
 
     # Left: full spectrum
     ax = axes[0]
@@ -385,7 +385,7 @@ def plot_subject_psd_overlay(
     ax.set_xlabel("Frequency (Hz)", fontsize=FONTS["label"])
     ax.set_ylabel("Geometric-Mean PSD (V²/Hz)", fontsize=FONTS["label"])
     ax.set_title(f"{subject} — Full Spectrum Comparison", fontsize=FONTS["title"])
-    pub_legend(ax)
+    themed_legend(ax)
     ax.set_xlim(0, fmax)
     style_axes(ax)
 
@@ -416,7 +416,7 @@ def plot_subject_psd_overlay(
     ax.axvline(line_freq, color=COLORS["line_marker"], ls="--", alpha=0.4)
     ax.set_xlabel("Frequency (Hz)", fontsize=FONTS["label"])
     ax.set_title(f"{subject} — Zoom at {line_freq} Hz", fontsize=FONTS["title"])
-    pub_legend(ax)
+    themed_legend(ax)
     style_axes(ax)
 
     fig.suptitle(
@@ -473,7 +473,7 @@ def plot_metric_bars(
     lower_better = [True, False, True, True, True]
 
     n_metrics = len(metric_cols)
-    fig, axes = pub_figure(1, n_metrics, figsize=(4 * n_metrics, 5))
+    fig, axes = themed_figure(1, n_metrics, figsize=(4 * n_metrics, 5))
     if n_metrics == 1:
         axes = np.array([axes])
 
@@ -571,7 +571,7 @@ def plot_tradeoff_scatter(
     if method_order is None:
         method_order = DEFAULT_METHOD_ORDER
 
-    fig, ax = pub_figure(1, 1, figsize=(8, 6))
+    fig, ax = themed_figure(1, 1, figsize=(8, 6))
     if isinstance(ax, np.ndarray):
         ax = ax.flat[0]
 
@@ -611,7 +611,7 @@ def plot_tradeoff_scatter(
         fontsize=FONTS["title"],
         fontweight="bold",
     )
-    pub_legend(ax)
+    themed_legend(ax)
     style_axes(ax, grid=True)
     ax.axhline(10, color=COLORS["success"], ls=":", alpha=0.4)
     ax.axvline(0, color=COLORS["accent"], ls=":", alpha=0.4, label="No distortion")
@@ -650,7 +650,7 @@ def plot_r_comparison(
     if method_order is None:
         method_order = DEFAULT_METHOD_ORDER
 
-    fig, ax = pub_figure(1, 1, figsize=(8, 6))
+    fig, ax = themed_figure(1, 1, figsize=(8, 6))
     if isinstance(ax, np.ndarray):
         ax = ax.flat[0]
 
@@ -708,7 +708,7 @@ def plot_r_comparison(
     ax.set_title(
         "Residual Line Noise — R(f₀)", fontsize=FONTS["title"], fontweight="bold"
     )
-    pub_legend(ax)
+    themed_legend(ax)
     style_axes(ax, grid=True)
 
     return _finalize_fig(fig, show=show, fname=fname)
@@ -761,7 +761,7 @@ def plot_harmonic_attenuation(
             m for m in DEFAULT_METHOD_ORDER if m != "M0" and m in cleaned_psds
         ]
 
-    fig, ax = pub_figure(1, 1, figsize=(10, 5))
+    fig, ax = themed_figure(1, 1, figsize=(10, 5))
     if isinstance(ax, np.ndarray):
         ax = ax.flat[0]
 
@@ -793,7 +793,7 @@ def plot_harmonic_attenuation(
         else "Per-Harmonic Attenuation"
     )
     ax.set_title(title, fontsize=FONTS["title"], fontweight="bold")
-    pub_legend(ax)
+    themed_legend(ax)
     style_axes(ax, grid=True)
 
     return _finalize_fig(fig, show=show, fname=fname)
@@ -836,7 +836,7 @@ def plot_paired_metrics(
         ("R_f0", "R(f₀)"),
     ]
 
-    fig, axes = pub_figure(1, len(pair_metrics), figsize=(6 * len(pair_metrics), 5))
+    fig, axes = themed_figure(1, len(pair_metrics), figsize=(6 * len(pair_metrics), 5))
     if not isinstance(axes, np.ndarray):
         axes = np.array([axes])
 
@@ -870,7 +870,7 @@ def plot_paired_metrics(
         ax.set_xticks(range(len(method_order)))
         ax.set_xticklabels(method_order, fontsize=FONTS["tick"])
         ax.set_ylabel(label, fontsize=FONTS["label"])
-        pub_legend(ax)
+        themed_legend(ax)
         style_axes(ax, grid=True)
 
     fig.suptitle(
@@ -912,7 +912,7 @@ def plot_tradeoff_and_r(
     if method_order is None:
         method_order = DEFAULT_METHOD_ORDER
 
-    fig, axes = pub_figure(1, 2, figsize=(16, 6))
+    fig, axes = themed_figure(1, 2, figsize=(16, 6))
 
     # —— Left: scatter ---
     ax = axes[0]
@@ -951,7 +951,7 @@ def plot_tradeoff_and_r(
         fontsize=FONTS["title"],
         fontweight="bold",
     )
-    pub_legend(ax)
+    themed_legend(ax)
     style_axes(ax, grid=True)
     ax.axhline(10, color=COLORS["success"], ls=":", alpha=0.4)
     ax.axvline(0, color=COLORS["accent"], ls=":", alpha=0.4, label="No distortion")
@@ -1011,7 +1011,7 @@ def plot_tradeoff_and_r(
     ax.set_title(
         "Residual Line Noise — R(f₀)", fontsize=FONTS["title"], fontweight="bold"
     )
-    pub_legend(ax)
+    themed_legend(ax)
     style_axes(ax, grid=True)
 
     fig.suptitle("Trade-off Analysis", fontsize=FONTS["suptitle"], fontweight="bold")

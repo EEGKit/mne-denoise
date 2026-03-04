@@ -22,7 +22,7 @@ from ._theme import (
     DEFAULT_FIGSIZE,
     FONTS,
     _finalize_fig,
-    pub_legend,
+    themed_legend,
     style_axes,
 )
 from ._utils import _get_info, _get_scores
@@ -269,7 +269,7 @@ def plot_dss_summary(
                 zorder=4,
             )
 
-        pub_legend(
+        themed_legend(
             ax_a,
             loc="upper right",
             handles=[
@@ -389,7 +389,7 @@ def plot_dss_summary(
                 step = max(1, n_ch // 12)
                 ax_b.set_xticks(x_ch[::step])
 
-            pub_legend(ax_b, loc="upper right")
+            themed_legend(ax_b, loc="upper right")
         else:
             ax_b.text(
                 0.5,
@@ -551,7 +551,7 @@ def plot_dss_summary(
         ax_d.set_xlabel("Time (s)", fontsize=F["label"])
         ax_d.set_ylabel("Amplitude (a.u.)", fontsize=F["label"])
         ax_d.set_yticks([])
-        pub_legend(ax_d, loc="upper right")
+        themed_legend(ax_d, loc="upper right")
     elif sources is not None and sources.size > 0:
         ax_d.text(
             0.5,
@@ -631,7 +631,7 @@ def plot_dss_summary(
         ax_e.set_xlabel("Frequency (Hz)", fontsize=F["label"])
         ax_e.set_ylabel(r"PSD (V$^2\!$/Hz)", fontsize=F["label"])
         ax_e.set_xlim(0, fmax)
-        pub_legend(ax_e, loc="upper right")
+        themed_legend(ax_e, loc="upper right")
     else:
         # Fallback: show eigenvalue bar chart if no PSD data
         if eigenvalues is not None and eigenvalues.size > 0:
@@ -949,7 +949,7 @@ def plot_dss_segmented_summary(
     )
     ax_a.set_xlim(-0.6, n_segments - 0.4)
     ax_a.yaxis.set_major_locator(mticker.MaxNLocator(integer=True))
-    pub_legend(
+    themed_legend(
         ax_a,
         loc="upper left",
         handles=[
@@ -1072,7 +1072,7 @@ def plot_dss_segmented_summary(
         ax_c.set_xlabel("Time (s)", fontsize=F["label"])
         ax_c.set_yticks([])
         ax_c.set_ylim(-0.5, 0.5)
-        pub_legend(
+        themed_legend(
             ax_c,
             loc="upper right",
             handles=[
@@ -1246,7 +1246,7 @@ def plot_dss_segmented_summary(
         ax_e.set_xlabel("Frequency (Hz)", fontsize=F["label"])
         ax_e.set_ylabel(r"PSD (V$^2\!$/Hz)", fontsize=F["label"])
         ax_e.set_xlim(0, fmax)
-        pub_legend(ax_e, loc="upper right")
+        themed_legend(ax_e, loc="upper right")
     else:
         eigenvalues = _get_eigenvalues(estimator)
         if eigenvalues is not None and eigenvalues.size > 0:
@@ -1481,7 +1481,7 @@ def plot_dss_eigenvalues(
                 zorder=4,
             )
 
-        pub_legend(
+        themed_legend(
             ax,
             loc="upper right",
             handles=[
@@ -1628,7 +1628,7 @@ def plot_dss_patterns(
                 markerline.set(color=color, markersize=3)
                 stemlines.set(color=color, linewidth=0.7, alpha=0.6)
 
-            pub_legend(ax, loc="upper right")
+            themed_legend(ax, loc="upper right")
         else:
             ax.text(
                 0.5,
