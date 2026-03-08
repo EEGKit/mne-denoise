@@ -1,0 +1,314 @@
+from __future__ import annotations
+
+import warnings
+
+import matplotlib
+import matplotlib.pyplot as plt
+import mne
+import numpy as np
+import pandas as pd
+from scipy.signal import welch
+
+from mne_denoise import viz
+from mne_denoise.dss import DSS, AverageBias, CombFilterBias
+from mne_denoise.zapline import ZapLine
+
+warnings.filterwarnings("ignore", category=RuntimeWarning)
+mne.set_log_level("WARNING")
+
+matplotlib.use('Agg')
+plt.rcParams["figure.dpi"] = 120
+
+print(f"MNE {mne.__version__} · NumPy {np.__version__}")
+print(f"viz functions: {len(viz.__all__)}")
+
+# ── Constants ──
+LINE_FREQ = 50.0
+RESAMPLE_FREQ = 250
+HP_FREQ = 0.5
+DSS_N_COMPONENTS = 5
+DSS_N_KEEP = 3
+SUB = "sub-01"
+
+# ── Load raw ──
+vhdr = f"data/runabout/{SUB}/eeg/{SUB}_task-oddball_eeg.vhdr"
+raw = mne.io.read_raw_brainvision(vhdr, preload=True, verbose=False)
+raw.resample(RESAMPLE_FREQ, verbose=False)
+raw.pick_types(eeg=True, verbose=False)
+
+# Re-reference
+if "FCz" not in raw.ch_names:
+    raw.add_reference_channels("FCz")
+raw.set_montage("standard_1020", on_missing="warn")
+mastoids = [ch for ch in ["TP9", "TP10"] if ch in raw.ch_names]
+if len(mastoids) == 2:
+    raw.set_eeg_reference(mastoids, verbose=False)
+    raw.drop_channels(mastoids)
+else:
+    raw.set_eeg_reference("average", verbose=False)
+
+raw.filter(l_freq=HP_FREQ, h_freq=None, verbose=False)
+
+sfreq = raw.info["sfreq"]
+info = raw.info
+print(f"Loaded: {raw.info['nchan']} channels, {raw.n_times / sfreq:.1f}s at {sfreq} Hz")
+
+# Keep a copy of the pre-ZapLine data
+raw_before_zap = raw.copy()
+data_before_zap = raw_before_zap.get_data()
+
+# Fit & transform
+zap = ZapLine(sfreq=sfreq, line_freq=LINE_FREQ, n_remove="auto", n_harmonics=3)
+data_after_zap = zap.fit_transform(data_before_zap)
+
+# Apply cleaned data back to raw
+raw._data = data_after_zap.copy()
+
+print(f"ZapLine removed {zap.n_removed_} components")
+print(f"Eigenvalues: {zap.eigenvalues_[:6].round(4)}")
+
+# ── Find events from annotations ──
+events, event_id = mne.events_from_annotations(raw, verbose=False)
+print(f"Event IDs: {event_id}")
+print(f"Total events found: {len(events)}")
+
+# Pick the most common event for epoching
+event_counts = {k: np.sum(events[:, 2] == v) for k, v in event_id.items()}
+target_label = max(event_counts, key=event_counts.get)
+target_id = event_id[target_label]
+print(f"Using event '{target_label}' (id={target_id}, n={event_counts[target_label]})")
+
+epochs = mne.Epochs(
+    raw, events, event_id={target_label: target_id},
+    tmin=-0.2, tmax=0.8,
+    baseline=(-0.2, 0), preload=True, verbose=False,
+)
+epochs.drop_bad(reject={"eeg": 125e-6}, verbose=False)
+
+n_ep = len(epochs)
+idx_train = np.arange(0, n_ep, 2)
+idx_test = np.arange(1, n_ep, 2)
+epochs_train = epochs[idx_train]
+epochs_test = epochs[idx_test]
+print(f"{n_ep} total epochs -> train={len(epochs_train)}, test={len(epochs_test)}")
+
+# ── Fit DSS ──
+bias = AverageBias(axis="epochs")
+dss = DSS(bias=bias, n_components=DSS_N_COMPONENTS, return_type="sources")
+dss.fit(epochs_train)
+
+sources_train = dss.transform(epochs_train)
+sources_kept = sources_train.copy()
+sources_kept[:, DSS_N_KEEP:, :] = 0
+recon = dss.inverse_transform(sources_kept)
+if recon.ndim == 2:
+    recon = recon[np.newaxis, ...]
+
+epochs_denoised = mne.EpochsArray(
+    recon, epochs_train.info, tmin=epochs_train.tmin, verbose=False,
+)
+
+evoked_orig = epochs_train.average()
+evoked_denoised = epochs_denoised.average()
+
+print(f"DSS eigenvalues: {dss.eigenvalues_[:5].round(5)}")
+
+# ── use_style context manager ──
+with viz.use_style():
+    fig, ax = plt.subplots(figsize=(6, 3))
+    ax.plot(np.sin(np.linspace(0, 4 * np.pi, 200)), label="sin")
+    ax.set_title("use_style() context manager")
+    ax.legend()
+plt.show()
+
+# ── pub_figure helper ──
+fig, ax = viz.pub_figure(figsize=(6, 3))
+ax.bar(range(5), dss.eigenvalues_[:5],
+       color=[viz._get_color(f"C{i}") for i in range(5)])
+ax.set_title("pub_figure() + _get_color()")
+ax.set_xlabel("Component")
+ax.set_ylabel("Eigenvalue")
+plt.show()
+
+viz.plot_psd_comparison(epochs_train, epochs_denoised, fmax=40)
+
+viz.plot_evoked_comparison(epochs_train, epochs_denoised,
+                           labels=("Original", "DSS-denoised"))
+
+picks = ["Cz", "Pz", "Fz"]
+viz.plot_time_course_comparison(evoked_orig, evoked_denoised, picks=picks)
+
+viz.plot_power_map(epochs_train, epochs_denoised, info=info)
+
+viz.plot_spectrogram_comparison(epochs_train, epochs_denoised,
+                                fmin=1, fmax=30, n_freqs=15,
+                                picks="Cz")
+
+viz.plot_denoising_summary(epochs_train, epochs_denoised, info=info)
+
+viz.plot_overlay_comparison(evoked_orig, evoked_denoised,
+                            title="Evoked overlay: Original vs DSS-denoised")
+
+# Averaged sources across epochs: (n_components, n_times)
+avg_sources = sources_train.mean(axis=0)
+viz.plot_spectral_psd_comparison(epochs_train, avg_sources, sfreq=sfreq)
+
+viz.plot_score_curve(dss)
+
+viz.plot_spatial_patterns(dss, info=info, n_components=5)
+
+viz.plot_component_summary(dss, data=epochs_train, info=info,
+                            n_components=3)
+
+viz.plot_component_image(dss, data=epochs_train, n_components=3)
+
+viz.plot_component_time_series(dss, data=epochs_train, n_components=5)
+
+# Synthetic narrowband scan data (simulating a frequency sweep)
+scan_freqs = np.arange(1, 50, 0.5)
+scan_eigs = np.random.rand(len(scan_freqs), 3) * 0.01
+# Add peaks near typical brain rhythms
+for peak in [10, 20, 30]:
+    idx = np.argmin(np.abs(scan_freqs - peak))
+    scan_eigs[idx, 0] += 0.05
+
+viz.plot_narrowband_scan(scan_freqs, scan_eigs, peak_freq=10)
+
+# Synthetic TF mask
+n_times_mask, n_freqs_mask = 100, 30
+times_mask = np.linspace(0, 1, n_times_mask)
+freqs_mask = np.linspace(1, 30, n_freqs_mask)
+mask = np.random.rand(n_freqs_mask, n_times_mask) > 0.7
+
+viz.plot_tf_mask(mask, times_mask, freqs_mask)
+
+# First DSS component from first epoch
+comp0 = sources_train[0, 0, :]
+viz.plot_component_spectrogram(comp0, sfreq=sfreq)
+
+viz.plot_dss_eigenvalues(dss)
+
+viz.plot_dss_patterns(dss, info=info, max_components=5)
+
+# 2D arrays: (n_channels, n_times)
+data_before_2d = evoked_orig.get_data()
+data_after_2d = evoked_denoised.get_data()
+
+viz.plot_dss_summary(dss,
+                     data_before=data_before_2d,
+                     data_after=data_after_2d,
+                     sfreq=sfreq,
+                     info=info)
+
+viz.plot_zapline_psd_comparison(
+    data_before_zap, data_after_zap,
+    sfreq=sfreq, line_freq=LINE_FREQ, fmax=100,
+)
+
+viz.plot_component_scores(zap)
+
+viz.plot_zapline_patterns(zap, n_patterns=4)
+
+viz.plot_cleaning_summary(
+    data_before_zap, data_after_zap, zap,
+    sfreq=sfreq, line_freq=LINE_FREQ,
+)
+
+viz.plot_zapline_summary(
+    zap,
+    data_before=data_before_zap,
+    data_after=data_after_zap,
+    sfreq=sfreq,
+    info=info,
+)
+
+# ── Load benchmark metrics ──
+metrics_path = "data/runabout/derivatives/mne-denoise/group/line_noise/metrics_all.tsv"
+df_bench = pd.read_csv(metrics_path, sep="\t")
+print(f"Benchmark metrics: {df_bench.shape}")
+print(f"Columns: {list(df_bench.columns)}")
+print(f"Methods: {df_bench['method'].unique()}")
+df_bench.head()
+
+# ── Common benchmark config ──
+METHOD_ORDER = sorted(df_bench["method"].unique())
+METHOD_COLORS = {
+    m: c for m, c in zip(METHOD_ORDER,
+    ["#808080", "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd"])
+}
+METHOD_LABELS = {m: m for m in METHOD_ORDER}
+print(f"Methods: {METHOD_ORDER}")
+print(f"Colors:  {METHOD_COLORS}")
+
+# ── Compute PSD arrays for PSD-based benchmark plots ──
+nperseg = min(512, data_before_zap.shape[-1])
+freqs_b, psd_b = welch(data_before_zap, fs=sfreq, nperseg=nperseg, axis=-1)
+gm_before = np.exp(np.mean(np.log(np.maximum(psd_b, 1e-30)), axis=0))
+
+freqs_a, psd_a = welch(data_after_zap, fs=sfreq, nperseg=nperseg, axis=-1)
+gm_after = np.exp(np.mean(np.log(np.maximum(psd_a, 1e-30)), axis=0))
+
+# Build cleaned_psds dict: {method_tag: (freqs, gm_psd)}
+cleaned_psds = {METHOD_ORDER[-1]: (freqs_a, gm_after)}
+
+nyquist = sfreq / 2.0
+harmonics_hz = [LINE_FREQ * (h + 1) for h in range(3) if LINE_FREQ * (h + 1) < nyquist]
+print(f"Harmonics: {harmonics_hz}  (Nyquist={nyquist} Hz)")
+print(f"Cleaned PSD tags: {list(cleaned_psds.keys())}")
+
+viz.plot_metric_bars(df_bench,
+                     method_order=METHOD_ORDER,
+                     method_colors=METHOD_COLORS)
+
+viz.plot_tradeoff_scatter(df_bench,
+                          method_order=METHOD_ORDER,
+                          method_colors=METHOD_COLORS,
+                          method_labels=METHOD_LABELS)
+
+viz.plot_r_comparison(df_bench,
+                      method_order=METHOD_ORDER,
+                      method_colors=METHOD_COLORS,
+                      method_labels=METHOD_LABELS)
+
+viz.plot_paired_metrics(df_bench,
+                        method_order=METHOD_ORDER,
+                        method_colors=METHOD_COLORS)
+
+viz.plot_tradeoff_and_r(df_bench,
+                        method_order=METHOD_ORDER,
+                        method_colors=METHOD_COLORS,
+                        method_labels=METHOD_LABELS)
+
+viz.plot_qc_psd(
+    freqs_b, gm_before, freqs_a, gm_after,
+    method_tag=list(cleaned_psds.keys())[0],
+    subject=SUB,
+    harmonics_hz=harmonics_hz,
+)
+
+viz.plot_psd_gallery(
+    freqs_b, gm_before, cleaned_psds,
+    harmonics_hz=harmonics_hz,
+    subject=SUB,
+    method_order=list(cleaned_psds.keys()),
+    method_colors=METHOD_COLORS,
+    method_labels=METHOD_LABELS,
+)
+
+viz.plot_subject_psd_overlay(
+    freqs_b, gm_before, cleaned_psds,
+    line_freq=LINE_FREQ,
+    subject=SUB,
+    method_order=list(cleaned_psds.keys()),
+    method_colors=METHOD_COLORS,
+    method_labels=METHOD_LABELS,
+)
+
+viz.plot_harmonic_attenuation(
+    freqs_b, gm_before, cleaned_psds,
+    harmonics_hz=harmonics_hz,
+    subject=SUB,
+    method_order=list(cleaned_psds.keys()),
+    method_colors=METHOD_COLORS,
+    method_labels=METHOD_LABELS,
+)

@@ -39,3 +39,15 @@ htmlcov/
 /figures/
 /outputs/
 /scratch/
+
+# Local datasets / heavy artifacts (do not commit)
+examples/tutorials/data/
+condescending-liskov/data/
+*_nb_temp.json
+*_code_cells.txt
+*_out.txt
+*_err.txt
+*_log.txt
+*.eeg
+*.mat
+*.pdf
