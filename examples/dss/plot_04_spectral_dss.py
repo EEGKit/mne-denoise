@@ -228,7 +228,13 @@ plt.show(block=False)
 
 # PSD comparison
 plot_component_psd_comparison(
-    raw_noisy, sources_notch, sfreq, peak_freq=60, fmax=200, show=False
+    raw_noisy,
+    sources_notch,
+    component_indices=[0],
+    sfreq=sfreq,
+    peak_freq=60,
+    fmax=200,
+    show=False,
 )
 plt.gcf().axes[0].set_title("Line Noise: Original PSD (60 Hz + harmonics)")
 plt.gcf().axes[1].set_title("Line Noise: DSS Components PSD")
@@ -340,7 +346,12 @@ plt.show(block=False)
 
 # 2. PSD Comparison: Before vs After
 plot_component_psd_comparison(
-    raw, sources_meg, raw.info["sfreq"], peak_freq=peak_freq, show=False
+    raw,
+    sources_meg,
+    component_indices=[0],
+    sfreq=raw.info["sfreq"],
+    peak_freq=peak_freq,
+    show=False,
 )
 plt.gcf().axes[0].set_title("MEG: Original Data PSD (Average)")
 plt.gcf().axes[1].set_title("MEG: DSS Components PSD")
@@ -435,7 +446,12 @@ plt.show(block=False)
 
 # 2. PSD Comparison: Before vs After
 plot_component_psd_comparison(
-    raw_eeg, sources_eeg, raw_eeg.info["sfreq"], peak_freq=peak_freq_eeg, show=False
+    raw_eeg,
+    sources_eeg,
+    component_indices=[0],
+    sfreq=raw_eeg.info["sfreq"],
+    peak_freq=peak_freq_eeg,
+    show=False,
 )
 plt.gcf().axes[0].set_title("EEG: Original Data PSD (Average)")
 plt.gcf().axes[1].set_title("EEG: DSS Components PSD")

@@ -121,7 +121,12 @@ plt.show(block=False)
 
 # Comparison
 plot_component_psd_comparison(
-    raw_alpha, sources_peak, sfreq, peak_freq=alpha_freq, show=False
+    raw_alpha,
+    sources_peak,
+    component_indices=[0],
+    sfreq=sfreq,
+    peak_freq=alpha_freq,
+    show=False,
 )
 plt.gcf().axes[0].set_title("Single Frequency: Original PSD")
 plt.gcf().axes[1].set_title("Single Frequency: DSS Components PSD")
@@ -185,7 +190,13 @@ print("(Should match manual approach)")
 
 # PSD comparison
 plot_component_psd_comparison(
-    raw_ssvep, sources_comb, sfreq, peak_freq=f_stim, fmax=50, show=False
+    raw_ssvep,
+    sources_comb,
+    component_indices=[0],
+    sfreq=sfreq,
+    peak_freq=f_stim,
+    fmax=50,
+    show=False,
 )
 plt.gcf().axes[0].set_title("SSVEP: Original PSD")
 plt.gcf().axes[1].set_title("SSVEP: DSS Components PSD")

@@ -888,8 +888,8 @@ def plot_component_psd_comparison(
     components : MNE object | ndarray
         Component signals with canonical shape ``(n_components, n_times)``,
         or ``(n_epochs, n_components, n_times)``.
-    component_indices : sequence of int
-        Explicit component indices to include in the component PSD panel.
+    component_indices : int | sequence of int
+        Explicit component index/indices to include in the component PSD panel.
     sfreq : float | None
         Sampling frequency for array inputs. If ``components`` is an MNE object
         and ``sfreq`` is None, ``components.info['sfreq']`` is used.
@@ -945,7 +945,10 @@ def plot_component_psd_comparison(
     style_axes(axes[0], grid=True)
 
     component_data = _as_component_data(components)
-    indices = [int(idx) for idx in component_indices]
+    if np.isscalar(component_indices):
+        indices = [int(component_indices)]
+    else:
+        indices = [int(idx) for idx in component_indices]
     if len(indices) == 0:
         raise ValueError("component_indices cannot be empty.")
     invalid = [idx for idx in indices if idx < 0 or idx >= component_data.shape[0]]

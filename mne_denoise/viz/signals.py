@@ -87,7 +87,18 @@ def _as_channel_variance(inst_or_var):
 
 def _extract_overlay_trace(inst, pick):
     """Extract a single trace for overlay plotting from 2D/3D inputs."""
-    data = _as_signal_array(inst)
+    if isinstance(inst, (mne.io.BaseRaw, mne.BaseEpochs, mne.Evoked)):
+        data = _as_signal_array(inst)
+    else:
+        data = np.asarray(inst, dtype=float)
+        if data.ndim == 1:
+            return data
+        if data.ndim not in (2, 3):
+            raise ValueError(
+                "Input must be 1D, 2D (n_channels, n_times), or 3D "
+                "(n_epochs, n_channels, n_times)."
+            )
+
     if data.ndim == 3:
         data = data.mean(axis=0)
 
@@ -503,8 +514,9 @@ def plot_signal_overlay(
     Parameters
     ----------
     inst_before, inst_after : MNE object | ndarray
-        Inputs to compare. Accepted signal shapes are ``(n_channels, n_times)``
-        and ``(n_epochs, n_channels, n_times)``.
+        Inputs to compare. Accepted array signal shapes are
+        ``(n_times,)``, ``(n_channels, n_times)``, and
+        ``(n_epochs, n_channels, n_times)``.
     times : array-like of shape (n_times,)
         Explicit time axis for both traces after length alignment.
     pick : int | str | None
