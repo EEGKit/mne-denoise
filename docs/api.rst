@@ -84,7 +84,7 @@ Visualization
    mne_denoise.viz.plot_time_frequency_mask
    mne_denoise.viz.plot_metric_bars
    mne_denoise.viz.plot_tradeoff_scatter
-   mne_denoise.viz.plot_single_metric_comparison
+   mne_denoise.viz.plot_metric_comparison
    mne_denoise.viz.plot_metric_slopes
    mne_denoise.viz.plot_metric_violins
    mne_denoise.viz.plot_null_distribution
@@ -92,13 +92,9 @@ Visualization
    mne_denoise.viz.plot_harmonic_attenuation
    mne_denoise.viz.plot_metric_tradeoff_summary
 
-   mne_denoise.viz.plot_zapline_cleaning_summary
-   mne_denoise.viz.plot_zapline_adaptive_summary
    mne_denoise.viz.plot_denoising_summary
-   mne_denoise.viz.plot_dss_summary
-   mne_denoise.viz.plot_dss_segmented_summary
-   mne_denoise.viz.plot_dss_mode_comparison
-   mne_denoise.viz.plot_erp_signal_diagnostics
-   mne_denoise.viz.plot_erp_condition_interaction
-   mne_denoise.viz.plot_erp_endpoint_summary
-   mne_denoise.viz.plot_erp_grand_condition_interaction
+   mne_denoise.viz.plot_component_cleaning_summary
+   mne_denoise.viz.plot_signal_diagnostics_summary
+   mne_denoise.viz.plot_condition_interaction_summary
+   mne_denoise.viz.plot_group_condition_interaction_summary
+   mne_denoise.viz.plot_endpoint_metrics_summary

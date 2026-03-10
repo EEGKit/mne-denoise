@@ -1,7 +1,7 @@
-"""Visualization for spectral and time-frequency diagnostics.
+"""Spectral and time-frequency visualization primitives.
 
-This module contains reusable plots focused on frequency-domain and
-time-frequency views that are not specific to a single denoising method.
+This module contains reusable, method-agnostic plots focused on
+frequency-domain and time-frequency diagnostics.
 
 This module contains:
 1. PSD comparisons for before/after denoising outputs.
@@ -9,8 +9,8 @@ This module contains:
 3. Spectrogram and time-frequency mask visualizations.
 4. Narrowband scan summaries for spectral sweeps.
 
-Authors: Sina Esmaeili <sina.esmaeili@umontreal.ca>
-         Hamza Abdelhedi <hamza.abdelhedi@umontreal.ca>
+Authors: Sina Esmaeili (sina.esmaeili@umontreal.ca)
+         Hamza Abdelhedi (hamza.abdelhedi@umontreal.ca)
 """
 
 from __future__ import annotations
@@ -31,19 +31,6 @@ from .theme import (
     themed_legend,
 )
 
-PSD_ZOOM_HALF_WIDTH_HZ = 8.0
-PSD_FOCUS_HALF_WIDTH_HZ = 10.0
-
-
-def _compute_mean_psd(inst, fmin, fmax):
-    """Compute the mean PSD across non-frequency axes."""
-    spectrum = inst.compute_psd(fmin=fmin, fmax=fmax)
-    psd = np.asarray(spectrum.get_data(return_freqs=False))
-    mean_axes = tuple(range(psd.ndim - 1))
-    if mean_axes:
-        psd = psd.mean(axis=mean_axes)
-    return spectrum.freqs, np.asarray(psd)
-
 
 def _compute_array_psd(data, sfreq, fmin, fmax):
     """Compute PSDs for array-like inputs using Welch's method."""
@@ -59,10 +46,26 @@ def _compute_array_psd(data, sfreq, fmin, fmax):
     return freqs[keep], psd[..., keep]
 
 
-def _prepare_component_data(components):
-    """Normalize component data to shape ``(n_components, n_times)``."""
+def _compute_psd_matrix(inst, sfreq, fmin, fmax):
+    """Return PSD matrix with shape ``(n_series, n_freqs)``."""
+    if isinstance(inst, (mne.io.BaseRaw, mne.BaseEpochs, mne.Evoked)):
+        spectrum = inst.compute_psd(fmin=fmin, fmax=fmax)
+        freqs = np.asarray(spectrum.freqs, dtype=float)
+        psd = np.asarray(spectrum.get_data(return_freqs=False), dtype=float)
+    else:
+        if sfreq is None:
+            raise ValueError("sfreq must be provided when plotting PSDs from arrays.")
+        freqs, psd = _compute_array_psd(inst, sfreq=sfreq, fmin=fmin, fmax=fmax)
+        freqs = np.asarray(freqs, dtype=float)
+        psd = np.asarray(psd, dtype=float)
+
+    return freqs, psd.reshape(-1, psd.shape[-1])
+
+
+def _as_component_data(components):
+    """Normalize component inputs to canonical 2D shape ``(n_components, n_times)``."""
     if isinstance(components, (mne.io.BaseRaw, mne.BaseEpochs, mne.Evoked)):
-        data = components.get_data()
+        data = np.asarray(components.get_data(), dtype=float)
     else:
         data = np.asarray(components, dtype=float)
 
@@ -70,44 +73,49 @@ def _prepare_component_data(components):
         return data[np.newaxis, :]
     if data.ndim == 2:
         return data
-    if data.ndim != 3:
+    if data.ndim == 3:
+        return data.mean(axis=0)
+    raise ValueError(
+        "components must be 1D, 2D, or 3D data, or an MNE Raw/Epochs/Evoked object."
+    )
+
+
+def _compute_array_spectrogram(data, picks, sfreq, fmin, fmax, n_freqs):
+    """Compute a mean channel spectrogram for canonical array inputs."""
+    data = np.asarray(data, dtype=float)
+    if data.ndim == 2:
+        selected = data[picks, :]
+    elif data.ndim == 3:
+        selected = data[:, picks, :].reshape(-1, data.shape[-1])
+    else:
         raise ValueError(
-            "components must be 1D, 2D, or 3D data, or an MNE Raw/Epochs/Evoked object."
+            "Array spectrogram inputs must be 2D (n_channels, n_times) "
+            "or 3D (n_epochs, n_channels, n_times)."
         )
 
-    time_axis = int(np.argmax(data.shape))
-    non_time_axes = [axis for axis in range(data.ndim) if axis != time_axis]
-    component_axis = min(non_time_axes, key=lambda axis: data.shape[axis])
-    data = np.moveaxis(data, (component_axis, time_axis), (0, 2))
-    return data.mean(axis=1)
-
-
-def _resolve_tfr_picks(inst, picks):
-    """Resolve sensible default picks for time-frequency plots."""
-    if picks is not None:
-        return picks
-
-    data_picks = mne.pick_types(
-        inst.info, meg=True, eeg=True, ref_meg=False, exclude="bads"
+    nperseg = min(selected.shape[-1], int(sfreq * 2))
+    noverlap = max(0, nperseg // 2)
+    freqs, _, spec = signal.spectrogram(
+        selected, fs=sfreq, nperseg=nperseg, noverlap=noverlap, axis=-1
     )
-    if len(data_picks) == 0:
-        data_picks = mne.pick_types(inst.info, misc=True, exclude="bads")
-    return data_picks if len(data_picks) > 0 else "all"
+    spec = np.asarray(spec, dtype=float)
+    spec = spec.mean(axis=0)
 
+    keep = (freqs >= fmin) & (freqs <= fmax)
+    freqs = freqs[keep]
+    spec = spec[keep]
+    if freqs.size < 2:
+        raise ValueError("Could not compute a valid frequency grid in [fmin, fmax].")
 
-def _compute_mean_tfr(inst, freqs, picks):
-    """Compute a mean time-frequency map across non time-frequency axes."""
-    tfr = inst.compute_tfr(
-        method="multitaper",
-        freqs=freqs,
-        n_cycles=freqs / 2.0,
-        picks=_resolve_tfr_picks(inst, picks),
-    )
-    data = np.asarray(tfr.data)
-    mean_axes = tuple(range(data.ndim - 2))
-    if mean_axes:
-        data = data.mean(axis=mean_axes)
-    return np.asarray(data)
+    target_freqs = np.linspace(fmin, fmax, n_freqs, dtype=float)
+    interp_spec = np.empty((target_freqs.size, spec.shape[1]), dtype=float)
+    for time_idx in range(spec.shape[1]):
+        interp_spec[:, time_idx] = np.interp(
+            target_freqs,
+            freqs,
+            spec[:, time_idx],
+        )
+    return target_freqs, interp_spec
 
 
 def _add_colorbar(fig, ax, image, label):
@@ -144,30 +152,6 @@ def _add_line_markers(ax, line_freq, fmax):
         harmonic += 1
 
 
-def _series_color(index, series_name=None, series_colors=None, default=None):
-    """Resolve a color for a named PSD series."""
-    if series_colors and series_name in series_colors:
-        return series_colors[series_name]
-    if default is not None:
-        return default
-    return get_series_color(index)
-
-
-def _series_label(series_name, series_labels=None):
-    """Resolve a display label for a named PSD series."""
-    if series_labels and series_name in series_labels:
-        return series_labels[series_name]
-    return series_name
-
-
-def _validate_zoom_freqs(zoom_freqs):
-    """Normalize the frequencies used for zoomed PSD panels."""
-    zoom_freqs = np.asarray(zoom_freqs, dtype=float)
-    if zoom_freqs.ndim != 1 or len(zoom_freqs) == 0:
-        raise ValueError("zoom_freqs must be a non-empty 1D array-like of frequencies.")
-    return zoom_freqs
-
-
 def plot_narrowband_score_scan(
     frequencies,
     eigenvalues,
@@ -177,7 +161,52 @@ def plot_narrowband_score_scan(
     show=True,
     fname=None,
 ):
-    """Plot the score spectrum from a narrowband frequency scan."""
+    """Plot score/eigenvalue profiles from a narrowband scan.
+
+    Parameters
+    ----------
+    frequencies : array-like of shape (n_freqs,)
+        Frequency grid used in the scan.
+    eigenvalues : array-like of shape (n_freqs,) | (n_freqs, n_components)
+        Scan scores. For 2D inputs, the first column is treated as dominant.
+    peak_freq : float | None
+        Optional frequency to highlight with a marker and vertical line.
+    true_freqs : sequence of float | None
+        Optional reference frequencies to mark.
+    ax : matplotlib.axes.Axes | None
+        Target axes. If None, create a new figure and axes.
+    show : bool
+        If True, display the figure.
+    fname : path-like | None
+        Optional output path used to save the figure.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure handle.
+
+    Raises
+    ------
+    ValueError
+        If ``frequencies`` is not 1D, if ``eigenvalues`` is not 1D/2D,
+        or if their first dimensions do not match.
+
+    Notes
+    -----
+    This function is plotting-only and does not run frequency estimation.
+    ``peak_freq`` and ``true_freqs`` are optional annotations supplied
+    directly by the caller.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from mne_denoise.viz import plot_narrowband_score_scan
+    >>> freqs = np.linspace(6, 40, 50)
+    >>> scores = np.exp(-0.5 * ((freqs - 12.0) / 1.5) ** 2)
+    >>> fig = plot_narrowband_score_scan(
+    ...     freqs, scores, peak_freq=12.0, true_freqs=[12.0, 24.0], show=False
+    ... )
+    """
     frequencies = np.asarray(frequencies, dtype=float)
     eigenvalues = np.asarray(eigenvalues, dtype=float)
 
@@ -291,6 +320,30 @@ def plot_psd_comparison(
         Optional axis to draw into.
     fname : path-like | None
         Optional output path.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure handle.
+
+    Raises
+    ------
+    ValueError
+        If array inputs are used without ``sfreq``.
+
+    Notes
+    -----
+    PSD backend is selected by input type:
+    - MNE inputs use ``compute_psd``.
+    - Array inputs use SciPy Welch PSD.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from mne_denoise.viz import plot_psd_comparison
+    >>> before = np.random.randn(8, 2000)
+    >>> after = before * 0.8
+    >>> fig = plot_psd_comparison(before, after, sfreq=250.0, show=False)
     """
     if ax is None:
         fig, ax = themed_figure(figsize=(8, 4))
@@ -301,17 +354,7 @@ def plot_psd_comparison(
         (inst_before, "Before", COLORS["before"]),
         (inst_after, "After", COLORS["after"]),
     ]:
-        if isinstance(inst, (mne.io.BaseRaw, mne.BaseEpochs, mne.Evoked)):
-            spectrum = inst.compute_psd(fmin=fmin, fmax=fmax)
-            psd = np.asarray(spectrum.get_data(return_freqs=False))
-            freqs = spectrum.freqs
-        else:
-            if sfreq is None:
-                raise ValueError(
-                    "sfreq must be provided when plotting PSDs from arrays."
-                )
-            freqs, psd = _compute_array_psd(inst, sfreq=sfreq, fmin=fmin, fmax=fmax)
-
+        freqs, psd = _compute_psd_matrix(inst, sfreq=sfreq, fmin=fmin, fmax=fmax)
         if average:
             axis = tuple(range(psd.ndim - 1))
             psd_mean = np.mean(psd, axis=axis)
@@ -339,35 +382,94 @@ def plot_psd_zoom_comparison(
     psd_before,
     freqs_after,
     psd_after,
-    *,
     series_name="",
     title="",
-    zoom_freqs,
+    zoom_freqs=None,
     zoom_annotations=None,
     fmax=125.0,
+    zoom_half_width_hz=8.0,
     series_colors=None,
     series_labels=None,
     fname=None,
     show=True,
 ):
-    """Plot a PSD comparison with zoomed panels around frequencies of interest."""
+    """Plot a PSD comparison plus zoomed panels around selected frequencies.
+
+    Parameters
+    ----------
+    freqs_before, freqs_after : array-like of shape (n_freqs,)
+        Frequency vectors for the before/after PSD curves.
+    psd_before, psd_after : array-like of shape (n_freqs,)
+        PSD vectors aligned with ``freqs_before`` and ``freqs_after``.
+    series_name : str
+        Series key used for optional color/label mapping.
+    title : str
+        Optional figure suptitle.
+    zoom_freqs : array-like of shape (n_zoom,)
+        Frequency centers for zoom panels.
+    zoom_annotations : sequence[str] | None
+        Optional annotation text per zoom panel.
+    fmax : float
+        Max frequency on the full-spectrum panel.
+    zoom_half_width_hz : float
+        Half-width (Hz) around each ``zoom_freq``.
+    series_colors : mapping[str, str] | None
+        Optional color overrides by series name.
+    series_labels : mapping[str, str] | None
+        Optional display label overrides by series name.
+    fname : path-like | None
+        Optional output path used to save the figure.
+    show : bool
+        If True, display the figure.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure handle.
+
+    Raises
+    ------
+    ValueError
+        If ``zoom_freqs`` is empty/non-1D or if ``zoom_half_width_hz <= 0``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from mne_denoise.viz import plot_psd_zoom_comparison
+    >>> freqs = np.linspace(0, 120, 512)
+    >>> before = np.exp(-freqs / 40)
+    >>> after = before * 0.7
+    >>> fig = plot_psd_zoom_comparison(
+    ...     freqs, before, freqs, after, zoom_freqs=[50.0], show=False
+    ... )
+    """
     freqs_before = np.asarray(freqs_before, dtype=float)
     psd_before = np.asarray(psd_before, dtype=float)
     freqs_after = np.asarray(freqs_after, dtype=float)
     psd_after = np.asarray(psd_after, dtype=float)
-    zoom_freqs = _validate_zoom_freqs(zoom_freqs)
+    zoom_freqs = np.asarray(zoom_freqs, dtype=float)
+    if zoom_freqs.ndim != 1 or zoom_freqs.size == 0:
+        raise ValueError("zoom_freqs must be a non-empty 1D array-like.")
+    zoom_half_width_hz = float(zoom_half_width_hz)
+    if zoom_half_width_hz <= 0:
+        raise ValueError("zoom_half_width_hz must be positive.")
 
     n_zoom = len(zoom_freqs)
     fig, axes = themed_figure(1, 1 + n_zoom, figsize=(4 * (1 + n_zoom), 4))
     axes = np.atleast_1d(axes)
 
-    series_color = _series_color(
-        0,
-        series_name=series_name,
-        series_colors=series_colors,
-        default=COLORS["after"],
-    )
-    series_label = _series_label(series_name, series_labels) if series_name else "After"
+    if series_colors and series_name in series_colors:
+        series_color = series_colors[series_name]
+    else:
+        series_color = COLORS["after"]
+
+    if series_name:
+        if series_labels and series_name in series_labels:
+            series_label = series_labels[series_name]
+        else:
+            series_label = series_name
+    else:
+        series_label = "After"
 
     ax = axes[0]
     ax.semilogy(
@@ -396,7 +498,7 @@ def plot_psd_zoom_comparison(
 
     for idx, freq in enumerate(zoom_freqs):
         ax = axes[1 + idx]
-        zoom = PSD_ZOOM_HALF_WIDTH_HZ
+        zoom = zoom_half_width_hz
         before_mask = (freqs_before >= freq - zoom) & (freqs_before <= freq + zoom)
         after_mask = (freqs_after >= freq - zoom) & (freqs_after <= freq + zoom)
         ax.semilogy(
@@ -433,9 +535,9 @@ def plot_psd_gallery(
     freqs_reference,
     psd_reference,
     series_psds,
-    *,
     zoom_freqs,
     fmax=125.0,
+    zoom_half_width_hz=8.0,
     title="",
     series_order=None,
     series_colors=None,
@@ -443,12 +545,64 @@ def plot_psd_gallery(
     fname=None,
     show=True,
 ):
-    """Plot a gallery of full-spectrum and zoomed PSD comparisons across series."""
+    """Plot full-spectrum and zoomed PSD panels across multiple series.
+
+    Parameters
+    ----------
+    freqs_reference : array-like of shape (n_freqs,)
+        Frequency vector for the reference PSD.
+    psd_reference : array-like of shape (n_freqs,)
+        Reference PSD values.
+    series_psds : mapping[str, tuple[array-like, array-like]]
+        Mapping from series name to ``(freqs, psd)`` arrays.
+    zoom_freqs : array-like of shape (n_zoom,)
+        Frequency centers for zoom panels.
+    fmax : float
+        Max frequency on the full-spectrum panels.
+    zoom_half_width_hz : float
+        Half-width (Hz) around each zoom center.
+    title : str
+        Optional figure suptitle.
+    series_order : sequence[str] | None
+        Optional plotting order. Missing names are shown as empty placeholders.
+    series_colors : mapping[str, str] | None
+        Optional color overrides by series name.
+    series_labels : mapping[str, str] | None
+        Optional display label overrides by series name.
+    fname : path-like | None
+        Optional output path used to save the figure.
+    show : bool
+        If True, display the figure.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure handle.
+
+    Raises
+    ------
+    ValueError
+        If ``zoom_freqs`` is empty/non-1D or if ``zoom_half_width_hz <= 0``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from mne_denoise.viz import plot_psd_gallery
+    >>> freqs = np.linspace(0, 120, 512)
+    >>> before = np.exp(-freqs / 40)
+    >>> series = {"A": (freqs, before * 0.8), "B": (freqs, before * 0.6)}
+    >>> fig = plot_psd_gallery(freqs, before, series, zoom_freqs=[50.0], show=False)
+    """
     freqs_reference = np.asarray(freqs_reference, dtype=float)
     psd_reference = np.asarray(psd_reference, dtype=float)
-    zoom_freqs = _validate_zoom_freqs(zoom_freqs)
+    zoom_freqs = np.asarray(zoom_freqs, dtype=float)
+    if zoom_freqs.ndim != 1 or zoom_freqs.size == 0:
+        raise ValueError("zoom_freqs must be a non-empty 1D array-like.")
+    zoom_half_width_hz = float(zoom_half_width_hz)
+    if zoom_half_width_hz <= 0:
+        raise ValueError("zoom_half_width_hz must be positive.")
     if series_order is None:
-        series_order = sorted(series_psds.keys())
+        series_order = list(series_psds.keys())
 
     n_rows = len(series_order)
     n_cols = 1 + len(zoom_freqs)
@@ -477,10 +631,14 @@ def plot_psd_gallery(
         freqs_series, psd_series = series_psds[series_name]
         freqs_series = np.asarray(freqs_series, dtype=float)
         psd_series = np.asarray(psd_series, dtype=float)
-        color = _series_color(
-            row_idx, series_name=series_name, series_colors=series_colors
-        )
-        label = _series_label(series_name, series_labels)
+        if series_colors and series_name in series_colors:
+            color = series_colors[series_name]
+        else:
+            color = get_series_color(row_idx)
+        if series_labels and series_name in series_labels:
+            label = series_labels[series_name]
+        else:
+            label = series_name
 
         ax = axes[row_idx, 0]
         ax.semilogy(
@@ -513,7 +671,7 @@ def plot_psd_gallery(
 
         for col_idx, freq in enumerate(zoom_freqs):
             ax = axes[row_idx, 1 + col_idx]
-            zoom = PSD_ZOOM_HALF_WIDTH_HZ
+            zoom = zoom_half_width_hz
             before_mask = (freqs_reference >= freq - zoom) & (
                 freqs_reference <= freq + zoom
             )
@@ -549,9 +707,9 @@ def plot_psd_overlay(
     freqs_reference,
     psd_reference,
     series_psds,
-    *,
     focus_freq,
     fmax=125.0,
+    focus_half_width_hz=10.0,
     n_harmonics=3,
     title="",
     series_order=None,
@@ -560,12 +718,69 @@ def plot_psd_overlay(
     fname=None,
     show=True,
 ):
-    """Plot full-spectrum and focused-overlay PSD comparisons across series."""
+    """Plot full-spectrum and focused PSD overlays across multiple series.
+
+    Parameters
+    ----------
+    freqs_reference : array-like of shape (n_freqs,)
+        Frequency vector for the reference PSD.
+    psd_reference : array-like of shape (n_freqs,)
+        Reference PSD values.
+    series_psds : mapping[str, tuple[array-like, array-like]]
+        Mapping from series name to ``(freqs, psd)`` arrays.
+    focus_freq : float
+        Center frequency for the zoomed overlay panel.
+    fmax : float
+        Max frequency shown in the full-spectrum panel.
+    focus_half_width_hz : float
+        Half-width (Hz) used for the zoomed panel around ``focus_freq``.
+    n_harmonics : int
+        Number of harmonics to mark on the full-spectrum panel.
+    title : str
+        Optional title for the full-spectrum panel.
+    series_order : sequence[str] | None
+        Optional plotting order.
+    series_colors : mapping[str, str] | None
+        Optional color overrides by series name.
+    series_labels : mapping[str, str] | None
+        Optional label overrides by series name.
+    fname : path-like | None
+        Optional output path used to save the figure.
+    show : bool
+        If True, display the figure.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure handle.
+
+    Raises
+    ------
+    ValueError
+        If ``focus_half_width_hz <= 0``.
+
+    Notes
+    -----
+    When ``series_order`` is not provided, overlay order follows the
+    insertion order of ``series_psds``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from mne_denoise.viz import plot_psd_overlay
+    >>> freqs = np.linspace(0, 120, 512)
+    >>> before = np.exp(-freqs / 40)
+    >>> series = {"A": (freqs, before * 0.8), "B": (freqs, before * 0.6)}
+    >>> fig = plot_psd_overlay(freqs, before, series, focus_freq=50.0, show=False)
+    """
     freqs_reference = np.asarray(freqs_reference, dtype=float)
     psd_reference = np.asarray(psd_reference, dtype=float)
+    focus_half_width_hz = float(focus_half_width_hz)
+    if focus_half_width_hz <= 0:
+        raise ValueError("focus_half_width_hz must be positive.")
 
     if series_order is None:
-        series_order = sorted(series_psds.keys())
+        series_order = list(series_psds.keys())
 
     fig, axes = themed_figure(1, 2, figsize=(16, 5))
     axes = np.atleast_1d(axes)
@@ -583,14 +798,20 @@ def plot_psd_overlay(
         if series_name not in series_psds:
             continue
         freqs_series, psd_series = series_psds[series_name]
+        if series_colors and series_name in series_colors:
+            color = series_colors[series_name]
+        else:
+            color = get_series_color(idx)
+        if series_labels and series_name in series_labels:
+            label = series_labels[series_name]
+        else:
+            label = series_name
         ax.semilogy(
             freqs_series,
             psd_series,
-            color=_series_color(
-                idx, series_name=series_name, series_colors=series_colors
-            ),
+            color=color,
             lw=1.2,
-            label=_series_label(series_name, series_labels),
+            label=label,
         )
     for harmonic_idx in range(1, n_harmonics + 2):
         harmonic = focus_freq * harmonic_idx
@@ -604,7 +825,7 @@ def plot_psd_overlay(
     style_axes(ax, grid=True)
 
     ax = axes[1]
-    zoom = PSD_FOCUS_HALF_WIDTH_HZ
+    zoom = focus_half_width_hz
     before_mask = (freqs_reference >= focus_freq - zoom) & (
         freqs_reference <= focus_freq + zoom
     )
@@ -623,14 +844,20 @@ def plot_psd_overlay(
         series_mask = (freqs_series >= focus_freq - zoom) & (
             freqs_series <= focus_freq + zoom
         )
+        if series_colors and series_name in series_colors:
+            color = series_colors[series_name]
+        else:
+            color = get_series_color(idx)
+        if series_labels and series_name in series_labels:
+            label = series_labels[series_name]
+        else:
+            label = series_name
         ax.semilogy(
             freqs_series[series_mask],
             psd_series[series_mask],
-            color=_series_color(
-                idx, series_name=series_name, series_colors=series_colors
-            ),
+            color=color,
             lw=1.5,
-            label=_series_label(series_name, series_labels),
+            label=label,
         )
     ax.axvline(focus_freq, color=COLORS["line_marker"], ls="--", alpha=0.4)
     ax.set_xlabel("Frequency (Hz)", fontsize=FONTS["label"])
@@ -644,49 +871,105 @@ def plot_psd_overlay(
 def plot_component_psd_comparison(
     inst_before,
     components,
-    sfreq,
+    component_indices,
+    sfreq=None,
     peak_freq=None,
     fmin=1,
     fmax=40,
     show=True,
     fname=None,
 ):
-    """Plot original PSD alongside the PSD of extracted components."""
+    """Plot input PSD next to PSDs of selected components.
+
+    Parameters
+    ----------
+    inst_before : MNE object | ndarray
+        Baseline signal used for the reference PSD.
+    components : MNE object | ndarray
+        Component signals with canonical shape ``(n_components, n_times)``,
+        or ``(n_epochs, n_components, n_times)``.
+    component_indices : sequence of int
+        Explicit component indices to include in the component PSD panel.
+    sfreq : float | None
+        Sampling frequency for array inputs. If ``components`` is an MNE object
+        and ``sfreq`` is None, ``components.info['sfreq']`` is used.
+    peak_freq : float | None
+        Optional frequency marker shown on both panels.
+    fmin, fmax : float
+        Frequency bounds for PSD computation.
+    show : bool
+        If True, display the figure.
+    fname : path-like | None
+        Optional output path used to save the figure.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure handle.
+
+    Raises
+    ------
+    ValueError
+        If ``component_indices`` is empty/out of range or if array inputs
+        are provided without ``sfreq``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from mne_denoise.viz import plot_component_psd_comparison
+    >>> signal = np.random.randn(8, 2000)
+    >>> sources = np.random.randn(4, 2000)
+    >>> fig = plot_component_psd_comparison(
+    ...     signal,
+    ...     sources,
+    ...     component_indices=[0, 1],
+    ...     sfreq=250.0,
+    ...     show=False,
+    ... )
+    """
     fig, axes = themed_figure(1, 2, figsize=(12, 4), constrained_layout=True)
     axes = np.atleast_1d(axes)
 
-    freqs_before, psd_before = _compute_mean_psd(inst_before, fmin=fmin, fmax=fmax)
-    axes[0].semilogy(freqs_before, psd_before, color=COLORS["before"], label="Before")
+    freqs_before, psd_before = _compute_psd_matrix(
+        inst_before, sfreq=sfreq, fmin=fmin, fmax=fmax
+    )
+    axes[0].semilogy(
+        freqs_before,
+        psd_before.mean(axis=0),
+        color=COLORS["before"],
+        label="Before",
+    )
     axes[0].set_title("Original Data PSD", fontsize=FONTS["title"])
     axes[0].set_xlabel("Frequency (Hz)", fontsize=FONTS["label"])
     axes[0].set_ylabel("Power Spectral Density", fontsize=FONTS["label"])
     style_axes(axes[0], grid=True)
 
-    component_data = _prepare_component_data(components)
-    n_components = min(3, component_data.shape[0])
-    component_raw = mne.io.RawArray(
-        component_data[:n_components],
-        mne.create_info(n_components, sfreq, "misc"),
-        verbose=False,
+    component_data = _as_component_data(components)
+    indices = [int(idx) for idx in component_indices]
+    if len(indices) == 0:
+        raise ValueError("component_indices cannot be empty.")
+    invalid = [idx for idx in indices if idx < 0 or idx >= component_data.shape[0]]
+    if invalid:
+        raise ValueError(f"Component indices out of range: {invalid}")
+
+    component_sfreq = sfreq
+    if component_sfreq is None and isinstance(
+        components, (mne.io.BaseRaw, mne.BaseEpochs, mne.Evoked)
+    ):
+        component_sfreq = float(components.info["sfreq"])
+    if component_sfreq is None:
+        raise ValueError("sfreq must be provided when components are arrays.")
+
+    freqs_components, psd_components = _compute_psd_matrix(
+        component_data[indices], sfreq=component_sfreq, fmin=fmin, fmax=fmax
     )
-    component_spectrum = component_raw.compute_psd(fmin=fmin, fmax=fmax, picks="all")
-    freqs_components = component_spectrum.freqs
-    psd_components = np.asarray(
-        component_spectrum.get_data(picks="all", return_freqs=False)
-    )
-    psd_components = np.atleast_2d(psd_components)
-    component_palette = [
-        COLORS["primary"],
-        COLORS["secondary"],
-        COLORS["accent"],
-        COLORS["purple"],
-    ]
     for idx, component_psd in enumerate(psd_components):
+        comp_idx = indices[idx]
         axes[1].semilogy(
             freqs_components,
             component_psd,
-            color=component_palette[idx % len(component_palette)],
-            label=f"Component {idx}",
+            color=get_series_color(idx),
+            label=f"Component {comp_idx}",
         )
 
     axes[1].set_title("Component PSD", fontsize=FONTS["title"])
@@ -712,22 +995,151 @@ def plot_component_psd_comparison(
 def plot_spectrogram_comparison(
     inst_before,
     inst_after,
+    picks,
+    times,
+    sfreq=None,
     fmin=1,
     fmax=40,
     n_freqs=20,
-    picks=None,
     show=True,
     fname=None,
 ):
-    """Compare time-frequency spectrograms averaged over channels."""
+    """Compare before/after spectrograms averaged across selected channels.
+
+    Parameters
+    ----------
+    inst_before, inst_after : MNE object | ndarray
+        Inputs to compare. Either both MNE objects or both arrays.
+        Array inputs must be 2D ``(n_channels, n_times)`` or
+        3D ``(n_epochs, n_channels, n_times)``.
+    picks : sequence of int
+        Explicit channel picks used for averaging.
+    times : array-like of shape (n_times,)
+        Explicit time vector used on x-axis.
+    sfreq : float | None
+        Sampling frequency for array inputs.
+    fmin, fmax : float
+        Frequency bounds for the spectrogram.
+    n_freqs : int
+        Number of frequencies in the display grid.
+    show : bool
+        If True, display the figure.
+    fname : path-like | None
+        Optional output path used to save the figure.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure handle.
+
+    Raises
+    ------
+    ValueError
+        If ``picks``/``times`` are invalid, if input types are mixed,
+        if array inputs are missing ``sfreq``, or if shape constraints fail.
+
+    Notes
+    -----
+    This function enforces an explicit ``times`` input for both MNE and
+    NumPy inputs to avoid hidden axis inference.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from mne_denoise.viz import plot_spectrogram_comparison
+    >>> before = np.random.randn(8, 2000)
+    >>> after = before * 0.8
+    >>> t = np.arange(before.shape[-1]) / 250.0
+    >>> fig = plot_spectrogram_comparison(
+    ...     before, after, picks=[0, 1], times=t, sfreq=250.0, show=False
+    ... )
+    """
     if n_freqs < 2:
         raise ValueError("n_freqs must be at least 2.")
     if fmax <= fmin:
         raise ValueError("fmax must be greater than fmin.")
 
-    freqs = np.linspace(fmin, fmax, n_freqs)
-    data_before = _compute_mean_tfr(inst_before, freqs, picks=picks)
-    data_after = _compute_mean_tfr(inst_after, freqs, picks=picks)
+    if picks is None:
+        raise ValueError("picks must be provided explicitly.")
+    picks = list(picks)
+    if len(picks) == 0:
+        raise ValueError("picks cannot be empty.")
+
+    is_mne_before = isinstance(
+        inst_before, (mne.io.BaseRaw, mne.BaseEpochs, mne.Evoked)
+    )
+    is_mne_after = isinstance(inst_after, (mne.io.BaseRaw, mne.BaseEpochs, mne.Evoked))
+    if is_mne_before != is_mne_after:
+        raise ValueError("inst_before and inst_after must be both MNE or both arrays.")
+
+    times = np.asarray(times, dtype=float)
+    if times.ndim != 1:
+        raise ValueError("times must be a 1D array.")
+
+    freqs = np.linspace(fmin, fmax, n_freqs, dtype=float)
+    if is_mne_before:
+        n_times_before = inst_before.get_data().shape[-1]
+        n_times_after = inst_after.get_data().shape[-1]
+        if n_times_before != n_times_after:
+            raise ValueError("inst_before and inst_after must share the same n_times.")
+        if times.size != n_times_before:
+            raise ValueError("times must match the signal n_times.")
+
+        tfr_before = inst_before.compute_tfr(
+            method="multitaper",
+            freqs=freqs,
+            n_cycles=freqs / 2.0,
+            picks=picks,
+        )
+        tfr_after = inst_after.compute_tfr(
+            method="multitaper",
+            freqs=freqs,
+            n_cycles=freqs / 2.0,
+            picks=picks,
+        )
+        data_before = np.asarray(tfr_before.data, dtype=float)
+        data_after = np.asarray(tfr_after.data, dtype=float)
+        mean_axes = tuple(range(data_before.ndim - 2))
+        if mean_axes:
+            data_before = data_before.mean(axis=mean_axes)
+            data_after = data_after.mean(axis=mean_axes)
+    else:
+        if sfreq is None:
+            raise ValueError("sfreq must be provided when inputs are arrays.")
+        data_before_arr = np.asarray(inst_before, dtype=float)
+        data_after_arr = np.asarray(inst_after, dtype=float)
+        if data_before_arr.shape[-1] != data_after_arr.shape[-1]:
+            raise ValueError("inst_before and inst_after must share the same n_times.")
+        if times.size != data_before_arr.shape[-1]:
+            raise ValueError("times must match the signal n_times.")
+
+        if data_before_arr.ndim not in (2, 3) or data_after_arr.ndim not in (2, 3):
+            raise ValueError(
+                "Array spectrogram inputs must be 2D or 3D with time as last axis."
+            )
+        n_channels = data_before_arr.shape[-2]
+        pick_indices = [int(pick) for pick in picks]
+        invalid = [idx for idx in pick_indices if idx < 0 or idx >= n_channels]
+        if invalid:
+            raise ValueError(f"Channel picks out of range: {invalid}")
+
+        freqs, data_before = _compute_array_spectrogram(
+            data_before_arr,
+            picks=pick_indices,
+            sfreq=sfreq,
+            fmin=fmin,
+            fmax=fmax,
+            n_freqs=n_freqs,
+        )
+        _, data_after = _compute_array_spectrogram(
+            data_after_arr,
+            picks=pick_indices,
+            sfreq=sfreq,
+            fmin=fmin,
+            fmax=fmax,
+            n_freqs=n_freqs,
+        )
+
     diff = data_before - data_after
 
     fig, axes = themed_figure(
@@ -737,7 +1149,6 @@ def plot_spectrogram_comparison(
 
     vmax = float(max(np.max(data_before), np.max(data_after)))
     diff_limit = float(np.max(np.abs(diff)))
-    times = inst_before.times
 
     def _plot_im(ax, data, title, cmap, vlims, colorbar_label):
         im = ax.imshow(
@@ -792,7 +1203,44 @@ def plot_time_frequency_mask(
     show=True,
     fname=None,
 ):
-    """Visualize a time-frequency mask."""
+    """Visualize a time-frequency mask matrix.
+
+    Parameters
+    ----------
+    mask : array-like of shape (n_freqs, n_times)
+        Time-frequency weights.
+    times : array-like of shape (n_times,)
+        Time axis coordinates.
+    freqs : array-like of shape (n_freqs,)
+        Frequency axis coordinates.
+    title : str
+        Panel title.
+    ax : matplotlib.axes.Axes | None
+        Target axes. If None, create a new figure and axes.
+    show : bool
+        If True, display the figure.
+    fname : path-like | None
+        Optional output path used to save the figure.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure handle.
+
+    Raises
+    ------
+    ValueError
+        If dimensions of ``mask``, ``times``, and ``freqs`` are inconsistent.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from mne_denoise.viz import plot_time_frequency_mask
+    >>> mask = np.random.rand(20, 100)
+    >>> times = np.linspace(0, 2.0, 100)
+    >>> freqs = np.linspace(1.0, 40.0, 20)
+    >>> fig = plot_time_frequency_mask(mask, times, freqs, show=False)
+    """
     mask = np.asarray(mask)
     times = np.asarray(times)
     freqs = np.asarray(freqs)

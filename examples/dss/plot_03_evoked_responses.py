@@ -200,6 +200,7 @@ epochs_clean = mne.EpochsArray(
 plot_evoked_gfp_comparison(
     epochs_meg,
     epochs_clean,
+    times=epochs_meg.times,
     labels=("Original", f"Denoised (Top {keep_n})"),
     show=False,
 )

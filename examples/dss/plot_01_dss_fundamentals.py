@@ -190,7 +190,7 @@ epochs_denoised = mne.EpochsArray(epochs_denoised, info)
 # Plot Original vs Denoised Evoked Response
 # *   **Expectation**: The "Denoised" trace should have smaller confidence intervals (shaded area)
 #     because the variable noise has been removed.
-plot_evoked_gfp_comparison(epochs, epochs_denoised, show=True)
+plot_evoked_gfp_comparison(epochs, epochs_denoised, times=epochs.times, show=True)
 
 
 # %%
@@ -353,7 +353,7 @@ epochs_m100 = mne.EpochsArray(epochs_m100, epochs_real.info)
 
 # Compare Evoked Responses
 # *   **Expectation**: Cleaner M100 peak with reduced baseline noise.
-plot_evoked_gfp_comparison(epochs_real, epochs_m100, show=True)
+plot_evoked_gfp_comparison(epochs_real, epochs_m100, times=epochs_real.times, show=True)
 
 # %%
 # Conclusion

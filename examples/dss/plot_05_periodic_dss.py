@@ -419,8 +419,10 @@ raw_denoised = mne.io.RawArray(
 plot_channel_time_course_comparison(
     raw_channel,
     raw_denoised,
+    picks=[0],
+    times=raw_channel.times,
     start=0,
-    stop=10,  # First 10 seconds
+    stop=int(10 * raw_channel.info["sfreq"]),  # First 10 seconds
     show=False,
 )
 plt.gcf().suptitle("ECG Artifact Removal: Time Series Comparison")

@@ -8,6 +8,42 @@ import mne
 import numpy as np
 
 
+def _compute_gfp(inst_or_data):
+    """Compute GFP (RMS across channels) from 2D/3D signal data.
+
+    Parameters
+    ----------
+    inst_or_data : MNE object | ndarray
+        Signal data as:
+        - 2D ``(n_channels, n_times)``, or
+        - 3D ``(n_epochs, n_channels, n_times)``.
+        MNE inputs are converted via ``get_data()``.
+
+    Returns
+    -------
+    gfp : ndarray of shape (n_times,)
+        Global field power time series.
+
+    Raises
+    ------
+    ValueError
+        If input is not 2D or 3D.
+    """
+    if hasattr(inst_or_data, "get_data"):
+        data = np.asarray(inst_or_data.get_data(), dtype=float)
+    else:
+        data = np.asarray(inst_or_data, dtype=float)
+
+    if data.ndim == 3:
+        data = data.mean(axis=0)
+    if data.ndim != 2:
+        raise ValueError(
+            "GFP input must be 2D (n_channels, n_times) or 3D "
+            "(n_epochs, n_channels, n_times)."
+        )
+    return np.sqrt(np.mean(data**2, axis=0))
+
+
 def _get_info(estimator, info=None):
     """Resolve MNE info from estimator or argument."""
     if info is not None:
@@ -98,136 +134,6 @@ def _get_components(estimator, data=None):
         sources = np.transpose(sources, (1, 2, 0))
 
     return sources
-
-
-def _get_n_selected(estimator):
-    """Return number of components auto-selected (``n_selected_``)."""
-    if hasattr(estimator, "n_selected_") and estimator.n_selected_ is not None:
-        return estimator.n_selected_
-    if hasattr(estimator, "n_removed_") and estimator.n_removed_ is not None:
-        return estimator.n_removed_
-    return 0
-
-
-def _get_eigenvalues(estimator):
-    """Eigenvalue vector, or ``None``."""
-    return _get_scores(estimator)
-
-
-def _get_segment_results(estimator):
-    """Return ``segment_results_`` list-of-dict or ``[]``."""
-    if hasattr(estimator, "segment_results_") and estimator.segment_results_:
-        return estimator.segment_results_
-    if hasattr(estimator, "adaptive_results_") and estimator.adaptive_results_:
-        return estimator.adaptive_results_.get("chunk_info", [])
-    return []
-
-
-def _is_segmented(estimator):
-    """Check whether the result is from segmented / adaptive mode."""
-    if hasattr(estimator, "segmented") and estimator.segmented:
-        return True
-    return bool(_get_segment_results(estimator))
-
-
-def _get_dss_removed(estimator):
-    """Return removed artifact array (n_channels, n_times) or ``None``."""
-    if hasattr(estimator, "removed") and estimator.removed is not None:
-        return estimator.removed
-    if hasattr(estimator, "removed_") and estimator.removed_ is not None:
-        return estimator.removed_
-    return None
-
-
-def _get_bias_name(estimator):
-    """Human-readable bias function name."""
-    bias = getattr(estimator, "bias", None)
-    if bias is None:
-        return "Unknown"
-    name = type(bias).__name__
-    rename = {
-        "BandpassBias": "Bandpass",
-        "TrialAverageBias": "Trial Average",
-        "SmoothingBias": "Smoothing",
-        "PeakFilterBias": "Peak Filter",
-        "CombFilterBias": "Comb Filter",
-        "NotchBias": "Notch",
-    }
-    return rename.get(name, name)
-
-
-def _get_zapline_n_removed(result):
-    """Extract ``n_removed`` from a ZapLine result, handling both modes."""
-    n_removed = 0
-    if hasattr(result, "n_removed_") and result.n_removed_ is not None:
-        n_removed = result.n_removed_
-    elif hasattr(result, "n_removed") and result.n_removed is not None:
-        n_removed = result.n_removed
-    elif isinstance(result, dict):
-        n_removed = result.get("n_removed", 0) or 0
-    return n_removed
-
-
-def _get_zapline_removed(result):
-    """Extract removed data from a ZapLine result, handling both modes."""
-    if hasattr(result, "removed") and result.removed is not None:
-        return result.removed
-    if hasattr(result, "adaptive_results_") and result.adaptive_results_ is not None:
-        return result.adaptive_results_.get("removed")
-    if isinstance(result, dict):
-        return result.get("removed")
-    return None
-
-
-def _get_cleaned(result):
-    """Extract cleaned data from a ZapLine result, handling both modes."""
-    if hasattr(result, "cleaned") and result.cleaned is not None:
-        return result.cleaned
-    if hasattr(result, "adaptive_results_") and result.adaptive_results_ is not None:
-        return result.adaptive_results_.get("cleaned")
-    if isinstance(result, dict):
-        return result.get("cleaned")
-    return None
-
-
-def _is_adaptive(result):
-    """Check whether the result is from adaptive mode."""
-    if hasattr(result, "adaptive") and result.adaptive:
-        return True
-    if hasattr(result, "adaptive_results_") and result.adaptive_results_ is not None:
-        return True
-    return bool(isinstance(result, dict) and "chunk_info" in result)
-
-
-def _get_chunk_info(result):
-    """Extract per-chunk info from an adaptive ZapLine result."""
-    if hasattr(result, "adaptive_results_") and result.adaptive_results_ is not None:
-        return result.adaptive_results_.get("chunk_info", [])
-    if isinstance(result, dict):
-        return result.get("chunk_info", [])
-    return []
-
-
-def _fallback_chunk_info(result):
-    """Synthesize a single adaptive chunk when detailed chunk info is unavailable."""
-    line_freq = getattr(result, "line_freq", None)
-    removed = _get_zapline_removed(result)
-    cleaned = _get_cleaned(result)
-    n_times = 1
-    for data in (removed, cleaned):
-        if isinstance(data, np.ndarray) and data.ndim >= 2:
-            n_times = data.shape[-1]
-            break
-    return [
-        {
-            "n_removed": _get_zapline_n_removed(result),
-            "fine_freq": 0.0 if line_freq is None else line_freq,
-            "frequency": 0.0 if line_freq is None else line_freq,
-            "artifact_present": _get_zapline_n_removed(result) > 0,
-            "start": 0,
-            "end": n_times,
-        }
-    ]
 
 
 def _handle_picks(info, picks=None):

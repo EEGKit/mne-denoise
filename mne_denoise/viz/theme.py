@@ -1,11 +1,10 @@
 """Shared plotting theme for mne-denoise visualizations.
 
 This module centralizes the plotting defaults used across
-``mne_denoise.viz`` so DSS, ZapLine, benchmark, and ERP figures share a
-consistent visual language.
+``mne_denoise.viz`` so figures share a consistent visual language.
 
 This module contains:
-1. Named color palettes for semantic plot elements and benchmark groups.
+1. Named color palettes for generic semantic plot elements.
 2. Convenience helpers for creating themed figures and legends.
 3. rcParams helpers for temporary or global application of the package theme.
 
@@ -55,7 +54,7 @@ import matplotlib.pyplot as plt
 # =====================================================================
 # Colorblind-safe Wong palette (Nature Methods, 2011)
 # =====================================================================
-BASE_COLORS = {
+_BASE_COLORS = {
     "blue": "#0072B2",
     "orange": "#E69F00",
     "green": "#009E73",
@@ -68,54 +67,46 @@ BASE_COLORS = {
     "dark": "#333333",
 }
 
-SEMANTIC_COLORS = {
-    "primary": BASE_COLORS["blue"],
-    "secondary": BASE_COLORS["orange"],
-    "accent": BASE_COLORS["red"],
-    "success": BASE_COLORS["green"],
-    "muted": BASE_COLORS["gray"],
-    "text": BASE_COLORS["dark"],
-    "before": BASE_COLORS["dark"],  # PSD / signal before cleaning
-    "after": BASE_COLORS["green"],  # PSD / signal after cleaning
-    "line_marker": BASE_COLORS["red"],
-    "no_artifact": BASE_COLORS["gray"],
-    "edge": BASE_COLORS["dark"],  # bar / scatter edge color
+_SEMANTIC_COLORS = {
+    "primary": _BASE_COLORS["blue"],
+    "secondary": _BASE_COLORS["orange"],
+    "accent": _BASE_COLORS["red"],
+    "success": _BASE_COLORS["green"],
+    "muted": _BASE_COLORS["gray"],
+    "text": _BASE_COLORS["dark"],
+    "before": _BASE_COLORS["dark"],  # PSD / signal before cleaning
+    "after": _BASE_COLORS["green"],  # PSD / signal after cleaning
+    "line_marker": _BASE_COLORS["red"],
+    "no_artifact": _BASE_COLORS["gray"],
+    "edge": _BASE_COLORS["dark"],  # bar / scatter edge color
     "placeholder": "#999999",  # "no data" text colour
     "separator": "#e0e0e0",  # subtle separator lines
     "label_secondary": "#555555",  # secondary stat labels
-    "highlight": BASE_COLORS["yellow"],  # best-method star etc.
+    "highlight": _BASE_COLORS["yellow"],  # best-method star etc.
+    "stat_mean": _BASE_COLORS["blue"],  # group mean trend/marker
+    "stat_subject": _BASE_COLORS["gray"],  # paired subject trajectories
+    "stat_reference": _BASE_COLORS["dark"],  # reference thresholds / baselines
+    "stat_ci": _BASE_COLORS["light_gray"],  # confidence / interval shading
+    "stat_highlight": _BASE_COLORS["yellow"],  # best metric marker
 }
 
-COLORS = {**BASE_COLORS, **SEMANTIC_COLORS}
+BASE_COLORS = MappingProxyType(_BASE_COLORS)
+SEMANTIC_COLORS = MappingProxyType(_SEMANTIC_COLORS)
+COLORS = MappingProxyType({**_BASE_COLORS, **_SEMANTIC_COLORS})
 
-# `METHOD_COLORS` names generic denoising concepts, while
-# `DEFAULT_METHOD_COLORS` and `DEFAULT_PIPE_COLORS` map benchmark-specific
-# method/pipeline IDs (M* and C*) to their default palettes.
-METHOD_COLORS = {
-    "original": COLORS["dark"],
-    "before": COLORS["dark"],
-    "after": COLORS["green"],
-    "dss": COLORS["blue"],
-    "zapline": COLORS["orange"],
-    "dss_smooth": COLORS["cyan"],
-    "dss_segment": COLORS["purple"],
-    "clean": COLORS["green"],
-}
-
-# Benchmark method colors shared across benchmark and scripts.
-DEFAULT_METHOD_COLORS = {
-    "M0": COLORS["gray"],
-    "M1": COLORS["blue"],
-    "M2": COLORS["orange"],
-    "M3": COLORS["purple"],
-}
-
-# ERP pipeline colors shared across ERP visualizations.
-DEFAULT_PIPE_COLORS = {
-    "C0": COLORS["dark"],
-    "C1": COLORS["green"],
-    "C2": COLORS["red"],
-}
+# `METHOD_COLORS` names broad denoising concepts used across the package.
+METHOD_COLORS = MappingProxyType(
+    {
+        "original": COLORS["dark"],
+        "before": COLORS["dark"],
+        "after": COLORS["green"],
+        "dss": COLORS["blue"],
+        "zapline": COLORS["orange"],
+        "dss_smooth": COLORS["cyan"],
+        "dss_segment": COLORS["purple"],
+        "clean": COLORS["green"],
+    }
+)
 
 # Generic palette and colormaps for reusable spectral series/time-frequency plots.
 SERIES_COLORS = (
@@ -140,49 +131,18 @@ SAVEFIG_DPI = 300
 SAVEFIG_BBOX = "tight"
 SAVEFIG_PAD_INCHES = 0.05
 
-_STATS_STYLE = MappingProxyType(
-    {
-        "bar_alpha": 0.85,
-        "bar_linewidth": 0.5,
-        "bar_capsize": 3,
-        "scatter_size": 80,
-        "scatter_alpha": 0.8,
-        "scatter_edge_linewidth": 0.5,
-        "mean_scatter_size": 200,
-        "mean_marker_size": 8,
-        "mean_linewidth": 2.0,
-        "subject_trace_alpha": 0.3,
-        "subject_trace_marker_size": 4,
-        "paired_line_alpha": 0.1,
-        "paired_linewidth": 0.4,
-        "reference_linewidth": 0.8,
-        "reference_alpha": 0.5,
-        "annotation_star_size": 14,
-        "strip_size": 3,
-        "strip_alpha": 0.7,
-        "strip_jitter": 0.12,
-        "forest_marker_size": 5,
-        "forest_baseline_mean_marker_size": 9,
-        "forest_pooled_marker_size": 10,
-        "hist_alpha": 0.5,
-        "hist_linewidth": 0.5,
-        "legend_fontsize_small": 7,
-    }
-)
-
 
 def get_color(key, fallback=None):
     """Return a color from the shared viz palettes by key.
 
     This helper resolves both semantic color names such as ``"before"``
-    or ``"highlight"`` and benchmark-specific group IDs such as
-    ``"M1"`` or ``"C2"``.
+    or ``"highlight"`` and concept-level method keys such as ``"dss"``
+    or ``"zapline"``.
 
     Parameters
     ----------
     key : str
-        A key into :data:`COLORS`, :data:`METHOD_COLORS`,
-        :data:`DEFAULT_METHOD_COLORS`, or :data:`DEFAULT_PIPE_COLORS`.
+        A key into :data:`COLORS` or :data:`METHOD_COLORS`.
     fallback : str | None
         Returned if *key* is not found in any shared palette.
         Defaults to ``COLORS["dark"]``.
@@ -197,17 +157,13 @@ def get_color(key, fallback=None):
     >>> from mne_denoise.viz import get_color
     >>> get_color("before")
     '#333333'
-    >>> get_color("M1")
+    >>> get_color("dss")
     '#0072B2'
     """
     if key in COLORS:
         return COLORS[key]
     if key in METHOD_COLORS:
         return METHOD_COLORS[key]
-    if key in DEFAULT_METHOD_COLORS:
-        return DEFAULT_METHOD_COLORS[key]
-    if key in DEFAULT_PIPE_COLORS:
-        return DEFAULT_PIPE_COLORS[key]
     return fallback if fallback is not None else COLORS["dark"]
 
 
@@ -591,16 +547,16 @@ def set_theme(rc: Mapping[str, object] | None = None):
 
 
 __all__ = [
-    "BASE_COLORS",
-    "SEMANTIC_COLORS",
     "COLORS",
     "METHOD_COLORS",
-    "DEFAULT_METHOD_COLORS",
-    "DEFAULT_PIPE_COLORS",
+    "SERIES_COLORS",
+    "SEQUENTIAL_CMAP",
+    "DIVERGING_CMAP",
     "FONTS",
     "DEFAULT_DPI",
     "DEFAULT_FIGSIZE",
     "get_color",
+    "get_series_color",
     "style_axes",
     "themed_figure",
     "themed_legend",

@@ -1,30 +1,40 @@
 """Visualization helpers for grouped metrics and summary statistics.
 
-This module contains reusable plots for method or pipeline comparisons based
-on scalar metrics, paired subject-level trajectories, and grouped summaries.
+This module provides reusable, study-agnostic metric plots for grouped
+comparisons, paired subject trajectories, and distribution summaries.
 
-This module contains:
-1. Grouped metric bar charts.
-2. Trade-off scatter plots for paired metrics.
-3. Single-metric comparison plots across groups.
-4. Subject-level metric slope plots.
-5. Distributional metric violin plots.
-6. Null-distribution histograms for observed statistics.
-7. Per-subject forest plots with confidence intervals.
-8. Per-harmonic attenuation grouped bars.
+Input model
+-----------
+Grouped-stat functions in this module assume column-oriented input:
 
-Authors: Sina Esmaeili <sina.esmaeili@umontreal.ca>
-         Hamza Abdelhedi <hamza.abdelhedi@umontreal.ca>
+1. Mapping-like object with ``.items()`` (for example: ``dict``).
+2. Columns should be 1D and aligned by row.
+3. Metric columns should be numeric when used in computations.
+
+Public plots
+------------
+1. :func:`plot_metric_bars`
+2. :func:`plot_tradeoff_scatter`
+3. :func:`plot_metric_comparison`
+4. :func:`plot_metric_slopes`
+5. :func:`plot_metric_violins`
+6. :func:`plot_null_distribution`
+7. :func:`plot_forest`
+8. :func:`plot_harmonic_attenuation` (line-noise-specific helper)
+
+Authors: Sina Esmaeili (sina.esmaeili@umontreal.ca)
+         Hamza Abdelhedi (hamza.abdelhedi@umontreal.ca)
 """
 
 from __future__ import annotations
+
+from types import MappingProxyType
 
 import numpy as np
 
 from ..qa import peak_attenuation_db
 from ._seaborn import _suppress_seaborn_plot_warnings, _try_import_seaborn
 from .theme import (
-    _STATS_STYLE,
     COLORS,
     FONTS,
     _finalize_fig,
@@ -35,96 +45,77 @@ from .theme import (
     use_theme,
 )
 
-
-def _group_color(group, index, group_colors=None):
-    """Resolve a color for a named comparison group."""
-    if group_colors and group in group_colors:
-        return group_colors[group]
-    return get_series_color(index)
-
-
-def _group_label(group, group_labels=None):
-    """Resolve a display label for a named comparison group."""
-    if group_labels and group in group_labels:
-        return group_labels[group]
-    return group
-
-
-def _resolve_group_order(df, group_col, group_order):
-    """Resolve plotting order for grouped metric plots."""
-    if group_order is not None:
-        return list(group_order)
-    return sorted(df[group_col].dropna().unique())
-
-
-def _default_metric_label(metric_name):
-    """Format a metric column name for display."""
-    return metric_name.replace("_", " ").strip()
-
-
-def _infer_numeric_metrics(df, exclude_cols):
-    """Infer numeric metric columns while skipping grouping identifiers."""
-    numeric_cols = list(df.select_dtypes(include=[np.number]).columns)
-    metric_cols = [col for col in numeric_cols if col not in set(exclude_cols)]
-    if not metric_cols:
-        raise ValueError("Could not infer metric columns from the provided DataFrame.")
-    return metric_cols
+_STATS_STYLE = MappingProxyType(
+    {
+        "bar_alpha": 0.85,
+        "bar_linewidth": 0.5,
+        "bar_capsize": 3,
+        "scatter_size": 80,
+        "scatter_alpha": 0.8,
+        "scatter_edge_linewidth": 0.5,
+        "mean_scatter_size": 200,
+        "mean_marker_size": 8,
+        "mean_linewidth": 2.0,
+        "subject_trace_alpha": 0.3,
+        "subject_trace_marker_size": 4,
+        "paired_line_alpha": 0.1,
+        "paired_linewidth": 0.4,
+        "reference_linewidth": 0.8,
+        "reference_alpha": 0.5,
+        "annotation_star_size": 14,
+        "strip_size": 3,
+        "strip_alpha": 0.7,
+        "strip_jitter": 0.12,
+        "forest_marker_size": 5,
+        "forest_baseline_mean_marker_size": 9,
+        "forest_pooled_marker_size": 10,
+        "hist_alpha": 0.5,
+        "hist_linewidth": 0.5,
+        "legend_fontsize_small": 7,
+    }
+)
 
 
-def _resolve_metric_cols(df, metric_cols, exclude_cols):
-    """Resolve metric columns explicitly or by numeric-column inference."""
-    if metric_cols is not None:
-        return list(metric_cols)
-    return _infer_numeric_metrics(df, exclude_cols=exclude_cols)
-
-
-def _resolve_metric_labels(metric_cols, metric_labels):
-    """Resolve display labels for a metric-column list."""
-    if metric_labels is None:
-        return [_default_metric_label(col) for col in metric_cols]
-    metric_labels = list(metric_labels)
-    if len(metric_labels) != len(metric_cols):
-        raise ValueError("metric_labels must match metric_cols in length.")
-    return metric_labels
-
-
-def _resolve_metric_directions(metric_cols, lower_better):
-    """Resolve optional optimization direction for each metric."""
-    if lower_better is None:
-        return [None] * len(metric_cols)
-    lower_better = list(lower_better)
-    if len(lower_better) != len(metric_cols):
-        raise ValueError("lower_better must match metric_cols in length.")
-    return lower_better
-
-
-def _resolve_xy_columns(df, group_col, x_col, y_col):
-    """Resolve x/y metric columns for scatter plots."""
-    metric_cols = _infer_numeric_metrics(df, exclude_cols=[group_col])
-    if x_col is None:
-        x_col = metric_cols[0]
-    if y_col is None:
-        if len(metric_cols) < 2:
-            raise ValueError(
-                "Could not infer both x_col and y_col from the provided DataFrame."
-            )
-        y_col = metric_cols[1] if metric_cols[0] == x_col else metric_cols[0]
-    return x_col, y_col
-
-
-def _resolve_metric_specs(df, metric_specs, group_col, subject_col):
-    """Resolve slope-plot metric specs explicitly or by numeric-column inference."""
-    if metric_specs is not None:
-        return list(metric_specs)
-
-    metric_cols = _infer_numeric_metrics(df, exclude_cols=[group_col, subject_col])[:3]
-    return [(col, _default_metric_label(col)) for col in metric_cols]
+def _plot_subject_trajectories(
+    ax,
+    subject_values,
+    groups,
+    metric_values,
+    group_order,
+    *,
+    style="o-",
+    alpha=None,
+    linewidth=None,
+    markersize=None,
+    zorder=None,
+):
+    """Plot paired subject trajectories and return finite group means."""
+    subjects = list(dict.fromkeys(np.asarray(subject_values, dtype=object).tolist()))
+    traces = np.full((len(subjects), len(group_order)), np.nan, dtype=float)
+    for subject_idx, subject in enumerate(subjects):
+        subject_mask = subject_values == subject
+        for group_idx, group in enumerate(group_order):
+            vals = metric_values[subject_mask & (groups == group)]
+            vals = vals[np.isfinite(vals)]
+            if vals.size:
+                traces[subject_idx, group_idx] = vals[0]
+        kws = {
+            "color": COLORS["stat_subject"],
+            "alpha": _STATS_STYLE["subject_trace_alpha"] if alpha is None else alpha,
+        }
+        if markersize is not None:
+            kws["markersize"] = markersize
+        if linewidth is not None:
+            kws["lw"] = linewidth
+        if zorder is not None:
+            kws["zorder"] = zorder
+        ax.plot(range(len(group_order)), traces[subject_idx], style, **kws)
+    return np.nanmean(traces, axis=0)
 
 
 def plot_metric_bars(
-    df,
-    *,
-    metric_cols=None,
+    data,
+    metric_cols,
     metric_labels=None,
     lower_better=None,
     group_col="group",
@@ -139,34 +130,64 @@ def plot_metric_bars(
 
     Parameters
     ----------
-    df : DataFrame
-        Table containing a grouping column and one or more metric columns.
-    metric_cols : list of str | None
-        Metric columns to visualize. If None, all numeric columns except the
-        grouping column are used.
+    data : mapping of str to array-like
+        Columnar data mapping. All columns must be 1D and have equal length.
+    metric_cols : list of str
+        Metric columns to visualize.
     metric_labels : list of str | None
         Axis labels corresponding to ``metric_cols``. If None, labels are
-        derived from the column names.
+        derived from metric names.
     lower_better : list of bool | None
         Whether smaller values indicate better performance for each metric.
-        If None, no "best" marker is added.
+        If None, no best-marker star is added.
     group_col : str
-        Column identifying the comparison group.
+        Column name identifying comparison groups.
     group_order : list of str | None
-        Order of groups along the x-axis.
+        Explicit order for group bars. If None, first-seen order is used.
     group_colors, group_labels : dict | None
-        Optional color and label overrides keyed by group name.
+        Optional color/label overrides keyed by group name.
     title : str
         Figure-level title.
     fname : path-like | None
         Optional output path.
     show : bool
         Whether to display the figure.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure handle.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from mne_denoise.viz import plot_metric_bars
+    >>> data = {
+    ...     "group": np.array(["A", "A", "B", "B"]),
+    ...     "score": np.array([0.9, 1.0, 0.7, 0.8]),
+    ... }
+    >>> fig = plot_metric_bars(
+    ...     data, metric_cols=["score"], group_col="group", show=False
+    ... )
     """
-    metric_cols = _resolve_metric_cols(df, metric_cols, exclude_cols=[group_col])
-    metric_labels = _resolve_metric_labels(metric_cols, metric_labels)
-    lower_better = _resolve_metric_directions(metric_cols, lower_better)
-    group_order = _resolve_group_order(df, group_col, group_order)
+    columns = {name: np.asarray(values) for name, values in data.items()}
+    groups = np.asarray(columns[group_col], dtype=object)
+
+    metric_cols = list(metric_cols)
+
+    if metric_labels is None:
+        metric_labels = [str(col).replace("_", " ").strip() for col in metric_cols]
+    else:
+        metric_labels = list(metric_labels)
+    if lower_better is None:
+        lower_better = [None] * len(metric_cols)
+    else:
+        lower_better = list(lower_better)
+
+    if group_order is None:
+        group_order = list(dict.fromkeys(groups.tolist()))
+    else:
+        group_order = list(group_order)
 
     with use_theme():
         n_metrics = len(metric_cols)
@@ -178,15 +199,22 @@ def plot_metric_bars(
             zip(metric_cols, metric_labels, lower_better)
         ):
             ax = axes[axis_index]
+            metric_values = np.asarray(columns[col], dtype=float)
             means, sems = [], []
             for group in group_order:
-                vals = df.loc[df[group_col] == group, col].dropna()
-                means.append(vals.mean() if len(vals) else np.nan)
-                sems.append(vals.sem() if len(vals) > 1 else 0.0)
+                vals = metric_values[groups == group]
+                vals = vals[np.isfinite(vals)]
+                means.append(vals.mean() if vals.size else np.nan)
+                if vals.size > 1:
+                    sems.append(float(vals.std(ddof=1) / np.sqrt(vals.size)))
+                else:
+                    sems.append(0.0)
 
             x = np.arange(len(group_order))
             colors = [
-                _group_color(group, idx, group_colors)
+                group_colors[group]
+                if group_colors and group in group_colors
+                else get_series_color(idx)
                 for idx, group in enumerate(group_order)
             ]
             bars = ax.bar(
@@ -201,7 +229,12 @@ def plot_metric_bars(
             )
             ax.set_xticks(x)
             ax.set_xticklabels(
-                [_group_label(group, group_labels) for group in group_order],
+                [
+                    group_labels[group]
+                    if group_labels and group in group_labels
+                    else group
+                    for group in group_order
+                ],
                 fontsize=FONTS["tick"],
             )
             ax.set_ylabel(label, fontsize=FONTS["label"])
@@ -232,7 +265,7 @@ def plot_metric_bars(
                     fontsize=_STATS_STYLE["annotation_star_size"],
                     ha="center",
                     va="bottom",
-                    color=COLORS["highlight"],
+                    color=COLORS["stat_highlight"],
                 )
 
         fig.suptitle(title, fontsize=FONTS["suptitle"], fontweight="bold")
@@ -240,10 +273,9 @@ def plot_metric_bars(
 
 
 def plot_tradeoff_scatter(
-    df,
-    *,
-    x_col=None,
-    y_col=None,
+    data,
+    x_col,
+    y_col,
     group_col="group",
     group_order=None,
     group_colors=None,
@@ -257,14 +289,66 @@ def plot_tradeoff_scatter(
     fname=None,
     show=True,
 ):
-    """Plot a grouped x/y trade-off scatter with optional group means."""
-    x_col, y_col = _resolve_xy_columns(df, group_col, x_col, y_col)
-    if x_label is None:
-        x_label = _default_metric_label(x_col)
-    if y_label is None:
-        y_label = _default_metric_label(y_col)
+    """Plot a grouped x/y trade-off scatter with optional group means.
 
-    group_order = _resolve_group_order(df, group_col, group_order)
+    Parameters
+    ----------
+    data : mapping of str to array-like
+        Columnar mapping with group and metric columns.
+    x_col, y_col : str
+        Metric columns for x and y axes.
+    group_col : str
+        Grouping column name.
+    group_order : list of str | None
+        Optional group order. If None, first-seen order is used.
+    group_colors, group_labels : dict | None
+        Optional style overrides keyed by group name.
+    x_label, y_label : str | None
+        Axis labels. If None, derived from metric names.
+    title : str
+        Axes title.
+    reference_x, reference_y : float | None
+        Optional vertical/horizontal reference lines.
+    ax : matplotlib.axes.Axes | None
+        Existing axes. If None, create a new figure.
+    fname : path-like | None
+        Optional output path when creating a new figure.
+    show : bool
+        Whether to display the figure when creating a new figure.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure handle.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from mne_denoise.viz import plot_tradeoff_scatter
+    >>> data = {
+    ...     "group": np.array(["A", "A", "B", "B"]),
+    ...     "distortion": np.array([0.1, 0.2, 0.4, 0.3]),
+    ...     "attenuation": np.array([8.0, 9.0, 5.0, 6.0]),
+    ... }
+    >>> fig = plot_tradeoff_scatter(
+    ...     data, group_col="group", x_col="distortion", y_col="attenuation", show=False
+    ... )
+    """
+    columns = {name: np.asarray(values) for name, values in data.items()}
+    groups = np.asarray(columns[group_col], dtype=object)
+
+    x = np.asarray(columns[x_col], dtype=float)
+    y = np.asarray(columns[y_col], dtype=float)
+
+    if x_label is None:
+        x_label = str(x_col).replace("_", " ").strip()
+    if y_label is None:
+        y_label = str(y_col).replace("_", " ").strip()
+
+    if group_order is None:
+        group_order = list(dict.fromkeys(groups.tolist()))
+    else:
+        group_order = list(group_order)
 
     with use_theme():
         finalize = ax is None
@@ -276,12 +360,24 @@ def plot_tradeoff_scatter(
             fig = ax.figure
 
         for idx, group in enumerate(group_order):
-            sub_df = df[df[group_col] == group]
-            color = _group_color(group, idx, group_colors)
-            label = _group_label(group, group_labels)
+            mask = groups == group
+            x_group = x[mask]
+            y_group = y[mask]
+            finite_mask = np.isfinite(x_group) & np.isfinite(y_group)
+            x_group = x_group[finite_mask]
+            y_group = y_group[finite_mask]
+            color = (
+                group_colors[group]
+                if group_colors and group in group_colors
+                else get_series_color(idx)
+            )
+            label = (
+                group_labels[group] if group_labels and group in group_labels else group
+            )
+
             ax.scatter(
-                sub_df[x_col],
-                sub_df[y_col],
+                x_group,
+                y_group,
                 color=color,
                 s=_STATS_STYLE["scatter_size"],
                 alpha=_STATS_STYLE["scatter_alpha"],
@@ -290,10 +386,10 @@ def plot_tradeoff_scatter(
                 label=label,
                 zorder=3,
             )
-            if len(sub_df) > 1:
+            if x_group.size > 1:
                 ax.scatter(
-                    sub_df[x_col].mean(),
-                    sub_df[y_col].mean(),
+                    x_group.mean(),
+                    y_group.mean(),
                     color=color,
                     s=_STATS_STYLE["mean_scatter_size"],
                     marker="*",
@@ -308,7 +404,7 @@ def plot_tradeoff_scatter(
         if reference_y is not None:
             ax.axhline(
                 reference_y,
-                color=COLORS["success"],
+                color=COLORS["stat_reference"],
                 ls=":",
                 lw=_STATS_STYLE["reference_linewidth"],
                 alpha=_STATS_STYLE["reference_alpha"],
@@ -316,7 +412,7 @@ def plot_tradeoff_scatter(
         if reference_x is not None:
             ax.axvline(
                 reference_x,
-                color=COLORS["accent"],
+                color=COLORS["stat_reference"],
                 ls=":",
                 lw=_STATS_STYLE["reference_linewidth"],
                 alpha=_STATS_STYLE["reference_alpha"],
@@ -329,32 +425,87 @@ def plot_tradeoff_scatter(
         return fig
 
 
-def plot_single_metric_comparison(
-    df,
-    *,
-    metric_col=None,
+def plot_metric_comparison(
+    data,
+    metric_col,
     metric_label=None,
     group_col="group",
     subject_col="subject",
     group_order=None,
     group_colors=None,
     group_labels=None,
-    title="Single-Metric Comparison",
+    title="Metric Comparison",
     reference_value=None,
     reference_label="Reference",
     ax=None,
     fname=None,
     show=True,
 ):
-    """Plot a single metric as bars or paired subject-level dots."""
-    if metric_col is None:
-        metric_col = _infer_numeric_metrics(df, exclude_cols=[group_col, subject_col])[
-            0
-        ]
-    if metric_label is None:
-        metric_label = _default_metric_label(metric_col)
+    """Plot one metric as grouped bars or paired subject trajectories.
 
-    group_order = _resolve_group_order(df, group_col, group_order)
+    Parameters
+    ----------
+    data : mapping of str to array-like
+        Columnar mapping with at least ``group_col`` and one numeric metric.
+    metric_col : str
+        Metric column to visualize.
+    metric_label : str | None
+        Y-axis label. If None, derived from ``metric_col``.
+    group_col : str
+        Grouping column name.
+    subject_col : str
+        Subject identifier column for paired overlays.
+    group_order : list of str | None
+        Optional explicit group order. If None, first-seen order is used.
+    group_colors, group_labels : dict | None
+        Optional style overrides keyed by group.
+    title : str
+        Axes title.
+    reference_value : float | None
+        Optional horizontal reference line.
+    reference_label : str
+        Legend label for ``reference_value``.
+    ax : matplotlib.axes.Axes | None
+        Existing axes. If None, create a new figure.
+    fname : path-like | None
+        Optional output path when creating a new figure.
+    show : bool
+        Whether to display the figure when creating a new figure.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure containing the plot.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from mne_denoise.viz import plot_metric_comparison
+    >>> data = {
+    ...     "subject": np.array(["s1", "s1", "s2", "s2"]),
+    ...     "group": np.array(["A", "B", "A", "B"]),
+    ...     "score": np.array([1.1, 0.8, 1.0, 0.7]),
+    ... }
+    >>> fig = plot_metric_comparison(
+    ...     data,
+    ...     group_col="group",
+    ...     subject_col="subject",
+    ...     metric_col="score",
+    ...     show=False,
+    ... )
+    """
+    columns = {name: np.asarray(values) for name, values in data.items()}
+    groups = np.asarray(columns[group_col], dtype=object)
+    subjects = np.asarray(columns[subject_col], dtype=object)
+    metric_values = np.asarray(columns[metric_col], dtype=float)
+
+    if metric_label is None:
+        metric_label = str(metric_col).replace("_", " ").strip()
+
+    if group_order is None:
+        group_order = list(dict.fromkeys(groups.tolist()))
+    else:
+        group_order = list(group_order)
 
     with use_theme():
         finalize = ax is None
@@ -365,35 +516,23 @@ def plot_single_metric_comparison(
         else:
             fig = ax.figure
 
-        multi_subject = df[subject_col].nunique() > 1
+        multi_subject = len(list(dict.fromkeys(subjects.tolist()))) > 1
 
         if multi_subject:
-            for subject in df[subject_col].unique():
-                subject_vals = []
-                for group in group_order:
-                    values = df.loc[
-                        (df[subject_col] == subject) & (df[group_col] == group),
-                        metric_col,
-                    ]
-                    subject_vals.append(values.iloc[0] if len(values) else float("nan"))
-                ax.plot(
-                    range(len(group_order)),
-                    subject_vals,
-                    "o-",
-                    color=COLORS["gray"],
-                    alpha=_STATS_STYLE["subject_trace_alpha"],
-                    markersize=_STATS_STYLE["subject_trace_marker_size"],
-                )
-
-            means = [
-                df.loc[df[group_col] == group, metric_col].mean()
-                for group in group_order
-            ]
+            means = _plot_subject_trajectories(
+                ax,
+                subjects,
+                groups,
+                metric_values,
+                group_order,
+                style="o-",
+                markersize=_STATS_STYLE["subject_trace_marker_size"],
+            )
             ax.plot(
                 range(len(group_order)),
                 means,
                 "s-",
-                color=COLORS["before"],
+                color=COLORS["stat_mean"],
                 markersize=_STATS_STYLE["mean_marker_size"],
                 lw=_STATS_STYLE["mean_linewidth"],
                 label="Group mean",
@@ -402,11 +541,14 @@ def plot_single_metric_comparison(
         else:
             metric_vals = []
             for group in group_order:
-                values = df.loc[df[group_col] == group, metric_col]
-                metric_vals.append(values.iloc[0] if len(values) else np.nan)
+                values = metric_values[groups == group]
+                values = values[np.isfinite(values)]
+                metric_vals.append(values[0] if values.size else np.nan)
             x = np.arange(len(group_order))
             colors = [
-                _group_color(group, idx, group_colors)
+                group_colors[group]
+                if group_colors and group in group_colors
+                else get_series_color(idx)
                 for idx, group in enumerate(group_order)
             ]
             ax.bar(
@@ -432,7 +574,7 @@ def plot_single_metric_comparison(
         if reference_value is not None:
             ax.axhline(
                 reference_value,
-                color=COLORS["success"],
+                color=COLORS["stat_reference"],
                 ls="--",
                 lw=_STATS_STYLE["reference_linewidth"],
                 alpha=_STATS_STYLE["reference_alpha"],
@@ -440,7 +582,10 @@ def plot_single_metric_comparison(
             )
         ax.set_xticks(range(len(group_order)))
         ax.set_xticklabels(
-            [_group_label(group, group_labels) for group in group_order],
+            [
+                group_labels[group] if group_labels and group in group_labels else group
+                for group in group_order
+            ],
             fontsize=FONTS["tick"],
         )
         ax.set_ylabel(metric_label, fontsize=FONTS["label"])
@@ -458,7 +603,6 @@ def plot_harmonic_attenuation(
     gm_before,
     cleaned_psds,
     harmonics_hz,
-    *,
     subject="",
     series_order=None,
     series_colors=None,
@@ -467,9 +611,43 @@ def plot_harmonic_attenuation(
     fname=None,
     show=True,
 ):
-    """Plot grouped per-harmonic attenuation bars for multiple series."""
+    """Plot grouped per-harmonic attenuation bars for line-noise studies.
+
+    Parameters
+    ----------
+    freqs_before : array-like
+        Frequency axis of the reference PSD.
+    gm_before : array-like
+        Reference geometric-mean PSD.
+    cleaned_psds : dict[str, tuple[array-like, array-like]]
+        Mapping from series name to ``(freqs, psd)`` after denoising.
+    harmonics_hz : array-like of float
+        Harmonic frequencies to evaluate.
+    subject : str
+        Optional subject label included in default title.
+    series_order : list[str] | None
+        Plotting order for series. If None, keys from ``cleaned_psds`` are used.
+    series_colors, series_labels : dict | None
+        Optional color/label overrides keyed by series name.
+    title : str | None
+        Custom axes title.
+    fname : path-like | None
+        Optional output path.
+    show : bool
+        Whether to display the figure.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure handle.
+
+    Notes
+    -----
+    This helper is intentionally domain-specific (line-frequency harmonics)
+    and complements the otherwise study-agnostic grouped-stat plots.
+    """
     if series_order is None:
-        series_order = sorted(cleaned_psds.keys())
+        series_order = list(cleaned_psds.keys())
 
     with use_theme():
         fig, ax = themed_figure(1, 1, figsize=(10, 5))
@@ -482,7 +660,7 @@ def plot_harmonic_attenuation(
         for idx, series_name in enumerate(series_order):
             if series_name not in cleaned_psds:
                 continue
-            freqs_clean, gm_clean = cleaned_psds[series_name]
+            _, gm_clean = cleaned_psds[series_name]
             attenuation = [
                 peak_attenuation_db(freqs_before, gm_before, gm_clean, harmonic)
                 for harmonic in harmonics_hz
@@ -491,10 +669,14 @@ def plot_harmonic_attenuation(
                 x + idx * bar_width,
                 attenuation,
                 bar_width,
-                color=_group_color(series_name, idx, series_colors),
+                color=series_colors[series_name]
+                if series_colors and series_name in series_colors
+                else get_series_color(idx),
                 edgecolor=COLORS["edge"],
                 linewidth=_STATS_STYLE["bar_linewidth"],
-                label=_group_label(series_name, series_labels),
+                label=series_labels[series_name]
+                if series_labels and series_name in series_labels
+                else series_name,
                 alpha=_STATS_STYLE["bar_alpha"],
             )
 
@@ -518,8 +700,7 @@ def plot_harmonic_attenuation(
 
 
 def plot_metric_slopes(
-    df,
-    *,
+    data,
     metric_cols=None,
     metric_labels=None,
     metric_specs=None,
@@ -534,33 +715,73 @@ def plot_metric_slopes(
     fname=None,
     show=True,
 ):
-    """Plot subject-level paired trajectories for one or more metrics."""
-    if df[subject_col].nunique() < 2:
-        return None
+    """Plot subject-level paired trajectories for one or more metrics.
 
-    if metric_specs is not None and (
-        metric_cols is not None or metric_labels is not None
-    ):
-        raise ValueError(
-            "Specify either metric_specs or metric_cols/metric_labels, not both."
-        )
+    Parameters
+    ----------
+    data : mapping of str to array-like
+        Columnar mapping with subject/group identifiers and metric columns.
+    metric_cols : list of str | None
+        Metric columns to plot. Used only when ``metric_specs`` is None.
+    metric_labels : list of str | None
+        Display labels aligned with ``metric_cols``.
+    metric_specs : list[tuple[str, str]] | None
+        Explicit list of ``(metric_col, metric_label)`` pairs.
+    group_col : str
+        Grouping column name.
+    subject_col : str
+        Subject identifier column name.
+    group_order : list of str | None
+        Optional group order. If None, first-seen order is used.
+    group_colors, group_labels : dict | None
+        Optional style overrides keyed by group.
+    reference_lines : dict | None
+        Optional horizontal reference lines per metric:
+        ``{metric_col: [(y_value, style_dict), ...]}``.
+    suptitle, title : str | None
+        Figure title. ``suptitle`` overrides ``title`` when provided.
+    fname : path-like | None
+        Optional output path.
+    show : bool
+        Whether to display the figure.
 
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure handle.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from mne_denoise.viz import plot_metric_slopes
+    >>> data = {
+    ...     "subject": np.array(["s1", "s1", "s2", "s2"]),
+    ...     "group": np.array(["A", "B", "A", "B"]),
+    ...     "metric": np.array([1.0, 0.8, 1.1, 0.7]),
+    ... }
+    >>> fig = plot_metric_slopes(
+    ...     data, metric_cols=["metric"], group_col="group", show=False
+    ... )
+    """
+    columns = {name: np.asarray(values) for name, values in data.items()}
+    subject_values = np.asarray(columns[subject_col], dtype=object)
+    groups = np.asarray(columns[group_col], dtype=object)
     if metric_specs is None:
-        if metric_cols is not None:
-            metric_cols = list(metric_cols)
-            metric_labels = _resolve_metric_labels(metric_cols, metric_labels)
-            metric_specs = list(zip(metric_cols, metric_labels))
+        metric_cols = list(metric_cols)
+        if metric_labels is None:
+            metric_labels = [
+                str(metric_col).replace("_", " ").strip() for metric_col in metric_cols
+            ]
         else:
-            metric_specs = _resolve_metric_specs(
-                df,
-                metric_specs,
-                group_col=group_col,
-                subject_col=subject_col,
-            )
+            metric_labels = list(metric_labels)
+        metric_specs = list(zip(metric_cols, metric_labels))
     else:
         metric_specs = list(metric_specs)
 
-    group_order = _resolve_group_order(df, group_col, group_order)
+    if group_order is None:
+        group_order = list(dict.fromkeys(groups.tolist()))
+    else:
+        group_order = list(group_order)
 
     with use_theme():
         fig, axes = themed_figure(
@@ -569,35 +790,28 @@ def plot_metric_slopes(
         if not isinstance(axes, np.ndarray):
             axes = np.array([axes])
 
-        tick_labels = [_group_label(group, group_labels) for group in group_order]
+        tick_labels = [
+            group_labels[group] if group_labels and group in group_labels else group
+            for group in group_order
+        ]
 
         for ax, (metric_col, metric_label) in zip(axes.flat, metric_specs):
-            for subject in df[subject_col].unique():
-                subject_vals = []
-                for group in group_order:
-                    values = df.loc[
-                        (df[subject_col] == subject) & (df[group_col] == group),
-                        metric_col,
-                    ]
-                    subject_vals.append(values.iloc[0] if len(values) else float("nan"))
-                ax.plot(
-                    range(len(group_order)),
-                    subject_vals,
-                    "o-",
-                    color=COLORS["gray"],
-                    alpha=_STATS_STYLE["subject_trace_alpha"],
-                    markersize=_STATS_STYLE["subject_trace_marker_size"],
-                )
+            metric = np.asarray(columns[metric_col], dtype=float)
+            means = _plot_subject_trajectories(
+                ax,
+                subject_values,
+                groups,
+                metric,
+                group_order,
+                style="o-",
+                markersize=_STATS_STYLE["subject_trace_marker_size"],
+            )
 
-            means = [
-                df.loc[df[group_col] == group, metric_col].mean()
-                for group in group_order
-            ]
             ax.plot(
                 range(len(group_order)),
                 means,
                 "s-",
-                color=COLORS["before"],
+                color=COLORS["stat_mean"],
                 markersize=_STATS_STYLE["mean_marker_size"],
                 lw=_STATS_STYLE["mean_linewidth"],
                 label="Group mean",
@@ -622,15 +836,15 @@ def plot_metric_slopes(
 
 
 def plot_metric_violins(
-    df,
+    data,
     metric_cols,
     metric_labels=None,
-    *,
     group_col="group",
     subject_col="subject",
     group_order=None,
     group_colors=None,
     group_labels=None,
+    baseline_group=None,
     reference_lines=None,
     show_paired=True,
     suptitle=None,
@@ -638,18 +852,81 @@ def plot_metric_violins(
     fname=None,
     show=True,
 ):
-    """Plot violin + strip distributions with optional paired subject lines."""
-    import pandas as pd
+    """Plot violin + strip distributions with optional paired subject lines.
 
+    Parameters
+    ----------
+    data : mapping of str to array-like
+        Columnar mapping with group/subject columns and one or more metrics.
+    metric_cols : list of str
+        Metric columns to render.
+    metric_labels : list of str | None
+        Labels corresponding to ``metric_cols``.
+    group_col : str
+        Grouping column name.
+    subject_col : str
+        Subject identifier column name.
+    group_order : list of str | None
+        Optional group order. If None, first-seen order is used.
+    group_colors, group_labels : dict | None
+        Optional style overrides keyed by group.
+    baseline_group : str | None
+        Optional group used to draw a baseline mean line.
+    reference_lines : dict | None
+        Optional horizontal reference lines per metric.
+    show_paired : bool
+        Whether to draw subject-level paired lines.
+    suptitle : str | None
+        Figure-level title.
+    figsize : tuple | None
+        Figure size in inches. Defaults to ``(4 * n_metrics, 5.5)``.
+    fname : path-like | None
+        Optional output path.
+    show : bool
+        Whether to display the figure.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure handle.
+
+    Raises
+    ------
+    ImportError
+        If seaborn is unavailable.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from mne_denoise.viz import plot_metric_violins
+    >>> data = {
+    ...     "subject": np.array(["s1", "s1", "s2", "s2"]),
+    ...     "group": np.array(["A", "B", "A", "B"]),
+    ...     "metric": np.array([0.2, 0.6, 0.1, 0.5]),
+    ... }
+    >>> fig = plot_metric_violins(
+    ...     data, ["metric"], group_col="group", subject_col="subject", show=False
+    ... )
+    """
+    columns = {name: np.asarray(values) for name, values in data.items()}
     sns = _try_import_seaborn()
 
     metric_cols = list(metric_cols)
-    metric_labels = _resolve_metric_labels(metric_cols, metric_labels)
-    group_order = _resolve_group_order(df, group_col, group_order)
-    group_labels = {} if group_labels is None else dict(group_labels)
+    if metric_labels is None:
+        metric_labels = [
+            str(metric_col).replace("_", " ").strip() for metric_col in metric_cols
+        ]
+    else:
+        metric_labels = list(metric_labels)
+    groups = np.asarray(columns[group_col], dtype=object)
+    subject_values = np.asarray(columns[subject_col], dtype=object)
+    if group_order is None:
+        group_order = list(dict.fromkeys(groups.tolist()))
+    else:
+        group_order = list(group_order)
 
     n_metrics = len(metric_cols)
-    n_subjects = df[subject_col].nunique()
+    n_subjects = len(list(dict.fromkeys(subject_values.tolist())))
     if figsize is None:
         figsize = (4 * n_metrics, 5.5)
 
@@ -658,24 +935,39 @@ def plot_metric_violins(
         if n_metrics == 1:
             axes = np.array([axes])
 
-        pretty_order = [_group_label(group, group_labels) for group in group_order]
+        pretty_order = [
+            group_labels[group] if group_labels and group in group_labels else group
+            for group in group_order
+        ]
         palette = {
-            _group_label(group, group_labels): _group_color(group, idx, group_colors)
+            (
+                group_labels[group] if group_labels and group in group_labels else group
+            ): (
+                group_colors[group]
+                if group_colors and group in group_colors
+                else get_series_color(idx)
+            )
             for idx, group in enumerate(group_order)
         }
 
         for ax, metric_col, metric_label in zip(axes.flat, metric_cols, metric_labels):
-            rows = []
+            metric = np.asarray(columns[metric_col], dtype=float)
+            x_vals = []
+            y_vals = []
             for group in group_order:
-                for value in df.loc[df[group_col] == group, metric_col].dropna():
-                    rows.append(
-                        {
-                            "Group": _group_label(group, group_labels),
-                            "value": value,
-                        }
-                    )
+                group_vals = metric[groups == group]
+                group_vals = group_vals[np.isfinite(group_vals)]
+                if group_vals.size == 0:
+                    continue
+                group_name = (
+                    group_labels[group]
+                    if group_labels and group in group_labels
+                    else group
+                )
+                x_vals.extend([group_name] * group_vals.size)
+                y_vals.extend(group_vals.tolist())
 
-            if not rows:
+            if not y_vals:
                 ax.text(
                     0.5,
                     0.5,
@@ -687,14 +979,14 @@ def plot_metric_violins(
                 style_axes(ax)
                 continue
 
-            df_plot = pd.DataFrame(rows)
+            x_arr = np.asarray(x_vals, dtype=object)
+            y_arr = np.asarray(y_vals, dtype=float)
 
             with _suppress_seaborn_plot_warnings():
                 sns.violinplot(
-                    data=df_plot,
-                    x="Group",
-                    y="value",
-                    hue="Group",
+                    x=x_arr,
+                    y=y_arr,
+                    hue=x_arr,
                     order=pretty_order,
                     hue_order=pretty_order,
                     palette=palette,
@@ -707,10 +999,9 @@ def plot_metric_violins(
                     legend=False,
                 )
                 sns.stripplot(
-                    data=df_plot,
-                    x="Group",
-                    y="value",
-                    hue="Group",
+                    x=x_arr,
+                    y=y_arr,
+                    hue=x_arr,
                     order=pretty_order,
                     hue_order=pretty_order,
                     palette=palette,
@@ -723,31 +1014,27 @@ def plot_metric_violins(
                 )
 
             if show_paired and n_subjects > 1:
-                for subject in df[subject_col].unique():
-                    subject_values = []
-                    for group in group_order:
-                        value = df.loc[
-                            (df[subject_col] == subject) & (df[group_col] == group),
-                            metric_col,
-                        ]
-                        subject_values.append(
-                            value.iloc[0] if len(value) else float("nan")
-                        )
-                    ax.plot(
-                        range(len(group_order)),
-                        subject_values,
-                        "-",
-                        color=COLORS["gray"],
-                        alpha=_STATS_STYLE["paired_line_alpha"],
-                        lw=_STATS_STYLE["paired_linewidth"],
-                        zorder=1,
-                    )
+                _plot_subject_trajectories(
+                    ax,
+                    subject_values,
+                    groups,
+                    metric,
+                    group_order,
+                    style="-",
+                    alpha=_STATS_STYLE["paired_line_alpha"],
+                    linewidth=_STATS_STYLE["paired_linewidth"],
+                    zorder=1,
+                )
 
-            base_values = df.loc[df[group_col] == group_order[0], metric_col].dropna()
-            if len(base_values):
+            if baseline_group is not None:
+                base_values = metric[groups == baseline_group]
+                base_values = base_values[np.isfinite(base_values)]
+            else:
+                base_values = np.array([])
+            if base_values.size:
                 ax.axhline(
                     base_values.mean(),
-                    color=COLORS["gray"],
+                    color=COLORS["stat_reference"],
                     ls="--",
                     lw=_STATS_STYLE["reference_linewidth"],
                     alpha=_STATS_STYLE["reference_alpha"],
@@ -764,7 +1051,7 @@ def plot_metric_violins(
             ax.xaxis.grid(False)
 
         fig.suptitle(
-            suptitle or f"Endpoint Metrics (N = {n_subjects})",
+            suptitle or f"Metric Distributions (N = {n_subjects})",
             fontsize=FONTS["suptitle"],
             fontweight="bold",
         )
@@ -774,7 +1061,6 @@ def plot_metric_violins(
 def plot_null_distribution(
     null_values,
     observed,
-    *,
     metric_label="Statistic",
     ci=95,
     n_bins=60,
@@ -784,12 +1070,51 @@ def plot_null_distribution(
     fname=None,
     show=True,
 ):
-    """Plot a null-distribution histogram with observed statistic and CI."""
+    """Plot a null-distribution histogram with observed statistic and CI.
+
+    Parameters
+    ----------
+    null_values : array-like
+        Samples from the null distribution.
+    observed : float
+        Observed statistic to compare against the null.
+    metric_label : str
+        Label for the x-axis.
+    ci : float
+        Central interval width in percent.
+    n_bins : int
+        Number of histogram bins.
+    suptitle : str | None
+        Figure title override.
+    series_color : str | None
+        Color for the observed-statistic marker/annotation.
+    figsize : tuple | None
+        Figure size in inches.
+    fname : path-like | None
+        Optional output path.
+    show : bool
+        Whether to display the figure.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure handle.
+    p_value : float
+        Two-sided empirical p-value under ``null_values``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from mne_denoise.viz import plot_null_distribution
+    >>> rng = np.random.default_rng(0)
+    >>> null = rng.normal(0.0, 0.1, 1000)
+    >>> fig, p = plot_null_distribution(null, observed=0.25, show=False)
+    """
     null_values = np.asarray(null_values)
     if figsize is None:
         figsize = (8, 5)
     if series_color is None:
-        series_color = COLORS["accent"]
+        series_color = COLORS["stat_mean"]
 
     with use_theme():
         fig, ax = themed_figure(1, 1, figsize=figsize)
@@ -797,7 +1122,7 @@ def plot_null_distribution(
         ax.hist(
             null_values,
             bins=n_bins,
-            color=COLORS["gray"],
+            color=COLORS["stat_subject"],
             alpha=_STATS_STYLE["hist_alpha"],
             edgecolor=COLORS["separator"],
             linewidth=_STATS_STYLE["hist_linewidth"],
@@ -811,21 +1136,21 @@ def plot_null_distribution(
         ax.axvspan(
             lo,
             hi,
-            color=COLORS["gray"],
+            color=COLORS["stat_ci"],
             alpha=0.12,
             zorder=1,
             label=f"{ci}% CI [{lo:+.3f}, {hi:+.3f}]",
         )
         ax.axvline(
             lo,
-            color=COLORS["gray"],
+            color=COLORS["stat_reference"],
             ls=":",
             lw=_STATS_STYLE["reference_linewidth"],
             alpha=0.6,
         )
         ax.axvline(
             hi,
-            color=COLORS["gray"],
+            color=COLORS["stat_reference"],
             ls=":",
             lw=_STATS_STYLE["reference_linewidth"],
             alpha=0.6,
@@ -868,9 +1193,8 @@ def plot_null_distribution(
 
 
 def plot_forest(
-    df,
+    data,
     metric_col,
-    *,
     ci_col=None,
     se_col=None,
     group_col="group",
@@ -886,26 +1210,88 @@ def plot_forest(
     fname=None,
     show=True,
 ):
-    """Plot per-subject point estimates with confidence intervals and pooled mean."""
-    groups = sorted(df[group_col].unique())
+    """Plot per-subject point estimates with confidence intervals.
+
+    Parameters
+    ----------
+    data : mapping of str to array-like
+        Columnar mapping with group, subject, and metric columns.
+    metric_col : str
+        Metric column to display on the x-axis.
+    ci_col : str | None
+        Optional half-width CI column for each subject estimate.
+    se_col : str | None
+        Optional SE column. If provided and ``ci_col`` is absent, CI is
+        approximated as ``1.96 * SE``.
+    group_col : str
+        Grouping column name.
+    subject_col : str
+        Subject identifier column name.
+    target_group : str | None
+        Group to plot as primary forest series. Defaults to the last
+        first-seen group.
+    baseline_group : str | None
+        Optional baseline group to overlay with faint points and mean marker.
+    group_colors, group_labels : dict | None
+        Optional style overrides keyed by group.
+    metric_label : str | None
+        X-axis label. If None, derived from ``metric_col``.
+    reference_line : float | None
+        Optional vertical reference line value.
+    suptitle : str | None
+        Figure title override.
+    figsize : tuple | None
+        Figure size in inches.
+    fname : path-like | None
+        Optional output path.
+    show : bool
+        Whether to display the figure.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure handle.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from mne_denoise.viz import plot_forest
+    >>> data = {
+    ...     "subject": np.array(["s1", "s2", "s1", "s2"]),
+    ...     "group": np.array(["A", "A", "B", "B"]),
+    ...     "effect": np.array([0.2, 0.4, 0.8, 0.9]),
+    ... }
+    >>> fig = plot_forest(data, metric_col="effect", group_col="group", show=False)
+    """
+    columns = {name: np.asarray(values) for name, values in data.items()}
+    groups_col = np.asarray(columns[group_col], dtype=object)
+    subject_col_values = np.asarray(columns[subject_col], dtype=object)
+    metric = np.asarray(columns[metric_col], dtype=float)
+
+    groups = list(dict.fromkeys(groups_col.tolist()))
+
     if target_group is None:
         target_group = groups[-1]
     if metric_label is None:
-        metric_label = _default_metric_label(metric_col).title()
-    group_labels = {} if group_labels is None else dict(group_labels)
+        metric_label = str(metric_col).replace("_", " ").strip().title()
 
-    df_target = df.loc[df[group_col] == target_group].copy()
-    df_target = df_target.sort_values(metric_col, ascending=True).reset_index(drop=True)
-    subjects = df_target[subject_col].values
+    target_mask = groups_col == target_group
+    subjects = np.asarray(subject_col_values[target_mask], dtype=object)
+    values = metric[target_mask]
+
+    order_idx = np.argsort(np.where(np.isfinite(values), values, np.inf))
+    subjects = subjects[order_idx]
+    values = values[order_idx]
     n_subjects = len(subjects)
-    values = df_target[metric_col].values.astype(float)
 
-    if ci_col is not None and ci_col in df_target.columns:
-        half_width = df_target[ci_col].values.astype(float)
-    elif se_col is not None and se_col in df_target.columns:
-        half_width = 1.96 * df_target[se_col].values.astype(float)
+    if ci_col is not None:
+        ci_values = np.asarray(columns[ci_col], dtype=float)[target_mask]
+        half_width = ci_values[order_idx]
+    elif se_col is not None:
+        se_values = np.asarray(columns[se_col], dtype=float)[target_mask]
+        half_width = (1.96 * se_values)[order_idx]
     else:
-        sd = values.std(ddof=1) if n_subjects > 1 else 1.0
+        sd = values[np.isfinite(values)].std(ddof=1) if n_subjects > 1 else 1.0
         half_width = np.full(n_subjects, 1.96 * sd / np.sqrt(max(n_subjects, 1)))
 
     if figsize is None:
@@ -915,24 +1301,39 @@ def plot_forest(
         fig, ax = themed_figure(1, 1, figsize=figsize)
 
         y_pos = np.arange(n_subjects)
-        target_color = _group_color(
-            target_group, groups.index(target_group), group_colors
+        target_color = (
+            group_colors[target_group]
+            if group_colors and target_group in group_colors
+            else get_series_color(groups.index(target_group))
         )
-        target_label = _group_label(target_group, group_labels)
+        target_label = (
+            group_labels[target_group]
+            if group_labels and target_group in group_labels
+            else target_group
+        )
 
         if baseline_group is not None:
-            df_base = df.loc[df[group_col] == baseline_group].copy()
-            base_color = _group_color(
-                baseline_group,
-                groups.index(baseline_group),
-                group_colors,
+            base_color = (
+                group_colors[baseline_group]
+                if group_colors and baseline_group in group_colors
+                else get_series_color(groups.index(baseline_group))
             )
-            base_label = _group_label(baseline_group, group_labels)
+            base_label = (
+                group_labels[baseline_group]
+                if group_labels and baseline_group in group_labels
+                else baseline_group
+            )
+            base_metric = metric[groups_col == baseline_group]
+            base_subjects = np.asarray(
+                subject_col_values[groups_col == baseline_group], dtype=object
+            )
             for i, subject in enumerate(subjects):
-                base_value = df_base.loc[df_base[subject_col] == subject, metric_col]
-                if len(base_value):
+                mask = base_subjects == subject
+                base_values = base_metric[mask]
+                base_values = base_values[np.isfinite(base_values)]
+                if base_values.size:
                     ax.plot(
-                        base_value.iloc[0],
+                        base_values[0],
                         y_pos[i],
                         "o",
                         color=base_color,
@@ -940,17 +1341,19 @@ def plot_forest(
                         alpha=0.35,
                         zorder=2,
                     )
-            base_mean = df_base[metric_col].mean()
-            ax.plot(
-                base_mean,
-                -1.2,
-                "D",
-                color=base_color,
-                markersize=_STATS_STYLE["forest_baseline_mean_marker_size"],
-                zorder=6,
-                alpha=0.5,
-                label=f"{base_label} mean = {base_mean:.3f}",
-            )
+            finite_base = base_metric[np.isfinite(base_metric)]
+            if finite_base.size:
+                base_mean = finite_base.mean()
+                ax.plot(
+                    base_mean,
+                    -1.2,
+                    "D",
+                    color=base_color,
+                    markersize=_STATS_STYLE["forest_baseline_mean_marker_size"],
+                    zorder=6,
+                    alpha=0.5,
+                    label=f"{base_label} mean = {base_mean:.3f}",
+                )
 
         ax.errorbar(
             values,
@@ -967,8 +1370,13 @@ def plot_forest(
             label=target_label,
         )
 
-        target_mean = values.mean()
-        target_se = values.std(ddof=1) / np.sqrt(n_subjects) if n_subjects > 1 else 0
+        finite_values = values[np.isfinite(values)]
+        target_mean = float(finite_values.mean()) if finite_values.size else np.nan
+        target_se = (
+            float(finite_values.std(ddof=1) / np.sqrt(finite_values.size))
+            if finite_values.size > 1
+            else 0.0
+        )
         ax.errorbar(
             target_mean,
             -1.2,
@@ -986,7 +1394,7 @@ def plot_forest(
         if reference_line is not None:
             ax.axvline(
                 reference_line,
-                color=COLORS["gray"],
+                color=COLORS["stat_reference"],
                 ls="--",
                 lw=_STATS_STYLE["reference_linewidth"],
                 alpha=_STATS_STYLE["reference_alpha"],
@@ -1004,7 +1412,8 @@ def plot_forest(
         )
 
         fig.suptitle(
-            suptitle or f"Forest Plot - {_group_label(target_group, group_labels)}",
+            suptitle
+            or f"Forest Plot - {group_labels[target_group] if group_labels and target_group in group_labels else target_group}",
             fontsize=FONTS["suptitle"],
             fontweight="bold",
         )

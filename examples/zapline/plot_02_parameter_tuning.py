@@ -22,10 +22,10 @@ from scipy import signal
 from scipy.io import loadmat
 
 from mne_denoise.viz import (
+    plot_component_cleaning_summary,
     plot_component_patterns,
     plot_component_score_curve,
     plot_psd_comparison,
-    plot_zapline_cleaning_summary,
 )
 from mne_denoise.zapline import ZapLine
 
@@ -253,8 +253,16 @@ if meg_data is not None:
     )
 
     # Show comprehensive summary
-    plot_zapline_cleaning_summary(
-        meg_data, cleaned_meg, est_meg, sfreq_meg, line_freq=60, show=True
+    plot_component_cleaning_summary(
+        scores=getattr(est_meg, "scores_", getattr(est_meg, "eigenvalues_", None)),
+        selected_count=getattr(est_meg, "n_removed_", 0),
+        patterns=getattr(est_meg, "patterns_", None),
+        removed=meg_data - cleaned_meg,
+        sources=getattr(est_meg, "sources_", None),
+        sfreq=sfreq_meg,
+        line_freq=60,
+        title="Component Cleaning Summary (ZapLine)",
+        show=True,
     )
 
     # %%

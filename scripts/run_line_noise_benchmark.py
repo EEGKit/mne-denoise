@@ -69,6 +69,7 @@ import matplotlib.pyplot as plt
 import mne
 import numpy as np
 import pandas as pd
+from scipy import signal
 
 # ── Ensure mne-denoise is importable ────────────────────────────────────────
 _REPO = Path(__file__).resolve().parent.parent
@@ -80,9 +81,7 @@ from mne_denoise.qa import (
     geometric_mean_psd,
 )
 from mne_denoise.viz import (
-    DEFAULT_METHOD_COLORS,
-    DEFAULT_METHOD_LABELS,
-    DEFAULT_METHOD_ORDER,
+    plot_component_cleaning_summary,
     plot_harmonic_attenuation,
     plot_metric_bars,
     plot_metric_slopes,
@@ -90,8 +89,6 @@ from mne_denoise.viz import (
     plot_psd_gallery,
     plot_psd_overlay,
     plot_psd_zoom_comparison,
-    plot_zapline_adaptive_summary,
-    plot_zapline_summary,
     set_theme,
 )
 from mne_denoise.viz.theme import COLORS, FONTS, style_axes, themed_legend
@@ -134,9 +131,17 @@ CONDITION_COLORS = {
 }
 
 # Method setup (exclude M3-notch, keep M0/M1/M2)
-METHOD_LABELS = {k: v for k, v in DEFAULT_METHOD_LABELS.items() if k != "M3"}
-METHOD_COLORS = {k: v for k, v in DEFAULT_METHOD_COLORS.items() if k != "M3"}
-METHOD_ORDER = [m for m in DEFAULT_METHOD_ORDER if m != "M3"]
+METHOD_LABELS = {
+    "M0": "Original",
+    "M1": "ZapLine",
+    "M2": "ZapLine adaptive",
+}
+METHOD_COLORS = {
+    "M0": COLORS["before"],
+    "M1": COLORS["primary"],
+    "M2": COLORS["secondary"],
+}
+METHOD_ORDER = ["M0", "M1", "M2"]
 
 # 44 subjects total
 ALL_SUBJECTS = [f"sub-{i:02d}" for i in range(1, 45)]
@@ -353,10 +358,47 @@ METHODS = {
 #  Output Saving
 # ═══════════════════════════════════════════════════════════════════════════════
 
-_DIAG_DISPATCH = {
-    "M1": plot_zapline_summary,
-    "M2": plot_zapline_adaptive_summary,
-}
+
+def _plot_method_diagnostics(
+    estimator,
+    data_before,
+    data_after,
+    *,
+    sfreq,
+    title,
+    show,
+):
+    """Create a generic component-cleaning diagnostics dashboard."""
+    scores = (
+        getattr(estimator, "scores_", None)
+        if hasattr(estimator, "scores_")
+        else getattr(estimator, "eigenvalues_", None)
+    )
+    selected_count = getattr(estimator, "n_removed_", None)
+    if selected_count is None:
+        selected_count = getattr(estimator, "n_selected_", 0)
+    patterns = getattr(estimator, "patterns_", None)
+    removed = data_before - data_after
+    sources = getattr(estimator, "sources_", None)
+
+    nperseg = min(data_before.shape[-1], int(sfreq * 2))
+    freqs, psd_before = signal.welch(data_before, fs=sfreq, nperseg=nperseg, axis=-1)
+    _, psd_after = signal.welch(data_after, fs=sfreq, nperseg=nperseg, axis=-1)
+
+    return plot_component_cleaning_summary(
+        scores=scores,
+        selected_count=selected_count,
+        patterns=patterns,
+        removed=removed,
+        sources=sources,
+        sfreq=sfreq,
+        freqs=freqs,
+        psd_before=psd_before,
+        psd_after=psd_after,
+        line_freq=LINE_FREQ,
+        title=title,
+        show=show,
+    )
 
 
 def _save_model_json(model_info, path):
@@ -457,13 +499,12 @@ def save_outputs(
     plt.close(fig_psd)
 
     # 4. Method-specific diagnostics dashboard (skip for M0)
-    diag_fn = _DIAG_DISPATCH.get(method_tag)
-    if diag_fn is not None and estimator is not None:
+    if method_tag in {"M1", "M2"} and estimator is not None:
         try:
-            fig_diag = diag_fn(
+            fig_diag = _plot_method_diagnostics(
                 estimator,
-                data_before=raw_before.get_data(),
-                data_after=raw_after.get_data(),
+                raw_before.get_data(),
+                raw_after.get_data(),
                 sfreq=raw_before.info["sfreq"],
                 title=f"{sub} — {method_tag}",
                 show=False,
@@ -746,8 +787,9 @@ def run_group(subjects, deriv_root=None):
 
     # ── QA Step 2: Metric Bars ───────────────────────────────────────────
     df_plot = df_all.dropna(subset=["peak_attenuation_db"])
+    stats_data = {col: df_plot[col].to_numpy() for col in df_plot.columns}
     plot_metric_bars(
-        df_plot,
+        stats_data,
         group_col="method",
         metric_cols=[
             "R_f0",
@@ -773,10 +815,15 @@ def run_group(subjects, deriv_root=None):
 
     # ── QA Step 2c: Trade-off + R ────────────────────────────────────────
     plot_metric_tradeoff_summary(
-        df_plot,
-        method_order=METHOD_ORDER,
-        method_colors=METHOD_COLORS,
-        method_labels=METHOD_LABELS,
+        stats_data,
+        group_col="method",
+        subject_col="subject",
+        x_col="below_noise_pct",
+        y_col="peak_attenuation_db",
+        metric_col="R_f0",
+        group_order=METHOD_ORDER,
+        group_colors=METHOD_COLORS,
+        group_labels=METHOD_LABELS,
         fname=group_dir / "tradeoff_and_r.png",
         show=False,
     )
@@ -785,7 +832,7 @@ def run_group(subjects, deriv_root=None):
     # ── QA Step 3: Paired Comparison ─────────────────────────────────────
     if df_plot["subject"].nunique() > 1:
         plot_metric_slopes(
-            df_plot,
+            stats_data,
             group_col="method",
             metric_specs=[
                 ("peak_attenuation_db", "Peak Attenuation (dB)"),

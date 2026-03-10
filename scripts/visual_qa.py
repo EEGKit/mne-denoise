@@ -189,6 +189,7 @@ print(f"  DSS eigenvalues: {dss.eigenvalues_[:5].round(5)}")
 evoked_orig = epochs_train.average()
 evoked_denoised = epochs_denoised.average()
 info = epochs.info
+times = epochs_train.times
 
 # Data arrays for zapline viz
 data_before_zap = raw_before_zap.get_data()
@@ -260,6 +261,7 @@ _try(
     viz.plot_evoked_gfp_comparison,
     evoked_orig,
     evoked_denoised,
+    times=evoked_orig.times,
     show=False,
     fname=str(COMP_DIR / "evoked_comparison.png"),
 )
@@ -269,7 +271,8 @@ _try(
     viz.plot_channel_time_course_comparison,
     epochs_train,
     epochs_denoised,
-    picks=["Cz", "Pz"],
+    picks=[0, 1],
+    times=times,
     show=False,
     fname=str(COMP_DIR / "time_course_comparison.png"),
 )
@@ -289,6 +292,8 @@ _try(
     viz.plot_spectrogram_comparison,
     epochs_train,
     epochs_denoised,
+    picks=[0, 1],
+    times=times,
     fmin=1,
     fmax=40,
     show=False,
@@ -301,6 +306,7 @@ _try(
     epochs_train,
     epochs_denoised,
     info=info,
+    times=times,
     show=False,
     fname=str(COMP_DIR / "denoising_summary.png"),
 )
@@ -310,6 +316,8 @@ _try(
     viz.plot_signal_overlay,
     epochs_train,
     epochs_denoised,
+    times=times,
+    pick=0,
     show=False,
     fname=str(COMP_DIR / "overlay_comparison.png"),
 )
@@ -323,6 +331,7 @@ def _spectral_psd():
     return viz.plot_component_psd_comparison(
         epochs_train,
         avg_sources,
+        component_indices=list(range(min(3, avg_sources.shape[0]))),
         sfreq=sfreq,
         fmin=1,
         fmax=40,
@@ -443,42 +452,20 @@ _try("plot_component_spectrogram", _component_spectrogram)
 # ══════════════════════════════════════════════════════════════════════
 print("\n── DSS ──")
 
-# plot_dss_summary expects 2D (n_channels, n_times) data
 _try(
-    "plot_dss_summary",
-    viz.plot_dss_summary,
-    dss,
-    data_before=epochs_train.average().get_data(),
-    data_after=epochs_denoised.average().get_data(),
+    "plot_component_cleaning_summary [dss]",
+    viz.plot_component_cleaning_summary,
+    scores=getattr(dss, "eigenvalues_", None),
+    selected_count=getattr(dss, "n_selected_", 0),
+    patterns=getattr(dss, "patterns_", None),
+    removed=epochs_train.average().get_data() - epochs_denoised.average().get_data(),
+    sources=getattr(dss, "sources_", None),
     sfreq=sfreq,
-    channel_names=epochs_train.ch_names,
     info=info,
-    max_components=4,
-    title="DSS Summary (sub-01, AverageBias)",
+    title="Component Cleaning Summary (DSS, sub-01)",
     show=False,
+    fname=str(DSS_DIR / "component_cleaning_summary.png"),
 )
-
-
-def _dss_comparison():
-    """Run plot_dss_mode_comparison which fits + compares internally.
-
-    NOTE: Requires DSS with smooth/segmented params — skipped if unavailable.
-    """
-    from mne_denoise.dss import CombFilterBias
-
-    comb_bias = CombFilterBias(fundamental_freq=LINE_FREQ, sfreq=sfreq)
-    return viz.plot_dss_mode_comparison(
-        comb_bias,
-        raw,
-        n_components=10,
-        n_select="auto",
-        line_freq=LINE_FREQ,
-        title="DSS Comparison (sub-01)",
-        show=False,
-    )
-
-
-_try("plot_dss_mode_comparison (advanced)", _dss_comparison)
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -515,27 +502,19 @@ _try(
 )
 
 _try(
-    "plot_zapline_cleaning_summary",
-    viz.plot_zapline_cleaning_summary,
-    data_before_zap,
-    data_after_zap,
-    zap,
+    "plot_component_cleaning_summary [zapline]",
+    viz.plot_component_cleaning_summary,
+    scores=getattr(zap, "scores_", None),
+    selected_count=getattr(zap, "n_removed_", 0),
+    patterns=getattr(zap, "patterns_", None),
+    removed=data_before_zap - data_after_zap,
+    sources=getattr(zap, "sources_", None),
     sfreq=sfreq,
-    line_freq=LINE_FREQ,
-    show=False,
-)
-
-_try(
-    "plot_zapline_summary",
-    viz.plot_zapline_summary,
-    zap,
-    data_before=data_before_zap,
-    data_after=data_after_zap,
-    sfreq=sfreq,
-    channel_names=raw_before_zap.ch_names,
     info=raw_before_zap.info,
-    title="ZapLine Summary (sub-01)",
+    line_freq=LINE_FREQ,
+    title="Component Cleaning Summary (ZapLine, sub-01)",
     show=False,
+    fname=str(ZAP_DIR / "component_cleaning_summary.png"),
 )
 
 
@@ -570,6 +549,7 @@ else:
     df_bench = pd.DataFrame(rows)
 
 METHOD_ORDER = sorted(df_bench["method"].unique())
+STATS_DATA = {col: df_bench[col].to_numpy() for col in df_bench.columns}
 METHOD_COLORS = {
     "M0": "#404040",
     "M1": "#2ca02c",
@@ -590,7 +570,7 @@ METHOD_LABELS = {
 _try(
     "plot_metric_bars",
     viz.plot_metric_bars,
-    df_bench,
+    STATS_DATA,
     group_col="method",
     metric_cols=[
         "R_f0",
@@ -616,7 +596,7 @@ _try(
 _try(
     "plot_tradeoff_scatter",
     viz.plot_tradeoff_scatter,
-    df_bench,
+    STATS_DATA,
     group_col="method",
     x_col="below_noise_pct",
     y_col="peak_attenuation_db",
@@ -632,9 +612,9 @@ _try(
 )
 
 _try(
-    "plot_single_metric_comparison",
-    viz.plot_single_metric_comparison,
-    df_bench,
+    "plot_metric_comparison",
+    viz.plot_metric_comparison,
+    STATS_DATA,
     group_col="method",
     metric_col="R_f0",
     metric_label="R(f0) - Noise-Surround Ratio",
@@ -651,7 +631,7 @@ _try(
 _try(
     "plot_metric_slopes",
     viz.plot_metric_slopes,
-    df_bench,
+    STATS_DATA,
     group_col="method",
     metric_specs=[
         ("peak_attenuation_db", "Peak Attenuation (dB)"),
@@ -667,10 +647,15 @@ _try(
 _try(
     "plot_metric_tradeoff_summary",
     viz.plot_metric_tradeoff_summary,
-    df_bench,
-    method_order=METHOD_ORDER,
-    method_colors=METHOD_COLORS,
-    method_labels=METHOD_LABELS,
+    STATS_DATA,
+    group_col="method",
+    subject_col="subject",
+    x_col="below_noise_pct",
+    y_col="peak_attenuation_db",
+    metric_col="R_f0",
+    group_order=METHOD_ORDER,
+    group_colors=METHOD_COLORS,
+    group_labels=METHOD_LABELS,
     show=False,
     fname=str(BENCH_DIR / "tradeoff_and_r.png"),
 )

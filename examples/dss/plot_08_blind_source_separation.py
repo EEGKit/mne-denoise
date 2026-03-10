@@ -292,6 +292,7 @@ comp_raw = mne.io.RawArray(
 plot_signal_overlay(
     eog_raw,
     comp_raw,
+    times=eog_raw.times,
     start=10,
     stop=20,
     title="EOG Channel vs Extracted Component (Time Domain)",

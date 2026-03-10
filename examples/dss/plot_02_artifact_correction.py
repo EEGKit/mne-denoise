@@ -273,7 +273,11 @@ eog_epochs_clean = mne.Epochs(
 print("Plotting correction effect...")
 # Expectation 1: The huge blink artifact in the 'Original' trace should be gone or massive reduced.
 plot_evoked_gfp_comparison(
-    eog_epochs, eog_epochs_clean, show=False, labels=("Original", "Cleaned")
+    eog_epochs,
+    eog_epochs_clean,
+    times=eog_epochs.times,
+    show=False,
+    labels=("Original", "Cleaned"),
 )
 
 # Expectation 2: The PSD should be largely unchanged in the alpha/beta bands.
@@ -344,7 +348,11 @@ ecg_epochs_clean = mne.Epochs(
 
 # Expectation 1: The QRS spike should be suppressed.
 plot_evoked_gfp_comparison(
-    ecg_epochs, ecg_epochs_clean, show=False, labels=("Original", "Cleaned")
+    ecg_epochs,
+    ecg_epochs_clean,
+    times=ecg_epochs.times,
+    show=False,
+    labels=("Original", "Cleaned"),
 )
 
 # Expectation 2: Cardiac harmonics (multiples of heart rate ~1.2 Hz) should be reduced,

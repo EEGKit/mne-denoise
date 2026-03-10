@@ -1,21 +1,20 @@
-"""Visualization for denoising components.
-
-This module contains reusable component-level plots that work across DSS,
-ZapLine, and related estimators exposing component scores, patterns, or
-sources.
+"""Component-level visualization primitives.
 
 This module contains:
-1. Component score and selection visualizations.
-2. Spatial pattern visualizations with topomap or line-plot fallback.
-3. Component source summaries in time, image, and spectrogram views.
+1. Component score/eigenvalue curves.
+2. Spatial component pattern plots with topomap or line fallback.
+3. Source-space summaries in time, epoch-image, and spectrogram form.
 
-Authors: Sina Esmaeili <sina.esmaeili@umontreal.ca>
-         Hamza Abdelhedi <hamza.abdelhedi@umontreal.ca>
+These functions are method-agnostic and can be used with any fitted
+estimator exposing component attributes such as ``patterns_``, ``scores_``,
+``eigenvalues_``, or component sources via ``transform``.
+
+Authors: Sina Esmaeili (sina.esmaeili@umontreal.ca)
+         Hamza Abdelhedi (hamza.abdelhedi@umontreal.ca)
 """
 
 from __future__ import annotations
 
-import matplotlib.pyplot as plt
 import mne
 import numpy as np
 from matplotlib.gridspec import GridSpec
@@ -24,8 +23,11 @@ from mne.time_frequency import tfr_array_multitaper
 from ._utils import _get_components, _get_info, _get_patterns, _get_scores
 from .theme import (
     COLORS,
+    DIVERGING_CMAP,
     FONTS,
+    SEQUENTIAL_CMAP,
     _finalize_fig,
+    get_series_color,
     style_axes,
     themed_figure,
     themed_legend,
@@ -35,7 +37,6 @@ from .theme import (
 def _resolve_component_indices(
     n_components,
     n_available,
-    *,
     default_max,
 ):
     """Normalize component selection to an explicit list of indices."""
@@ -43,8 +44,6 @@ def _resolve_component_indices(
         return list(range(min(default_max, n_available)))
 
     if isinstance(n_components, int):
-        if n_components < 0:
-            raise ValueError("n_components must be non-negative.")
         return list(range(min(n_components, n_available)))
 
     indices = [int(idx) for idx in n_components]
@@ -54,45 +53,6 @@ def _resolve_component_indices(
     return indices
 
 
-def _get_time_axis(data, n_times, sfreq=None):
-    """Return a display-ready time axis and x-axis label."""
-    if data is not None and hasattr(data, "times"):
-        times = np.asarray(data.times)
-        if times.shape[0] == n_times:
-            return times, "Time (s)"
-
-    if sfreq is not None:
-        return np.arange(n_times) / sfreq, "Time (s)"
-
-    return np.arange(n_times), "Time (samples)"
-
-
-def _get_topomap_picks(info):
-    """Pick a single channel type suitable for topomap plotting."""
-    ch_types_dict = mne.channel_indices_by_type(info)
-    priority = (
-        "grad",
-        "mag",
-        "eeg",
-        "seeg",
-        "ecog",
-        "hbo",
-        "hbr",
-        "fnirs_cw_amplitude",
-    )
-
-    for ch_type in priority:
-        idxs = ch_types_dict.get(ch_type, [])
-        if len(idxs) > 0:
-            return idxs
-
-    for idxs in ch_types_dict.values():
-        if len(idxs) > 0:
-            return idxs
-
-    return None
-
-
 def plot_component_score_curve(
     estimator,
     mode="raw",
@@ -100,25 +60,44 @@ def plot_component_score_curve(
     show=True,
     fname=None,
 ):
-    """Plot component scores for a fitted estimator.
+    """Plot a 1D component score curve for a fitted estimator.
 
     Parameters
     ----------
     estimator : object
         Fitted estimator exposing ``eigenvalues_`` or ``scores_``.
     mode : {'raw', 'cumulative', 'ratio'}
-        Score display mode.
+        Score display mode:
+
+        - ``'raw'``: raw score/eigenvalue per component.
+        - ``'cumulative'``: normalized cumulative sum.
+        - ``'ratio'``: same values as ``'raw'`` but labeled as a ratio view.
     ax : matplotlib.axes.Axes | None
-        Target axes. If None, a new figure is created.
-    show : bool
+        Target axes. If None, a new themed figure is created.
+    show : bool, default=True
         If True, show the figure.
     fname : path-like | None
-        Optional output path.
+        Optional output path used to save the figure.
 
     Returns
     -------
     fig : matplotlib.figure.Figure
         Figure handle.
+
+    Raises
+    ------
+    ValueError
+        If ``mode`` is invalid, or if scores are missing/invalid.
+
+    Notes
+    -----
+    When available, the function overlays a dashed vertical cutoff using
+    ``n_selected_`` or ``n_removed_`` from the estimator.
+
+    Examples
+    --------
+    >>> from mne_denoise.viz import plot_component_score_curve
+    >>> fig = plot_component_score_curve(estimator, mode="raw", show=False)
     """
     valid_modes = {"raw", "cumulative", "ratio"}
     if mode not in valid_modes:
@@ -194,6 +173,7 @@ def plot_component_score_curve(
 def plot_component_patterns(
     estimator,
     info=None,
+    picks=None,
     n_components=None,
     ax=None,
     show=True,
@@ -210,21 +190,47 @@ def plot_component_patterns(
     estimator : object
         Fitted estimator exposing ``patterns_``.
     info : mne.Info | None
-        Measurement info. If None, try to resolve it from the estimator.
+        Measurement info used for topomap rendering.
+    picks : array-like of int | None
+        Channel indices used for topomap rendering. If None, no topomap is
+        attempted and the function falls back to channel-weight line plots.
     n_components : int | sequence of int | None
         Components to plot. If an int, plot the first ``n_components``.
     ax : matplotlib.axes.Axes | None
         Optional target axes. Supported only for the line-plot fallback or
         when rendering a single topomap.
-    show : bool
+    show : bool, default=True
         If True, show the figure.
     fname : path-like | None
-        Optional output path.
+        Optional output path used to save the figure.
 
     Returns
     -------
     fig : matplotlib.figure.Figure
         Figure handle.
+
+    Raises
+    ------
+    ValueError
+        If patterns are not 2D, if no components are selected, or when
+        ``ax`` is passed while requesting multiple topomaps. Also raised when
+        ``picks`` is provided without valid ``info``.
+
+    Notes
+    -----
+    Topomap rendering is explicit: pass both ``info`` and ``picks``.
+    This function does not infer channel picks automatically.
+
+    Examples
+    --------
+    >>> from mne_denoise.viz import plot_component_patterns
+    >>> fig = plot_component_patterns(
+    ...     estimator,
+    ...     info=info,
+    ...     picks=[0, 1, 2, 3],
+    ...     n_components=4,
+    ...     show=False,
+    ... )
     """
     patterns = np.asarray(_get_patterns(estimator))
     if patterns.ndim != 2:
@@ -240,18 +246,9 @@ def plot_component_patterns(
     if not indices:
         raise ValueError("No components selected for plotting.")
 
-    info = _get_info(estimator, info)
-    picks = _get_topomap_picks(info) if info is not None else None
-    palette = [
-        COLORS["primary"],
-        COLORS["accent"],
-        COLORS["secondary"],
-        COLORS["success"],
-        COLORS["purple"],
-        COLORS["cyan"],
-    ]
-
-    if info is not None and picks is not None:
+    if picks is not None and info is None:
+        raise ValueError("info is required when picks is provided.")
+    if picks is not None:
         topo_info = mne.pick_info(info, picks)
         if ax is not None:
             if len(indices) != 1:
@@ -270,17 +267,15 @@ def plot_component_patterns(
         n_show = len(indices)
         n_cols = min(4, n_show)
         n_rows = int(np.ceil(n_show / n_cols))
-        fig, axes = plt.subplots(
+        fig, axes = themed_figure(
             n_rows,
             n_cols,
             figsize=(3 * n_cols, 3 * n_rows),
-            dpi=200,
             squeeze=False,
         )
-        fig.set_facecolor("white")
         flat_axes = axes.ravel()
 
-        for plot_ax, comp_idx in zip(flat_axes, indices):
+        for i, (plot_ax, comp_idx) in enumerate(zip(flat_axes, indices)):
             mne.viz.plot_topomap(
                 patterns[picks, comp_idx],
                 topo_info,
@@ -291,7 +286,7 @@ def plot_component_patterns(
             plot_ax.set_title(
                 f"Comp {comp_idx}",
                 fontsize=FONTS["tick"],
-                color=palette[indices.index(comp_idx) % len(palette)],
+                color=get_series_color(i),
             )
 
         for plot_ax in flat_axes[len(indices) :]:
@@ -314,7 +309,7 @@ def plot_component_patterns(
             markersize=4,
             linewidth=1.3,
             alpha=0.85,
-            color=palette[i % len(palette)],
+            color=get_series_color(i),
             label=f"Comp {comp_idx}",
         )
 
@@ -332,16 +327,86 @@ def plot_component_summary(
     estimator,
     data=None,
     info=None,
+    picks=None,
+    times=None,
+    sfreq=None,
     n_components=None,
+    psd_fmax=None,
     show=True,
     plot_ci=True,
     fname=None,
 ):
     """Plot a compact per-component summary dashboard.
 
-    Each selected component gets one row with spatial pattern, time course,
-    and power spectral density.
+    Each selected component is displayed in one row with:
+    1) spatial pattern,
+    2) time course (mean ± CI for epoched sources),
+    3) power spectral density.
+
+    Parameters
+    ----------
+    estimator : object
+        Fitted estimator exposing component patterns and a transform/source API.
+    data : mne.io.BaseRaw | mne.BaseEpochs | ndarray | None
+        Input data used to compute component sources when they are not cached.
+    info : mne.Info | None
+        Sensor metadata for topomap rendering.
+    picks : array-like of int | None
+        Channel indices used for topomap rendering. If None, the pattern panel
+        uses a text placeholder instead of topomaps.
+    times : array-like of shape (n_times,) | None
+        Explicit time coordinates for source time-course panels. If None,
+        sample indices are used.
+    sfreq : float | None
+        Sampling frequency used for PSD computation when ``info`` is not
+        available. Required if ``info`` cannot be resolved.
+    n_components : int | sequence of int | None
+        Components to plot. If None, plot up to five components.
+    psd_fmax : float | None
+        Maximum frequency (Hz) shown in the PSD column. If None, defaults to
+        ``min(100, sfreq / 2)`` to preserve previous behavior.
+    show : bool, default=True
+        If True, show the figure.
+    plot_ci : bool, default=True
+        If True and sources are epoched, overlay a 95% CI band based on SEM.
+    fname : path-like | None
+        Optional output path used to save the figure.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure handle.
+
+    Raises
+    ------
+    ValueError
+        If no components are selected, if ``psd_fmax`` is not positive, if
+        ``times`` length mismatches source length, or if ``picks`` is provided
+        without valid ``info``. Also raised when neither ``info`` nor ``sfreq``
+        is provided.
+
+    Notes
+    -----
+    Topomap rendering and time coordinates are explicit in this function. It
+    does not infer channel picks or time axes.
+
+    Examples
+    --------
+    >>> from mne_denoise.viz import plot_component_summary
+    >>> fig = plot_component_summary(
+    ...     estimator,
+    ...     data=epochs,
+    ...     sfreq=epochs.info["sfreq"],
+    ...     info=info,
+    ...     picks=[0, 1, 2, 3],
+    ...     times=epochs.times,
+    ...     n_components=3,
+    ...     psd_fmax=80,
+    ...     show=False,
+    ... )
     """
+    if picks is not None and info is None:
+        raise ValueError("info is required when picks is provided.")
     info = _get_info(estimator, info)
     patterns = np.asarray(_get_patterns(estimator))
     sources = _get_components(estimator, data)
@@ -354,15 +419,35 @@ def plot_component_summary(
     if not indices:
         raise ValueError("No components selected for plotting.")
 
-    fig = plt.figure(figsize=(12, 3 * len(indices)), constrained_layout=True)
+    fig, root_ax = themed_figure(figsize=(12, 3 * len(indices)))
+    root_ax.remove()
     gs = GridSpec(len(indices), 3, figure=fig, width_ratios=[1, 2, 1])
-    sfreq = info["sfreq"] if info is not None else 1000.0
-    picks = _get_topomap_picks(info) if info is not None else None
-    times_template, time_label = _get_time_axis(data, sources.shape[1], sfreq=sfreq)
+    if info is not None:
+        sfreq_eff = float(info["sfreq"])
+    elif sfreq is not None:
+        sfreq_eff = float(sfreq)
+    else:
+        raise ValueError("sfreq is required when info is not available.")
+    if sfreq_eff <= 0:
+        raise ValueError("sfreq must be strictly positive.")
+    if times is None:
+        times_template = np.arange(sources.shape[1])
+        time_label = "Time (samples)"
+    else:
+        times_template = np.asarray(times)
+        if times_template.shape[0] != sources.shape[1]:
+            raise ValueError("times must have length equal to source n_times.")
+        time_label = "Time"
+    if psd_fmax is None:
+        psd_fmax = min(100.0, sfreq_eff / 2.0)
+    psd_fmax = float(psd_fmax)
+    if psd_fmax <= 0:
+        raise ValueError("psd_fmax must be strictly positive.")
+    psd_fmax = min(psd_fmax, sfreq_eff / 2.0)
 
     for row_idx, comp_idx in enumerate(indices):
         ax_topo = fig.add_subplot(gs[row_idx, 0])
-        if info is not None and picks is not None:
+        if picks is not None:
             topo_info = mne.pick_info(info, picks)
             topo_data = patterns[picks, comp_idx]
             mne.viz.plot_topomap(topo_data, topo_info, axes=ax_topo, show=False)
@@ -404,9 +489,9 @@ def plot_component_summary(
 
         psd_spec, freqs = mne.time_frequency.psd_array_welch(
             d_flat,
-            sfreq=sfreq,
+            sfreq=sfreq_eff,
             fmin=0,
-            fmax=np.inf,
+            fmax=psd_fmax,
             n_fft=min(2048, d_flat.shape[-1]),
             verbose=False,
         )
@@ -415,7 +500,7 @@ def plot_component_summary(
         ax_psd.semilogy(freqs, mean_psd, color=COLORS["primary"])
         ax_psd.set_title("PSD")
         ax_psd.set_xlabel("Frequency (Hz)")
-        ax_psd.set_xlim(0, min(100, sfreq / 2))
+        ax_psd.set_xlim(0, psd_fmax)
         style_axes(ax_psd, grid=True)
 
     return _finalize_fig(fig, show=show, fname=fname)
@@ -428,7 +513,45 @@ def plot_component_epochs_image(
     show=True,
     fname=None,
 ):
-    """Plot component activity as an epoch-by-time image."""
+    """Plot component activity as an epoch-by-time image.
+
+    Parameters
+    ----------
+    estimator : object
+        Fitted estimator exposing component sources via cache or transform.
+    data : mne.io.BaseRaw | mne.BaseEpochs | ndarray | None
+        Input data used to compute sources when they are not cached.
+    n_components : int | sequence of int | None
+        Components to plot. If None, plot up to five components.
+    show : bool, default=True
+        If True, show the figure.
+    fname : path-like | None
+        Optional output path used to save the figure.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure handle.
+
+    Raises
+    ------
+    ValueError
+        If sources are not 2D/3D, or if no components are selected.
+
+    Notes
+    -----
+    Input source shapes are interpreted as:
+
+    - ``(n_components, n_times)`` for a single average/time series.
+    - ``(n_components, n_times, n_epochs)`` for epoched sources.
+
+    Examples
+    --------
+    >>> from mne_denoise.viz import plot_component_epochs_image
+    >>> fig = plot_component_epochs_image(
+    ...     estimator, data=epochs, n_components=[0, 1], show=False
+    ... )
+    """
     sources = _get_components(estimator, data)
     if sources.ndim == 2:
         sources = sources[:, :, np.newaxis]
@@ -443,7 +566,7 @@ def plot_component_epochs_image(
     if not indices:
         raise ValueError("No components selected for plotting.")
 
-    fig, axes = plt.subplots(
+    fig, axes = themed_figure(
         len(indices),
         1,
         figsize=(8, 2 * len(indices)),
@@ -454,7 +577,7 @@ def plot_component_epochs_image(
 
     for ax, comp_idx in zip(axes, indices):
         img = sources[comp_idx].T
-        ax.imshow(img, aspect="auto", origin="lower", cmap="RdBu_r")
+        ax.imshow(img, aspect="auto", origin="lower", cmap=DIVERGING_CMAP)
         ax.set_title(f"Comp {comp_idx}")
         ax.set_ylabel("Epochs")
 
@@ -466,11 +589,56 @@ def plot_component_time_series(
     estimator,
     data=None,
     n_components=None,
+    times=None,
     show=True,
     ax=None,
     fname=None,
 ):
-    """Plot stacked component time series with standardized vertical offsets."""
+    """Plot stacked component time series with fixed vertical offsets.
+
+    Parameters
+    ----------
+    estimator : object
+        Fitted estimator exposing component sources via cache or transform.
+    data : mne.io.BaseRaw | mne.BaseEpochs | ndarray | None
+        Input data used to compute sources when they are not cached.
+    n_components : int | sequence of int | None
+        Components to plot. If None, plot up to twenty components.
+    times : array-like of shape (n_times,) | None
+        Explicit time coordinates. If None, sample indices are used.
+    show : bool, default=True
+        If True, show the figure.
+    ax : matplotlib.axes.Axes | None
+        Optional target axes. If None, a new themed figure is created.
+    fname : path-like | None
+        Optional output path used to save the figure.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure handle.
+
+    Raises
+    ------
+    ValueError
+        If no components are selected or if ``times`` length mismatches source
+        length.
+
+    Notes
+    -----
+    Each component is z-scored independently before plotting so that traces
+    are comparable in amplitude and can be stacked with a fixed offset.
+
+    Examples
+    --------
+    >>> from mne_denoise.viz import plot_component_time_series
+    >>> fig = plot_component_time_series(
+    ...     estimator,
+    ...     data=raw,
+    ...     times=raw.times,
+    ...     show=False,
+    ... )
+    """
     sources = _get_components(estimator, data)
     scores = _get_scores(estimator)
 
@@ -490,19 +658,18 @@ def plot_component_time_series(
     else:
         fig = ax.figure
 
-    time_axis, time_label = _get_time_axis(data, sources.shape[1], sfreq=None)
+    if times is None:
+        time_axis = np.arange(sources.shape[1])
+        time_label = "Time (samples)"
+    else:
+        time_axis = np.asarray(times)
+        if time_axis.shape[0] != sources.shape[1]:
+            raise ValueError("times must have length equal to source n_times.")
+        time_label = "Time"
     x_min = float(time_axis[0])
     x_max = float(time_axis[-1])
     x_pad = 0.03 * (x_max - x_min if x_max != x_min else 1.0)
     label_x = x_max + x_pad * 0.25
-    palette = [
-        COLORS["primary"],
-        COLORS["accent"],
-        COLORS["secondary"],
-        COLORS["success"],
-        COLORS["purple"],
-        COLORS["cyan"],
-    ]
     offset_step = 3.0
 
     for row_idx, comp_idx in enumerate(indices):
@@ -512,7 +679,7 @@ def plot_component_time_series(
             std = 1.0
         comp_norm = comp / std
         offset = -row_idx * offset_step
-        color = palette[row_idx % len(palette)]
+        color = get_series_color(row_idx)
 
         ax.plot(time_axis, comp_norm + offset, color=color, linewidth=1.5)
 
@@ -538,6 +705,7 @@ def plot_component_spectrogram(
     component_data,
     sfreq,
     freqs=None,
+    fmax=50.0,
     n_cycles=None,
     title="Component Spectrogram",
     ax=None,
@@ -553,9 +721,44 @@ def plot_component_spectrogram(
     sfreq : float
         Sampling frequency.
     freqs : ndarray | None
-        Frequencies to compute. Defaults to 1 Hz through Nyquist, capped at 50 Hz.
+        Frequencies to compute. If None, frequencies are generated from
+        1 Hz to ``fmax`` (capped at Nyquist).
+    fmax : float | None
+        Upper frequency bound used when ``freqs`` is None.
+        Defaults to 50 Hz to preserve prior behavior.
     n_cycles : float | ndarray | None
         Number of cycles for multitaper estimation.
+    title : str
+        Axes title.
+    ax : matplotlib.axes.Axes | None
+        Optional target axes. If None, a new themed figure is created.
+    show : bool, default=True
+        If True, show the figure.
+    fname : path-like | None
+        Optional output path used to save the figure.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure handle.
+
+    Raises
+    ------
+    ValueError
+        If ``component_data`` is not 1D/2D, or if ``fmax`` is not positive
+        when ``freqs`` is None.
+
+    Notes
+    -----
+    A 1D input is treated as one pseudo-epoch. A 2D input is interpreted as
+    ``(n_epochs, n_times)`` and averaged across epochs in power space.
+
+    Examples
+    --------
+    >>> from mne_denoise.viz import plot_component_spectrogram
+    >>> fig = plot_component_spectrogram(
+    ...     component_data, sfreq=250.0, fmax=80, show=False
+    ... )
     """
     component_data = np.asarray(component_data)
     if component_data.ndim == 1:
@@ -566,8 +769,16 @@ def plot_component_spectrogram(
         raise ValueError("component_data must be 1D or 2D.")
 
     if freqs is None:
-        fmax = int(max(2, min(50, np.floor(sfreq / 2))))
-        freqs = np.arange(1, fmax + 1, 1)
+        if fmax is None:
+            upper = sfreq / 2.0
+        else:
+            upper = min(float(fmax), sfreq / 2.0)
+        if upper <= 0:
+            raise ValueError("fmax must be strictly positive when freqs is None.")
+        upper = max(2.0, upper)
+        freqs = np.arange(1.0, np.floor(upper) + 1.0, 1.0)
+    else:
+        freqs = np.asarray(freqs, dtype=float)
     if n_cycles is None:
         n_cycles = freqs / 4.0
 
@@ -587,10 +798,11 @@ def plot_component_spectrogram(
     else:
         fig = ax.figure
 
-    im = ax.pcolormesh(times, freqs, power, shading="gouraud", cmap="viridis")
+    im = ax.pcolormesh(times, freqs, power, shading="gouraud", cmap=SEQUENTIAL_CMAP)
     ax.set_ylabel("Frequency (Hz)")
     ax.set_xlabel("Time (s)")
     ax.set_title(title)
-    plt.colorbar(im, ax=ax, label="Power")
+    fig.colorbar(im, ax=ax, label="Power")
+    style_axes(ax, grid=False)
 
     return _finalize_fig(fig, show=show, fname=fname)

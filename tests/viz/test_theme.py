@@ -25,17 +25,27 @@ def test_get_color():
     """Test get_color helper returns expected values."""
     from mne_denoise.viz.theme import (
         COLORS,
-        DEFAULT_METHOD_COLORS,
-        DEFAULT_PIPE_COLORS,
         METHOD_COLORS,
         get_color,
     )
 
     assert get_color("dss") == METHOD_COLORS["dss"]
-    assert get_color("M1") == DEFAULT_METHOD_COLORS["M1"]
-    assert get_color("C2") == DEFAULT_PIPE_COLORS["C2"]
     assert get_color("nonexistent_xyz") == COLORS["dark"]
     assert get_color("nonexistent_xyz", fallback="#aabbcc") == "#aabbcc"
+
+
+def test_stats_semantic_colors_present():
+    """Test that neutral stats semantic tokens exist in COLORS."""
+    from mne_denoise.viz.theme import COLORS
+
+    for key in (
+        "stat_mean",
+        "stat_subject",
+        "stat_reference",
+        "stat_ci",
+        "stat_highlight",
+    ):
+        assert key in COLORS
 
 
 def test_series_palette_exports():
