@@ -40,16 +40,16 @@ OUT_DIR = DATA_ROOT / "derivatives" / "mne-denoise" / "visual_qa"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # Sub-directories for organized output
-COMP_DIR = OUT_DIR / "comparison"
-COMP_DIR.mkdir(exist_ok=True)
+SIGSPEC_DIR = OUT_DIR / "signals_spectra"
+SIGSPEC_DIR.mkdir(exist_ok=True)
 COMPS_DIR = OUT_DIR / "components"
 COMPS_DIR.mkdir(exist_ok=True)
-DSS_DIR = OUT_DIR / "dss"
-DSS_DIR.mkdir(exist_ok=True)
-ZAP_DIR = OUT_DIR / "zapline"
-ZAP_DIR.mkdir(exist_ok=True)
-BENCH_DIR = OUT_DIR / "benchmark"
-BENCH_DIR.mkdir(exist_ok=True)
+SUMMARY_DSS_DIR = OUT_DIR / "summary_dss_input"
+SUMMARY_DSS_DIR.mkdir(exist_ok=True)
+SUMMARY_ZAP_DIR = OUT_DIR / "summary_zapline_input"
+SUMMARY_ZAP_DIR.mkdir(exist_ok=True)
+STATSSPEC_DIR = OUT_DIR / "stats_spectra"
+STATSSPEC_DIR.mkdir(exist_ok=True)
 THEME_DIR = OUT_DIR / "theme"
 THEME_DIR.mkdir(exist_ok=True)
 
@@ -79,6 +79,12 @@ def _try(name: str, func, *args, **kwargs):
         return None
     finally:
         plt.close("all")
+
+
+def _geometric_mean_psd_from_psd(psd):
+    """Return geometric-mean PSD across channels."""
+    psd = np.asarray(psd, dtype=float)
+    return np.exp(np.mean(np.log(np.maximum(psd, 1e-30)), axis=0))
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -242,9 +248,9 @@ _try("get_color", test_get_color)
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 3 ── Comparison module
+# 3 ── Signal/Spectral primitives
 # ══════════════════════════════════════════════════════════════════════
-print("\n── Comparison ──")
+print("\n── Signals + Spectra ──")
 
 _try(
     "plot_psd_comparison",
@@ -253,7 +259,7 @@ _try(
     epochs_denoised,
     fmax=45,
     show=False,
-    fname=str(COMP_DIR / "psd_comparison.png"),
+    fname=str(SIGSPEC_DIR / "psd_comparison.png"),
 )
 
 _try(
@@ -263,7 +269,7 @@ _try(
     evoked_denoised,
     times=evoked_orig.times,
     show=False,
-    fname=str(COMP_DIR / "evoked_comparison.png"),
+    fname=str(SIGSPEC_DIR / "evoked_comparison.png"),
 )
 
 _try(
@@ -274,7 +280,7 @@ _try(
     picks=[0, 1],
     times=times,
     show=False,
-    fname=str(COMP_DIR / "time_course_comparison.png"),
+    fname=str(SIGSPEC_DIR / "time_course_comparison.png"),
 )
 
 _try(
@@ -284,7 +290,7 @@ _try(
     epochs_denoised,
     info=info,
     show=False,
-    fname=str(COMP_DIR / "power_map.png"),
+    fname=str(SIGSPEC_DIR / "power_map.png"),
 )
 
 _try(
@@ -297,7 +303,7 @@ _try(
     fmin=1,
     fmax=40,
     show=False,
-    fname=str(COMP_DIR / "spectrogram_comparison.png"),
+    fname=str(SIGSPEC_DIR / "spectrogram_comparison.png"),
 )
 
 _try(
@@ -308,7 +314,7 @@ _try(
     info=info,
     times=times,
     show=False,
-    fname=str(COMP_DIR / "denoising_summary.png"),
+    fname=str(SIGSPEC_DIR / "denoising_summary.png"),
 )
 
 _try(
@@ -319,7 +325,7 @@ _try(
     times=times,
     pick=0,
     show=False,
-    fname=str(COMP_DIR / "overlay_comparison.png"),
+    fname=str(SIGSPEC_DIR / "overlay_comparison.png"),
 )
 
 
@@ -336,7 +342,7 @@ def _spectral_psd():
         fmin=1,
         fmax=40,
         show=False,
-        fname=str(COMP_DIR / "spectral_psd_comparison.png"),
+        fname=str(SIGSPEC_DIR / "spectral_psd_comparison.png"),
     )
 
 
@@ -448,9 +454,9 @@ _try("plot_component_spectrogram", _component_spectrogram)
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 5 ── DSS module
+# 5 ── Summary (DSS input)
 # ══════════════════════════════════════════════════════════════════════
-print("\n── DSS ──")
+print("\n── Summary (DSS-style input) ──")
 
 _try(
     "plot_component_cleaning_summary [dss]",
@@ -464,14 +470,14 @@ _try(
     info=info,
     title="Component Cleaning Summary (DSS, sub-01)",
     show=False,
-    fname=str(DSS_DIR / "component_cleaning_summary.png"),
+    fname=str(SUMMARY_DSS_DIR / "component_cleaning_summary.png"),
 )
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 6 ── ZapLine module
+# 6 ── Summary (ZapLine input)
 # ══════════════════════════════════════════════════════════════════════
-print("\n── ZapLine ──")
+print("\n── Summary (ZapLine-style input) ──")
 
 _try(
     "plot_psd_comparison [zapline arrays]",
@@ -482,7 +488,7 @@ _try(
     line_freq=LINE_FREQ,
     fmax=100,
     show=False,
-    fname=str(ZAP_DIR / "psd_comparison.png"),
+    fname=str(SUMMARY_ZAP_DIR / "psd_comparison.png"),
 )
 
 _try(
@@ -490,7 +496,7 @@ _try(
     viz.plot_component_score_curve,
     zap,
     show=False,
-    fname=str(ZAP_DIR / "component_scores.png"),
+    fname=str(SUMMARY_ZAP_DIR / "component_scores.png"),
 )
 
 _try(
@@ -498,7 +504,7 @@ _try(
     viz.plot_component_patterns,
     zap,
     show=False,
-    fname=str(ZAP_DIR / "spatial_patterns.png"),
+    fname=str(SUMMARY_ZAP_DIR / "spatial_patterns.png"),
 )
 
 _try(
@@ -514,14 +520,14 @@ _try(
     line_freq=LINE_FREQ,
     title="Component Cleaning Summary (ZapLine, sub-01)",
     show=False,
-    fname=str(ZAP_DIR / "component_cleaning_summary.png"),
+    fname=str(SUMMARY_ZAP_DIR / "component_cleaning_summary.png"),
 )
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 7 ── Benchmark module
+# 7 ── Stats + Spectral dashboards
 # ══════════════════════════════════════════════════════════════════════
-print("\n── Benchmark ──")
+print("\n── Stats + Spectra ──")
 
 # Load pre-computed group metrics from disk
 # NOTE: benchmark viz was designed for line-noise metrics (R_f0, etc.)
@@ -541,7 +547,7 @@ else:
                     "method": mtag,
                     "R_f0": rng.normal(0.5, 0.2),
                     "peak_attenuation_db": rng.normal(15, 5),
-                    "below_noise_pct": rng.normal(0.1, 0.05),
+                    "below_noise_distortion_db": rng.normal(0.1, 0.05),
                     "overclean_proportion": rng.normal(0.05, 0.02),
                     "underclean_proportion": rng.normal(0.05, 0.02),
                 }
@@ -575,14 +581,14 @@ _try(
     metric_cols=[
         "R_f0",
         "peak_attenuation_db",
-        "below_noise_pct",
+        "below_noise_distortion_db",
         "overclean_proportion",
         "underclean_proportion",
     ],
     metric_labels=[
         "R(f0) - 1",
         "Peak Attenuation (dB)",
-        "Sub-Peak dPower (%) - 0",
+        "Below-Noise Distortion (dB) - 0",
         "Overclean Fraction",
         "Underclean Fraction",
     ],
@@ -590,7 +596,7 @@ _try(
     group_order=METHOD_ORDER,
     group_colors=METHOD_COLORS,
     show=False,
-    fname=str(BENCH_DIR / "metric_bars.png"),
+    fname=str(STATSSPEC_DIR / "metric_bars.png"),
 )
 
 _try(
@@ -598,17 +604,17 @@ _try(
     viz.plot_tradeoff_scatter,
     STATS_DATA,
     group_col="method",
-    x_col="below_noise_pct",
+    x_col="below_noise_distortion_db",
     y_col="peak_attenuation_db",
     group_order=METHOD_ORDER,
     group_colors=METHOD_COLORS,
     group_labels=METHOD_LABELS,
-    x_label="Sub-Peak dPower (%) - closer to 0 is better",
+    x_label="Below-Noise Distortion (dB) - closer to 0 is better",
     y_label="Peak Attenuation (dB) - higher is better",
     reference_x=0.0,
     reference_y=10.0,
     show=False,
-    fname=str(BENCH_DIR / "tradeoff_scatter.png"),
+    fname=str(STATSSPEC_DIR / "tradeoff_scatter.png"),
 )
 
 _try(
@@ -625,7 +631,7 @@ _try(
     reference_value=1.0,
     reference_label="Ideal (R=1)",
     show=False,
-    fname=str(BENCH_DIR / "metric_comparison.png"),
+    fname=str(STATSSPEC_DIR / "metric_comparison.png"),
 )
 
 _try(
@@ -635,13 +641,13 @@ _try(
     group_col="method",
     metric_specs=[
         ("peak_attenuation_db", "Peak Attenuation (dB)"),
-        ("below_noise_pct", "Sub-Peak dPower (%)"),
+        ("below_noise_distortion_db", "Below-Noise Distortion (dB)"),
         ("R_f0", "R(f0)"),
     ],
     group_order=METHOD_ORDER,
     group_colors=METHOD_COLORS,
     show=False,
-    fname=str(BENCH_DIR / "metric_slopes.png"),
+    fname=str(STATSSPEC_DIR / "metric_slopes.png"),
 )
 
 _try(
@@ -650,14 +656,14 @@ _try(
     STATS_DATA,
     group_col="method",
     subject_col="subject",
-    x_col="below_noise_pct",
+    x_col="below_noise_distortion_db",
     y_col="peak_attenuation_db",
     metric_col="R_f0",
     group_order=METHOD_ORDER,
     group_colors=METHOD_COLORS,
     group_labels=METHOD_LABELS,
     show=False,
-    fname=str(BENCH_DIR / "tradeoff_and_r.png"),
+    fname=str(STATSSPEC_DIR / "tradeoff_and_r.png"),
 )
 
 
@@ -668,12 +674,12 @@ def _make_psd_data():
 
     nperseg = min(512, data_before_zap.shape[-1])
     freqs_b, psd_b = welch(data_before_zap, fs=sfreq, nperseg=nperseg, axis=-1)
-    gm_before = np.exp(np.mean(np.log(np.maximum(psd_b, 1e-30)), axis=0))
+    gm_before = _geometric_mean_psd_from_psd(psd_b)
 
     cleaned_psds = {}
     for tag, d in [("C0", data_before_zap), ("C2", data_after_zap)]:
         freqs_a, psd_a = welch(d, fs=sfreq, nperseg=nperseg, axis=-1)
-        gm = np.exp(np.mean(np.log(np.maximum(psd_a, 1e-30)), axis=0))
+        gm = _geometric_mean_psd_from_psd(psd_a)
         cleaned_psds[tag] = (freqs_a, gm)
 
     return freqs_b, gm_before, cleaned_psds
@@ -697,7 +703,7 @@ _try(
     series_labels=METHOD_LABELS,
     fmax=sfreq / 2,
     show=False,
-    fname=str(BENCH_DIR / "qc_psd.png"),
+    fname=str(STATSSPEC_DIR / "qc_psd.png"),
 )
 
 _try(
@@ -713,7 +719,7 @@ _try(
     series_colors=METHOD_COLORS,
     series_labels=METHOD_LABELS,
     show=False,
-    fname=str(BENCH_DIR / "psd_gallery.png"),
+    fname=str(STATSSPEC_DIR / "psd_gallery.png"),
 )
 
 _try(
@@ -729,7 +735,7 @@ _try(
     series_colors=METHOD_COLORS,
     series_labels=METHOD_LABELS,
     show=False,
-    fname=str(BENCH_DIR / "subject_psd_overlay.png"),
+    fname=str(STATSSPEC_DIR / "subject_psd_overlay.png"),
 )
 
 _try(
@@ -744,7 +750,7 @@ _try(
     series_colors=METHOD_COLORS,
     series_labels=METHOD_LABELS,
     show=False,
-    fname=str(BENCH_DIR / "harmonic_attenuation.png"),
+    fname=str(STATSSPEC_DIR / "harmonic_attenuation.png"),
 )
 
 

@@ -90,7 +90,7 @@ def test_plot_metric_tradeoff_summary():
     data = {
         "subject": ["s1", "s1", "s2", "s2"],
         "method": ["A", "B", "A", "B"],
-        "below_noise_pct": [1.0, 2.0, 1.5, 2.5],
+        "below_noise_distortion_db": [1.0, 2.0, 1.5, 2.5],
         "peak_attenuation_db": [10, 15, 12, 18],
         "R_f0": [1.1, 1.2, 1.05, 1.3],
     }
@@ -99,7 +99,7 @@ def test_plot_metric_tradeoff_summary():
         data,
         group_col="method",
         subject_col="subject",
-        x_col="below_noise_pct",
+        x_col="below_noise_distortion_db",
         y_col="peak_attenuation_db",
         metric_col="R_f0",
         show=False,

@@ -64,7 +64,7 @@ def single_subject_data():
         "method": methods,
         "R_f0": rng.uniform(0.7, 1.2, size=3),
         "peak_attenuation_db": rng.uniform(5, 20, size=3),
-        "below_noise_pct": rng.uniform(-5, 5, size=3),
+        "below_noise_distortion_db": rng.uniform(-5, 5, size=3),
         "overclean_proportion": rng.uniform(0, 0.3, size=3),
         "underclean_proportion": rng.uniform(0, 0.3, size=3),
     }
@@ -86,7 +86,7 @@ def multi_subject_data():
         "method": np.asarray(methods, dtype=object),
         "R_f0": rng.uniform(0.7, 1.2, size=n_rows),
         "peak_attenuation_db": rng.uniform(5, 20, size=n_rows),
-        "below_noise_pct": rng.uniform(-5, 5, size=n_rows),
+        "below_noise_distortion_db": rng.uniform(-5, 5, size=n_rows),
         "overclean_proportion": rng.uniform(0, 0.3, size=n_rows),
         "underclean_proportion": rng.uniform(0, 0.3, size=n_rows),
     }
@@ -119,7 +119,7 @@ def test_plot_tradeoff_scatter_single_subject(single_subject_data):
     fig = plot_tradeoff_scatter(
         single_subject_data,
         group_col="method",
-        x_col="below_noise_pct",
+        x_col="below_noise_distortion_db",
         y_col="peak_attenuation_db",
         show=False,
     )
@@ -131,7 +131,7 @@ def test_plot_tradeoff_scatter_multi_subject(multi_subject_data):
         multi_subject_data,
         group_col="method",
         group_order=["M0", "M1", "M2"],
-        x_col="below_noise_pct",
+        x_col="below_noise_distortion_db",
         y_col="peak_attenuation_db",
         show=False,
     )
@@ -217,7 +217,7 @@ def test_plot_tradeoff_scatter_explicit_xy_on_wide_table(multi_subject_data):
     fig = plot_tradeoff_scatter(
         data,
         group_col="method",
-        x_col="below_noise_pct",
+        x_col="below_noise_distortion_db",
         y_col="peak_attenuation_db",
         show=False,
     )
@@ -241,7 +241,7 @@ def test_plot_metric_tradeoff_summary_single_subject(single_subject_data):
         single_subject_data,
         group_col="method",
         subject_col="subject",
-        x_col="below_noise_pct",
+        x_col="below_noise_distortion_db",
         y_col="peak_attenuation_db",
         metric_col="R_f0",
         show=False,
@@ -254,7 +254,7 @@ def test_plot_metric_tradeoff_summary_multi_subject(multi_subject_data):
         multi_subject_data,
         group_col="method",
         subject_col="subject",
-        x_col="below_noise_pct",
+        x_col="below_noise_distortion_db",
         y_col="peak_attenuation_db",
         metric_col="R_f0",
         show=False,
@@ -383,7 +383,7 @@ def test_plot_tradeoff_scatter_refs(single_subject_data):
     """Cover reference lines in tradeoff scatter."""
     fig = plot_tradeoff_scatter(
         single_subject_data,
-        x_col="below_noise_pct",
+        x_col="below_noise_distortion_db",
         y_col="peak_attenuation_db",
         group_col="method",
         reference_x=0.0,

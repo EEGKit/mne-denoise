@@ -78,7 +78,6 @@ if str(_REPO) not in sys.path:
 
 from mne_denoise.qa import (
     compute_all_qa_metrics,
-    geometric_mean_psd,
 )
 from mne_denoise.viz import (
     plot_component_cleaning_summary,
@@ -401,6 +400,14 @@ def _plot_method_diagnostics(
     )
 
 
+def _geometric_mean_psd_raw(raw, *, fmax=125.0):
+    """Compute geometric-mean PSD across channels from a Raw object."""
+    psd = raw.compute_psd(fmax=fmax, verbose=False)
+    data = psd.get_data()
+    gm = np.exp(np.mean(np.log(np.maximum(data, 1e-30)), axis=0))
+    return psd.freqs, gm
+
+
 def _save_model_json(model_info, path):
     """Write model metadata dict to JSON (numpy-safe)."""
 
@@ -466,8 +473,8 @@ def save_outputs(
             df_cond.to_csv(out_dir / "condition_metrics.tsv", sep="\t", index=False)
 
     # 3. QC PSD figure
-    freqs_b, gm_b = geometric_mean_psd(raw_before)
-    freqs_a, gm_a = geometric_mean_psd(raw_after)
+    freqs_b, gm_b = _geometric_mean_psd_raw(raw_before)
+    freqs_a, gm_a = _geometric_mean_psd_raw(raw_after)
     zoom_annotations = None
     if metrics_dict:
         atten = metrics_dict.get("attenuation_per_harmonic_db", [])
@@ -555,7 +562,7 @@ def process_subject(sub, ds_path=None, deriv_root=None):
     cleaned_psds = {}
 
     # Baseline PSD (save for group analysis)
-    freqs_base, gm_base = geometric_mean_psd(raw_base)
+    freqs_base, gm_base = _geometric_mean_psd_raw(raw_base)
 
     for method_tag in METHOD_ORDER:
         log.info("  -- %s: %s", method_tag, METHOD_LABELS[method_tag])
@@ -622,7 +629,7 @@ def process_subject(sub, ds_path=None, deriv_root=None):
             )
 
             # Store PSD for combined plot
-            freqs_c, gm_c = geometric_mean_psd(raw_clean)
+            freqs_c, gm_c = _geometric_mean_psd_raw(raw_clean)
             cleaned_psds[method_tag] = (freqs_c, gm_c)
 
             # Whole-recording row
@@ -759,14 +766,14 @@ def run_group(subjects, deriv_root=None):
     harmonics_show = [LINE_FREQ * h for h in range(1, LINE_HARMONICS + 1)]
 
     raw_base = load_and_preprocess(sub_show, DATA_ROOT)
-    freqs_base, gm_base = geometric_mean_psd(raw_base)
+    freqs_base, gm_base = _geometric_mean_psd_raw(raw_base)
 
     cleaned_psds = {}
     for mtag in METHOD_ORDER[1:]:
         raw_path = deriv_root / sub_show / "line_noise" / mtag / "cleaned_raw.fif"
         if raw_path.exists():
             raw_c = mne.io.read_raw_fif(str(raw_path), preload=True, verbose=False)
-            cleaned_psds[mtag] = geometric_mean_psd(raw_c)
+            cleaned_psds[mtag] = _geometric_mean_psd_raw(raw_c)
             del raw_c
     del raw_base
 
@@ -794,14 +801,14 @@ def run_group(subjects, deriv_root=None):
         metric_cols=[
             "R_f0",
             "peak_attenuation_db",
-            "below_noise_pct",
+            "below_noise_distortion_db",
             "overclean_proportion",
             "underclean_proportion",
         ],
         metric_labels=[
             "R(f0) - 1",
             "Peak Attenuation (dB)",
-            "Sub-Peak dPower (%) - 0",
+            "Below-Noise Distortion (dB) - 0",
             "Overclean Fraction",
             "Underclean Fraction",
         ],
@@ -818,7 +825,7 @@ def run_group(subjects, deriv_root=None):
         stats_data,
         group_col="method",
         subject_col="subject",
-        x_col="below_noise_pct",
+        x_col="below_noise_distortion_db",
         y_col="peak_attenuation_db",
         metric_col="R_f0",
         group_order=METHOD_ORDER,
@@ -836,7 +843,7 @@ def run_group(subjects, deriv_root=None):
             group_col="method",
             metric_specs=[
                 ("peak_attenuation_db", "Peak Attenuation (dB)"),
-                ("below_noise_pct", "Sub-Peak dPower (%)"),
+                ("below_noise_distortion_db", "Below-Noise Distortion (dB)"),
                 ("R_f0", "R(f0)"),
             ],
             group_order=METHOD_ORDER,
@@ -849,7 +856,7 @@ def run_group(subjects, deriv_root=None):
     # ── QA Step 3b: Harmonic Attenuation ─────────────────────────────────
     sub_h = subjects[0]
     raw_base_h = load_and_preprocess(sub_h, DATA_ROOT)
-    freqs_base_h, gm_base_h = geometric_mean_psd(raw_base_h)
+    freqs_base_h, gm_base_h = _geometric_mean_psd_raw(raw_base_h)
     harmonics_hz = [
         LINE_FREQ * h
         for h in range(1, LINE_HARMONICS + 1)
@@ -860,7 +867,7 @@ def run_group(subjects, deriv_root=None):
         raw_path = deriv_root / sub_h / "line_noise" / mtag / "cleaned_raw.fif"
         if raw_path.exists():
             raw_c = mne.io.read_raw_fif(str(raw_path), preload=True, verbose=False)
-            cleaned_psds_h[mtag] = geometric_mean_psd(raw_c)
+            cleaned_psds_h[mtag] = _geometric_mean_psd_raw(raw_c)
             del raw_c
     del raw_base_h
 
@@ -922,13 +929,13 @@ def run_group(subjects, deriv_root=None):
     cond_metrics_to_show = [
         "R_f0",
         "peak_attenuation_db",
-        "below_noise_pct",
+        "below_noise_distortion_db",
         "overclean_proportion",
     ]
     cond_metric_labels = {
         "R_f0": "R(f₀)",
         "peak_attenuation_db": "Peak Atten. (dB)",
-        "below_noise_pct": "ΔPower (%)",
+        "below_noise_distortion_db": "Distortion (dB)",
         "overclean_proportion": "Overclean",
     }
 
@@ -975,7 +982,7 @@ def run_group(subjects, deriv_root=None):
         )
         if metric == "R_f0":
             ax.axhline(1.0, color="k", ls="--", lw=0.8, alpha=0.5)
-        elif metric == "below_noise_pct":
+        elif metric == "below_noise_distortion_db":
             ax.axhline(0.0, color="k", ls="--", lw=0.8, alpha=0.5)
         style_axes(ax)
 
@@ -1036,7 +1043,7 @@ def run_group(subjects, deriv_root=None):
         if not pieces:
             continue
         raw_cond_base = mne.concatenate_raws(pieces) if len(pieces) > 1 else pieces[0]
-        freqs_cb, gm_cb = geometric_mean_psd(raw_cond_base)
+        freqs_cb, gm_cb = _geometric_mean_psd_raw(raw_cond_base)
 
         ax = axes[row_idx, 0]
         ax.plot(
@@ -1077,7 +1084,7 @@ def run_group(subjects, deriv_root=None):
                         if len(pieces_c) > 1
                         else pieces_c[0]
                     )
-                    freqs_cc, gm_cc = geometric_mean_psd(raw_cond_clean)
+                    freqs_cc, gm_cc = _geometric_mean_psd_raw(raw_cond_clean)
                     ax.plot(
                         freqs_cc,
                         10 * np.log10(gm_cc + 1e-30),

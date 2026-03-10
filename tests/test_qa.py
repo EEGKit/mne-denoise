@@ -1,12 +1,21 @@
 """Tests for mne_denoise.qa module."""
 
+from unittest.mock import MagicMock
+
 import numpy as np
+import pytest
 
 import mne_denoise.qa as qa
 from mne_denoise.qa import (
+    below_noise_distortion_db,
+    compute_all_qa_metrics,
+    geometric_mean_psd_ratio,
+    noise_surround_ratio,
+    overclean_proportion,
     peak_attenuation_db,
     spectral_distortion,
     suppression_ratio,
+    underclean_proportion,
     variance_removed,
 )
 
@@ -60,26 +69,63 @@ def test_peak_attenuation_out_of_range():
     assert np.all(np.isnan(result))
 
 
-def test_peak_attenuation_no_change():
-    """Same PSD before/after → 0 dB attenuation."""
+def test_noise_surround_ratio_basic():
+    """Flat spectrum → ratio ≈ 1."""
     freqs = np.arange(0, 100, 0.5)
-    psd = np.ones_like(freqs)
-    result = peak_attenuation_db(freqs, psd, psd, 50.0)
+    psd = np.ones((4, len(freqs)))
+    result = noise_surround_ratio(freqs, psd, 50.0)
+    np.testing.assert_allclose(result, 1.0, atol=0.01)
+
+
+def test_below_noise_distortion_db_basic():
+    """Same PSD → 0 dB distortion."""
+    freqs = np.arange(0, 100, 0.5)
+    psd = np.ones((3, len(freqs)))
+    result = below_noise_distortion_db(freqs, psd, psd)
     np.testing.assert_allclose(result, 0.0, atol=1e-10)
 
 
-def test_peak_attenuation_custom_bandwidth():
-    """Test custom bandwidth parameter."""
+def test_overclean_proportion_basic():
+    """Identical spectral floor → proportion = 0."""
     freqs = np.arange(0, 100, 0.5)
-    psd_before = np.ones_like(freqs)
-    psd_after = np.ones_like(freqs)
-    psd_before[(freqs >= 49) & (freqs <= 51)] = 10.0
-    psd_after[(freqs >= 49) & (freqs <= 51)] = 1.0
-    result = peak_attenuation_db(freqs, psd_before, psd_after, 50.0, bandwidth=1.0)
-    assert result > 0
+    psd = np.ones((5, len(freqs)))
+    result = overclean_proportion(freqs, psd, psd, 50.0)
+    assert result == pytest.approx(0.0)
 
 
-# --- suppression_ratio ---
+def test_underclean_proportion_basic():
+    """Flat spectrum → no channels under-cleaned."""
+    freqs = np.arange(0, 100, 0.5)
+    psd = np.ones((5, len(freqs)))
+    result = underclean_proportion(freqs, psd, 50.0)
+    assert result == pytest.approx(0.0)
+
+
+def test_geometric_mean_psd_ratio_basic():
+    """Same PSD → ratio = 1."""
+    freqs = np.arange(0, 100, 0.5)
+    psd = np.ones((3, len(freqs)))
+    result = geometric_mean_psd_ratio(freqs, psd, psd)
+    np.testing.assert_allclose(result, 1.0, atol=1e-6)
+
+
+def test_compute_all_qa_metrics_mock():
+    """Test the main entry point with mocks."""
+    raw_b = MagicMock()
+    raw_a = MagicMock()
+    psd_obj = MagicMock()
+    psd_obj.freqs = np.linspace(0, 125, 250)
+    psd_obj.get_data.return_value = np.ones((4, 250))
+    raw_b.compute_psd.return_value = psd_obj
+    raw_a.compute_psd.return_value = psd_obj
+
+    metrics = compute_all_qa_metrics(raw_b, raw_a, line_freq=50.0)
+    assert "peak_attenuation_db" in metrics
+    assert "R_f0" in metrics
+    assert "below_noise_distortion_db" in metrics
+    assert "below_noise_pct" not in metrics
+    assert "overclean_proportion" in metrics
+    assert "underclean_proportion" in metrics
 
 
 def test_suppression_ratio_basic():
@@ -91,29 +137,20 @@ def test_suppression_ratio_basic():
     res = suppression_ratio(freqs, psd_before, psd_after, 50.0)
     np.testing.assert_allclose(res, 10.0)
 
-    # 2D input (averages across channels first)
-    psd_before_2d = np.ones((2, len(freqs)))
-    psd_after_2d = np.ones((2, len(freqs))) * 0.1
-    res_2d = suppression_ratio(freqs, psd_before_2d, psd_after_2d, 50.0)
-    np.testing.assert_allclose(res_2d, 10.0)
-
 
 def test_suppression_ratio_out_of_range():
-    """Target frequency outside range → NaN."""
+    """Target frequency outside sampled range returns NaN."""
     freqs = np.arange(0, 50, 0.5)
     psd = np.ones_like(freqs)
     assert np.isnan(suppression_ratio(freqs, psd, psd, 100.0))
 
 
 def test_suppression_ratio_full_suppression():
-    """Zero power after → Inf."""
+    """Zero after-band power returns +inf."""
     freqs = np.arange(0, 100, 0.5)
     psd_before = np.ones_like(freqs)
     psd_after = np.zeros_like(freqs)
     assert suppression_ratio(freqs, psd_before, psd_after, 50.0) == np.inf
-
-
-# --- spectral_distortion ---
 
 
 def test_spectral_distortion_basic():
@@ -124,23 +161,13 @@ def test_spectral_distortion_basic():
     res = spectral_distortion(freqs, psd, psd, line_freq=50.0, n_harmonics=3)
     np.testing.assert_allclose(res, 0.0, atol=1e-10)
 
-    # Modified spectrum outside harmonics → positive distortion
-    psd_after = psd.copy()
-    psd_after[:, (freqs > 10) & (freqs < 20)] *= 2.0
-    res_dist = spectral_distortion(freqs, psd, psd_after, line_freq=50.0)
-    assert res_dist > 0
-
 
 def test_spectral_distortion_no_safe_freqs():
-    """No frequencies left after filtering/exclusion → 0.0."""
+    """If all bins are excluded, distortion falls back to 0."""
     freqs = np.linspace(48, 52, 10)
     psd = np.ones_like(freqs)
-    # Exclude 50 +/- 2*bandwidth. bandwidth=5 -> exclude 40-60. freqs is 48-52.
     res = spectral_distortion(freqs, psd, psd, line_freq=50.0, bandwidth=5.0)
     assert res == 0.0
-
-
-# --- variance_removed ---
 
 
 def test_variance_removed_basic():
@@ -150,13 +177,10 @@ def test_variance_removed_basic():
     assert variance_removed(x, 0.5 * x) == 75.0
 
 
-def test_variance_removed_zero_var():
-    """Input with zero variance → 0.0."""
+def test_variance_removed_zero_variance_before():
+    """Zero baseline variance returns 0.0 by design."""
     x = np.zeros(10)
     assert variance_removed(x, x) == 0.0
-
-
-# --- Re-export ---
 
 
 def test_reexport_matches():

@@ -7,6 +7,14 @@
   (``comparison``, ``dss``, ``zapline``) from the public Viz surface.
 - Standardized the Viz API around explicit, study-agnostic plotting inputs.
 
+**QA Module Addition**:
+
+- Added ``mne_denoise.qa`` as the canonical quality-assurance module.
+- Added low-level array-based spectral QA metrics (artifact suppression and
+  signal-preservation metrics).
+- Added high-level Raw-based convenience helpers for PSD aggregation and
+  benchmark metric computation.
+
 **What Each Viz Module Does**:
 
 - ``mne_denoise.viz.theme``: Shared publication-ready style utilities.
