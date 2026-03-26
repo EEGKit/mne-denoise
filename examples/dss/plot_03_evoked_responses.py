@@ -2,10 +2,10 @@
 Denoising Evoked Responses.
 ===========================
 
-This example demonstrates how to use DSS to enhance **Evoked Responses** (ERPs/ERFs).
-We explore two strategies:
-1.  **Standard Denoising**: Using `AverageBias` to enhance the common evoked response (N100/P200).
-2.  **Contrast Enhancement**: Building a **Custom Bias** to isolate the *difference* between two experimental conditions (Left vs Right Audio).
+This example demonstrates how to use DSS to enhance evoked responses
+(ERPs/ERFs). It covers both standard average-bias denoising of the shared
+evoked response and a custom contrast bias that isolates the difference between
+two experimental conditions.
 
 Authors: Sina Esmaeili (sina.esmaeili@umontreal.ca)
          Hamza Abdelhedi (hamza.abdelhedi@umontreal.ca)
@@ -36,7 +36,7 @@ from mne_denoise.viz import (
 # Before using real data, let's demonstrate the concept on a simple simulation.
 # We create a known "Evoked Response" (damped sinusoid) and bury it in noise.
 #
-# **Goal**: Recover the template signal from the noisy mixture.
+# The goal is to recover the template response from the noisy mixture.
 
 print("\n--- Part 0: Synthetic Data Demo ---")
 
@@ -102,7 +102,7 @@ plt.plot(
 )
 plt.title("Synthetic Demo: Signal Recovery")
 plt.legend()
-plt.show(block=False)
+plt.show()
 
 print("Synthetic demo complete. Proceeding to Real Data...\n")
 
@@ -144,18 +144,22 @@ epochs = mne.Epochs(
 
 # Pick MEG data for DSS
 epochs_meg = epochs.copy().pick_types(meg=True, eeg=False, eog=False, exclude="bads")
+epochs_meg_topomap_picks = mne.pick_types(
+    epochs_meg.info, meg="grad", eeg=False, eog=False, exclude="bads"
+)
 print(f"Epochs: {len(epochs_meg)} trials, {len(epochs_meg.ch_names)} channels")
 
 # %%
 # Part 1: Standard Evoked Denoising
 # ---------------------------------
-# **Goal**: Maximize the ratio of (Evoked Power) / (Total Power).
-# This finds components that are perfectly repeatable across trials (the "Evoked Response").
+# Here the bias is trial reproducibility: components are ranked by how strongly
+# they reflect the evoked response relative to total power.
 
 print("\n--- Part 1: Standard Trial Average Bias ---")
 
 # 1. Fit DSS
-# We use AverageBias(axis='epochs'), which replaces every trial with the mean of all trials.
+# We use AverageBias(axis='epochs'), which replaces every
+# trial with the mean of all trials.
 dss_std = DSS(
     n_components=10,
     bias=AverageBias(axis="epochs"),
@@ -166,17 +170,28 @@ dss_std.fit(epochs_meg)
 
 # Visualize
 # The score curve shows how "evoked" each component is (0 to 1).
-plot_component_score_curve(dss_std, mode="ratio", show=False)
+plot_component_score_curve(dss_std, mode="ratio", show=True)
 
+# %%
 # Time Series of top components
-plot_component_time_series(dss_std, data=epochs_meg, n_components=5, show=False)
+plot_component_time_series(dss_std, data=epochs_meg, n_components=5, show=True)
 
+# %%
 # The first component should be the dominant N100 response.
-plot_component_summary(dss_std, data=epochs_meg, n_components=[0], show=False)
+plot_component_summary(
+    dss_std,
+    data=epochs_meg,
+    info=epochs_meg.info,
+    picks=epochs_meg_topomap_picks,
+    n_components=[0],
+    show=True,
+)
 
+# %%
 # 3. Denoising Effect
 # We reconstruct the data using ONLY the top few reproducible components.
-# This removes "non-evoked" background noise (alpha waves, etc. that are not phase-locked).
+# This removes "non-evoked" background noise
+# (alpha waves, etc. that are not phase-locked).
 keep_n = 5
 print(f"Reconstructing Evoked with top {keep_n} components...")
 
@@ -202,9 +217,8 @@ plot_evoked_gfp_comparison(
     epochs_clean,
     times=epochs_meg.times,
     labels=("Original", f"Denoised (Top {keep_n})"),
-    show=False,
+    show=True,
 )
-plt.show(block=False)  # Show it but don't stop execution
 
 
 # Quantify Improvement (SNR = Peak Evoked Power / Baseline Variance)
@@ -218,15 +232,17 @@ def get_snr(ep):
 snr_in = get_snr(epochs_meg)
 snr_out = get_snr(epochs_clean)
 print(
-    f"SNR Improvement: {snr_in:.2f} -> {snr_out:.2f} ({snr_out / snr_in:.1f}x improvement)"
+    f"SNR Improvement: {snr_in:.2f} -> {snr_out:.2f} "
+    f"({snr_out / snr_in:.1f}x improvement)"
 )
 
 
 # %%
 # Part 2: Custom Contrast Bias (Oddball / Difference)
 # ---------------------------------------------------
-# **Goal**: Find components that maximize the **Difference** between Condition A and B.
-# This is useful for isolating the specific network responsible for distinguishing stimuli.
+# A contrast bias shifts the target from repeatability alone to the difference
+# between two conditions, which is useful when the scientific question is
+# condition-specific rather than purely evoked.
 
 print("\n--- Part 2: Custom Contrast Bias ---")
 
@@ -285,8 +301,9 @@ dss_diff.fit(epochs_meg)
 
 # 3. Visualize
 # Component 0 should be the "Difference Component".
-plot_component_score_curve(dss_diff, mode="ratio", show=False)
+plot_component_score_curve(dss_diff, mode="ratio", show=True)
 
+# %%
 # Let's plot the time series of Comp 0 for Left vs Right conditions separate.
 # We expect to see a strong separation.
 src_diff = dss_diff.transform(epochs_meg)  # (n_epochs, n_comps, n_times)
@@ -306,6 +323,14 @@ plt.legend()
 plt.grid(True)
 plt.show()
 
+# %%
 # 4. Topography of the Difference
 # This topography explains the *difference* between left and right.
-plot_component_summary(dss_diff, data=epochs_meg, n_components=[0], show=True)
+plot_component_summary(
+    dss_diff,
+    data=epochs_meg,
+    info=epochs_meg.info,
+    picks=epochs_meg_topomap_picks,
+    n_components=[0],
+    show=True,
+)

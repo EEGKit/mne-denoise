@@ -1,22 +1,14 @@
 """
-================================================================
-ZapLine-plus: Paper-Faithful Example (Klug & Kloosterman 2022)
-================================================================
+ZapLine-plus: Adaptive Cleaning on Non-Stationary Noise.
+========================================================
 
-This example replicates the core demonstrations from the Zapline-plus paper,
-showing the adaptive cleaning process on synthetic data.
+This example follows the main steps of ZapLine-plus on a synthetic recording
+whose line noise changes in frequency, topography, and strength over time. The
+goal is to make the adaptive logic visible: frequency detection, segmentation,
+and chunk-wise cleaning.
 
-The paper (Klug & Kloosterman 2022) demonstrates:
-1. Automatic noise frequency detection
-2. Adaptive chunk segmentation based on covariance stationarity
-3. Per-chunk component removal with outlier detection
-4. QA loop for under/over-cleaning adaptation
-
-We create visualizations similar to the paper figures to demonstrate our
-Python implementation matches the MATLAB reference.
+Authors: Sina Esmaeili (sina.esmaeili@umontreal.ca)
 """
-
-# Authors: Sina Esmaeili <sina.esmaeili@umontreal.ca>
 
 import warnings
 
@@ -73,10 +65,11 @@ def generate_nonstationary_data(
     seed=42,
 ):
     """Generate data with non-stationary line noise.
-    Creates a scenario with:
-    - Chunk 1 (0-60s): Strong 50 Hz, Topography A
-    - Chunk 2 (60-120s): Moderate 50.05 Hz (drift), Topography B
-    - Chunk 3 (120-180s): Weak/absent noise (bursts only)
+
+    The simulation has three regimes: a strong 50 Hz contamination with one
+    topography from 0 to 60 seconds, a moderate 50.05 Hz contamination with a
+    different topography from 60 to 120 seconds, and a final interval from 120
+    to 180 seconds where noise appears only in bursts.
     """
     rng = np.random.RandomState(seed)
     n_times = int(duration * sfreq)
@@ -207,6 +200,7 @@ plt.show()
 # Step 2: Adaptive Data Segmentation
 # ----------------------------------
 # Segment data based on covariance stationarity (changing noise topography).
+# This is where ZapLine-plus differs most clearly from a single global fit.
 
 print("\n--- Step 2: Adaptive Segmentation ---")
 target_freq = detected_freqs[0] if detected_freqs else 50.0
@@ -216,16 +210,16 @@ segments = segment_data(
 print(f"Number of segments: {len(segments)}")
 for i, (start, end) in enumerate(segments):
     print(
-        f"  Segment {i + 1}: {start / sfreq:.1f}s - {end / sfreq:.1f}s ({(end - start) / sfreq:.1f}s)"
+        f"  Segment {i + 1}: "
+        f"{start / sfreq:.1f}s - {end / sfreq:.1f}s "
+        f"({(end - start) / sfreq:.1f}s)"
     )
 
 ###############################################################################
 # Step 3: Per-Segment Processing
 # ------------------------------
-# For each segment:
-# 1. Fine-tune frequency
-# 2. Check artifact presence
-# 3. Run ZapLine with adaptive component selection
+# For each segment we fine-tune the peak frequency, check whether an artifact is
+# still present, and then run ZapLine with adaptive component selection.
 
 print("\n--- Step 3: Per-Segment Processing ---")
 segment_info = []
@@ -286,6 +280,10 @@ print(f"Cleaning complete. Components removed: {result['n_removed']}")
 
 # Quick overview using our viz functions
 plot_psd_comparison(data, data_clean, sfreq=sfreq, line_freq=target_freq, show=True)
+
+###############################################################################
+# Detailed Adaptive Cleaning Figure
+# ---------------------------------
 
 fig = plt.figure(figsize=(14, 10))
 gs = GridSpec(3, 3, figure=fig, hspace=0.3, wspace=0.3)

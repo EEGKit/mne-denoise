@@ -927,7 +927,9 @@ def plot_component_psd_comparison(
     ...     show=False,
     ... )
     """
-    fig, axes = themed_figure(1, 2, figsize=(12, 4), constrained_layout=True)
+    fig, axes = themed_figure(
+        1, 2, figsize=(12, 4), sharey=True, constrained_layout=True
+    )
     axes = np.atleast_1d(axes)
 
     freqs_before, psd_before = _compute_psd_matrix(

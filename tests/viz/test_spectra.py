@@ -167,6 +167,7 @@ def test_plot_component_psd_comparison(fitted_dss, synthetic_data):
         show=False,
     )
     assert isinstance(fig, plt.Figure)
+    assert fig.axes[0].get_ylim() == fig.axes[1].get_ylim()
 
     raw = mne.io.RawArray(synthetic_data.get_data()[0], synthetic_data.info)
     sources_raw = fitted_dss.transform(raw)

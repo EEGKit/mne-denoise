@@ -9,12 +9,9 @@ autocorrelated components, slow drifts, and smooth waveforms.
 We cover both **linear biases** (TimeShiftBias, SmoothingBias) and
 **nonlinear denoisers** (DCTDenoiser, TemporalSmoothnessDenoiser).
 
-**Structure**:
-- Part 0: Synthetic Slow Drift (Random Walk)
-- Part 1: TimeShiftBias + TSR (Time-Shift Regression)
-- Part 2: SmoothingBias (Temporal Smoothing)
-- Part 3: DCTDenoiser + IterativeDSS (DCT Domain)
-- Part 4: Real EEG Slow Cortical Potentials
+The examples move from synthetic slow drifts to time-shift and smoothing
+biases, then to DCT-based iterative denoising and a real EEG slow-potential
+example.
 
 Authors: Sina Esmaeili (sina.esmaeili@umontreal.ca)
          Hamza Abdelhedi (hamza.abdelhedi@umontreal.ca)
@@ -115,7 +112,7 @@ axes[1].legend()
 axes[1].grid(True, alpha=0.3)
 
 plt.tight_layout()
-plt.show(block=False)
+plt.show()
 
 
 # %%
@@ -140,10 +137,18 @@ print(f"Wrapper Eigenvalues: {dss_tsr_wrapper.eigenvalues_[:5]}")
 print("(Should be identical)")
 
 # Use manual for visualization
-plot_component_summary(dss_tsr_manual, data=raw_sim, n_components=3, show=False)
+plot_component_summary(
+    dss_tsr_manual,
+    data=raw_sim,
+    info=raw_sim.info,
+    picks=np.arange(len(raw_sim.ch_names)),
+    n_components=3,
+    show=False,
+)
 plt.gcf().suptitle("TimeShiftBias (TSR): Autocorrelated Components")
-plt.show(block=False)
+plt.show()
 
+# %%
 # Compare first component with ground truth
 sources_tsr = dss_tsr_manual.transform(raw_sim)
 comp0_tsr = sources_tsr[0]
@@ -173,7 +178,7 @@ plt.title("Time-Shift Regression: Extracted Slow Drift")
 plt.legend()
 plt.grid(True, alpha=0.3)
 plt.tight_layout()
-plt.show(block=False)
+plt.show()
 
 
 # %%
@@ -197,9 +202,16 @@ dss_smooth_wrapper.fit(raw_sim)
 print(f"Wrapper Eigenvalues: {dss_smooth_wrapper.eigenvalues_[:5]}")
 
 # Visualize
-plot_component_summary(dss_smooth_manual, data=raw_sim, n_components=3, show=False)
+plot_component_summary(
+    dss_smooth_manual,
+    data=raw_sim,
+    info=raw_sim.info,
+    picks=np.arange(len(raw_sim.ch_names)),
+    n_components=3,
+    show=False,
+)
 plt.gcf().suptitle("SmoothingBias: Low-Frequency Components")
-plt.show(block=False)
+plt.show()
 
 # Compare with ground truth
 sources_smooth = dss_smooth_manual.transform(raw_sim)
@@ -230,9 +242,16 @@ idss_dct.fit(raw_sim)
 print("IterativeDSS (DCT) converged")
 
 # Visualize
-plot_component_summary(idss_dct, data=raw_sim, n_components=3, show=False)
+plot_component_summary(
+    idss_dct,
+    data=raw_sim,
+    info=raw_sim.info,
+    picks=np.arange(len(raw_sim.ch_names)),
+    n_components=3,
+    show=False,
+)
 plt.gcf().suptitle("DCTDenoiser + IterativeDSS: DCT Domain Smoothing")
-plt.show(block=False)
+plt.show()
 
 # Compare with ground truth
 sources_dct = idss_dct.transform(raw_sim)
@@ -284,7 +303,7 @@ axes[3].legend()
 axes[3].grid(True, alpha=0.3)
 
 plt.tight_layout()
-plt.show(block=False)
+plt.show()
 
 print("\n--- All methods successfully extract the slow drift ---")
 
@@ -342,12 +361,11 @@ plot_channel_time_course_comparison(
     show=False,
 )
 plt.gcf().suptitle("Real EEG: Original vs TSR Component 0")
-plt.show(block=False)
+plt.show()
 
+# %%
 plot_psd_comparison(raw_single, comp_raw, fmin=0.1, fmax=10, show=False)
 plt.gcf().axes[0].set_title("Real EEG: PSD Comparison (Slow Oscillations)")
-plt.show(block=False)
+plt.show()
 
 print("\nTSR successfully extracted slow cortical potentials from real EEG!")
-
-plt.show()

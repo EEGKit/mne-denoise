@@ -2,10 +2,9 @@ r"""
 ZapLine: Parameter Tuning and Real Data.
 =========================================
 
-This tutorial covers:
-1. Parameter exploration (n_remove, nkeep, threshold)
-2. Real MEG data from NoiseTools
-3. Comparing different parameter settings
+This example shows how the main ZapLine tuning parameters change the cleaning
+behavior on synthetic data, then applies the same workflow to a real NoiseTools
+MEG recording.
 
 Authors: Sina Esmaeili (sina.esmaeili@umontreal.ca)
          Hamza Abdelhedi (hamza.abdelhedi@umontreal.ca)
@@ -15,8 +14,10 @@ Authors: Sina Esmaeili (sina.esmaeili@umontreal.ca)
 # Imports
 # -------
 from pathlib import Path
+from urllib.request import urlretrieve
 
 import matplotlib.pyplot as plt
+import mne
 import numpy as np
 from scipy import signal
 from scipy.io import loadmat
@@ -28,6 +29,40 @@ from mne_denoise.viz import (
     plot_psd_comparison,
 )
 from mne_denoise.zapline import ZapLine
+
+NOISETOOLS_BASE_URL = "http://audition.ens.fr/adc/NoiseTools/DATA"
+
+
+def _find_repo_root():
+    """Return the repository root for this example."""
+    starts = []
+    if "__file__" in globals():
+        starts.append(Path(__file__).resolve())
+    starts.append(Path.cwd().resolve())
+
+    for start in starts:
+        current = start if start.is_dir() else start.parent
+        for candidate in (current, *current.parents):
+            mne_ok = (candidate / "mne_denoise").exists()
+            ex_ok = (candidate / "examples").exists()
+            if mne_ok and ex_ok:
+                return candidate
+
+    raise FileNotFoundError("Could not locate the repository root.")
+
+
+def _load_or_fetch_data_file(name):
+    """Return one ZapLine example data file, downloading it if needed."""
+    path = _find_repo_root() / "examples" / "zapline" / "data" / name
+    if path.exists():
+        return path
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    url = f"{NOISETOOLS_BASE_URL}/{name}"
+    print(f"Downloading {name} to {path}...")
+    urlretrieve(url, str(path))
+    return path
+
 
 # %%
 # Part 1: n_remove Parameter
@@ -76,6 +111,9 @@ print(f"Data with {n_line_sources} line noise sources")
 # %%
 # Compare Different n_remove Values
 # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# Small values tend to leave narrowband noise behind. Larger values clean more
+# aggressively, but eventually start removing structure that is no longer just
+# line noise.
 
 fig, axes = plt.subplots(2, 3, figsize=(14, 8))
 
@@ -140,6 +178,8 @@ print(f"High-channel data: {data_high.shape}")
 # %%
 # Compare Different nkeep Values
 # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# The `nkeep` parameter matters most when the channel count is high. It trades
+# some spatial richness for a more stable low-rank DSS problem.
 
 fig, axes = plt.subplots(1, 4, figsize=(16, 4))
 
@@ -175,17 +215,30 @@ plt.show()
 # ------------------------
 # The eigenvalues (scores) indicate how much each component
 # carries line noise. High scores = strong line noise.
+# The selected components should be the ones that combine a strong narrowband
+# signature with a plausible spatial pattern.
 
 print("\nPart 3: Understanding component scores")
 
 # Use a fixed removal count to guarantee selected components for pattern plots.
 est_scores = ZapLine(line_freq=50, sfreq=sfreq, n_remove=3)
 est_scores.fit(data)
+plot_montage = mne.channels.make_standard_montage("standard_1020")
+plot_info = mne.create_info(plot_montage.ch_names[:n_channels], sfreq, "eeg")
+plot_info.set_montage(plot_montage)
+plot_picks = np.arange(len(plot_info.ch_names))
 
 # Use the reusable viz functions
 fig, axes = plt.subplots(1, 2, figsize=(12, 4))
 plot_component_score_curve(est_scores, ax=axes[0], show=False)
-plot_component_patterns(est_scores, n_components=3, ax=axes[1], show=False)
+plot_component_patterns(
+    est_scores,
+    info=plot_info,
+    picks=plot_picks,
+    n_components=1,
+    ax=axes[1],
+    show=False,
+)
 plt.tight_layout()
 plt.show()
 
@@ -193,97 +246,90 @@ plt.show()
 # Part 4: Real MEG Data (NoiseTools)
 # ----------------------------------
 # Apply ZapLine to real MEG data from NoiseTools dataset.
-# Data from: http://audition.ens.fr/adc/NoiseTools/DATA/
+# The file is cached under ``examples/zapline/data`` after the first run.
 
 print("\nPart 4: Real MEG Data")
 
-# Find data directory
-# Find data directory - handle both script calculation and gallery execution
-try:
-    script_dir = Path(__file__).parent
-except NameError:
-    script_dir = Path.cwd()
-data_dir = script_dir / "data"
-
 # Load data1.mat (MEG with large near-DC fluctuations)
-data1_path = data_dir / "data1.mat"
-if data1_path.exists():
-    mat = loadmat(str(data1_path))
-    meg_data = mat["data"].T  # Transpose to (channels, times)
-    sfreq_meg = float(mat["sr"].flatten()[0])
+data1_path = _load_or_fetch_data_file("data1.mat")
+mat = loadmat(str(data1_path))
+meg_data = mat["data"].T  # Transpose to (channels, times)
+sfreq_meg = float(mat["sr"].flatten()[0])
 
-    # Demean
-    meg_data = meg_data - np.mean(meg_data, axis=1, keepdims=True)
+# Demean
+meg_data = meg_data - np.mean(meg_data, axis=1, keepdims=True)
 
-    print(f"Loaded data1.mat: {meg_data.shape}, sfreq={sfreq_meg} Hz")
-    print("MEG data with large near-DC fluctuations")
-else:
-    print(f"Data not found: {data1_path}")
-    print("Download from: http://audition.ens.fr/adc/NoiseTools/DATA/data1.mat")
-    meg_data = None
+print(f"Loaded data1.mat: {meg_data.shape}, sfreq={sfreq_meg} Hz")
+print("MEG data with large near-DC fluctuations")
 
 # %%
 # Apply ZapLine to MEG Data
 # ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-if meg_data is not None:
-    # Apply ZapLine (60 Hz for this dataset)
-    est_meg = ZapLine(
-        line_freq=60,
-        sfreq=sfreq_meg,
-        n_remove=2,  # As in MATLAB example
-    )
-    est_meg.fit(meg_data)
-    cleaned_meg = est_meg.transform(meg_data)
+# Apply ZapLine (60 Hz for this dataset)
+est_meg = ZapLine(
+    line_freq=60,
+    sfreq=sfreq_meg,
+    n_remove=2,  # As in MATLAB example
+)
+est_meg.fit(meg_data)
+cleaned_meg = est_meg.transform(meg_data)
 
-    print(f"Components removed: {est_meg.n_removed_}")
+print(f"Components removed: {est_meg.n_removed_}")
 
-    # %%
-    # Compare Before/After for MEG
-    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# %%
+# Compare Before/After for MEG
+# ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# On the real recording, the relevant check is whether the 60 Hz peak drops
+# sharply without flattening the rest of the broadband spectrum.
 
-    # Use reusable viz function for PSD comparison
-    plot_psd_comparison(
-        meg_data,
-        cleaned_meg,
-        sfreq=sfreq_meg,
-        line_freq=60,
-        fmax=150,
-        show=True,
-    )
+# Use reusable viz function for PSD comparison
+plot_psd_comparison(
+    meg_data,
+    cleaned_meg,
+    sfreq=sfreq_meg,
+    line_freq=60,
+    fmax=150,
+    show=True,
+)
 
-    # Show comprehensive summary
-    plot_component_cleaning_summary(
-        scores=getattr(est_meg, "scores_", getattr(est_meg, "eigenvalues_", None)),
-        selected_count=getattr(est_meg, "n_removed_", 0),
-        patterns=getattr(est_meg, "patterns_", None),
-        removed=meg_data - cleaned_meg,
-        sources=getattr(est_meg, "sources_", None),
-        sfreq=sfreq_meg,
-        line_freq=60,
-        title="Component Cleaning Summary (ZapLine)",
-        show=True,
-    )
+# %%
+# Component Cleaning Summary
+# ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    # %%
-    # Measure Reduction
-    # ^^^^^^^^^^^^^^^^^
+plot_component_cleaning_summary(
+    scores=getattr(est_meg, "scores_", getattr(est_meg, "eigenvalues_", None)),
+    selected_count=getattr(est_meg, "n_removed_", 0),
+    patterns=getattr(est_meg, "patterns_", None),
+    removed=meg_data - cleaned_meg,
+    sources=getattr(est_meg, "sources_", None),
+    sfreq=sfreq_meg,
+    line_freq=60,
+    title="Component Cleaning Summary (ZapLine)",
+    show=True,
+)
 
-    idx_60 = np.argmin(np.abs(freqs - 60))
-    power_60_orig = np.mean(psd_orig[:, idx_60])
-    power_60_clean = np.mean(psd_clean[:, idx_60])
-    reduction_db = 10 * np.log10(power_60_orig / power_60_clean)
+# %%
+# Measure Reduction
+# ^^^^^^^^^^^^^^^^^
 
-    print("\n=== MEG Results ===")
-    print(f"60 Hz power reduction: {reduction_db:.1f} dB")
-    print(f"Components removed: {est_meg.n_removed_}")
+freqs_meg, psd_orig_meg = signal.welch(meg_data, sfreq_meg, nperseg=int(sfreq_meg * 2))
+_, psd_clean_meg = signal.welch(cleaned_meg, sfreq_meg, nperseg=int(sfreq_meg * 2))
+idx_60 = np.argmin(np.abs(freqs_meg - 60))
+power_60_orig = np.mean(psd_orig_meg[:, idx_60])
+power_60_clean = np.mean(psd_clean_meg[:, idx_60])
+reduction_db = 10 * np.log10(power_60_orig / power_60_clean)
+
+print("\n=== MEG Results ===")
+print(f"60 Hz power reduction: {reduction_db:.1f} dB")
+print(f"Components removed: {est_meg.n_removed_}")
 
 # %%
 # Conclusion
 # ----------
-# Key parameter guidelines:
-#
-# - **n_remove**: Start with "auto" or 1-3. Increase if line noise remains.
-# - **nkeep**: Use for high-channel data (>64). Try 32-64.
-# - **threshold**: For "auto" mode. Lower = more aggressive removal.
-# - **n_harmonics**: Usually auto-detected. Increase for high sfreq data.
+# A practical starting point is to use ``n_remove="auto"`` or a small manual
+# value such as 1 to 3, then increase it only if clear line-noise structure
+# remains. ``nkeep`` becomes useful for high-channel recordings, ``threshold``
+# controls how aggressive automatic removal is, and ``n_harmonics`` matters
+# most when the sampling rate is high enough for several harmonics to be
+# present.

@@ -2,9 +2,16 @@ from __future__ import annotations
 
 import os
 import sys
+import tempfile
 from datetime import datetime
 
+from sphinx_gallery.sorting import ExplicitOrder, FileNameSortKey
+
 sys.path.insert(0, os.path.abspath(".."))
+os.environ.setdefault(
+    "NUMBA_CACHE_DIR", os.path.join(tempfile.gettempdir(), "numba_cache")
+)
+os.environ.setdefault("MNE_HOME", os.path.join(tempfile.gettempdir(), "mne_home"))
 
 import mne_denoise
 
@@ -45,7 +52,14 @@ sphinx_gallery_conf = {
     "examples_dirs": "../examples",
     "gallery_dirs": "auto_examples",
     "filename_pattern": r"plot_",
-    "ignore_pattern": r"zapline|tutorials|_legacy",
+    "ignore_pattern": r"tutorials|_legacy",
+    "subsection_order": ExplicitOrder(
+        [
+            "../examples/dss",
+            "../examples/zapline",
+        ]
+    ),
+    "within_subsection_order": FileNameSortKey,
     "reference_url": {
         "mne_denoise": None,
     },

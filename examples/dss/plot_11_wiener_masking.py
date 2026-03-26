@@ -1,17 +1,13 @@
 """
 =============================================================================
-11. Adaptive Wiener Masking for Bursty Signals.
+Adaptive Wiener Masking for Bursty Signals.
 =============================================================================
 
 This example demonstrates the **WienerMaskDenoiser**, a nonlinear function that
 adapts to the *local variance* (envelope) of the signal.
 
-It is particularly useful for extracting **bursty** or **non-stationary** signals,
-such as:
-*   Sleep spindles
-*   Beta bursts
-*   Speech segments
-*   Intermittent artifacts
+It is particularly useful for extracting bursty or non-stationary signals such
+as sleep spindles, beta bursts, speech segments, or intermittent artifacts.
 
 The denoiser estimates a time-varying mask $m(t)$ based on the local signal-to-noise
 ratio, dampening quiet periods and preserving high-variance bursts.
@@ -145,7 +141,6 @@ axes[3].set_ylabel("Mask Value (0-1)")
 axes[3].set_xlabel("Time (s)")
 
 plt.tight_layout()
-plt.show(block=False)
+plt.show()
 
 print("\nExample 11 Complete!")
-plt.show()
