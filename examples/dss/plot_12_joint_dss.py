@@ -5,19 +5,18 @@ Joint DSS (Multi-Dataset Repeatability).
 This example demonstrates **Joint Denoising Source Separation (JDSS)**, a method
 for extracting components that are reproducible across multiple datasets.
 
-JDSS is useful for:
-*   Finding sources that are **consistent across subjects** (group-level analysis).
-*   Finding sources that are **consistent across blocks** (inter-session reproducibility).
-*   Finding **stimulus-evoked** responses across repeated presentations.
+JDSS is useful for finding sources that are consistent across subjects,
+consistent across recording blocks, or reproducible across repeated stimulus
+presentations.
 
 The objective function is:
 
 .. math::
     \max_w \frac{w^T R_{signal} w}{w^T R_{total} w}
 
-where:
-*   $R_{signal} = Cov(\bar{X})$ (Covariance of the grand average).
-*   $R_{total} = \frac{1}{N} \sum Cov(X_i)$ (Mean of individual covariances).
+where :math:`R_{signal} = Cov(\bar{X})` is the covariance of the grand average
+and :math:`R_{total} = \frac{1}{N} \sum Cov(X_i)` is the mean of the
+individual covariances.
 
 Components with high eigenvalue are highly reproducible.
 
@@ -42,14 +41,10 @@ from mne_denoise.dss.denoisers import AverageBias
 # %%
 # Simulate Multi-Subject Data
 # ---------------------------
-# We simulate 5 "subjects", each with:
-# 1. A **common source**: 10 Hz sine wave (signal of interest).
-# 2. **Subject-specific noise**: Strong pink noise with random spatial pattern.
-# 3. **Sensor noise**: Low-amplitude white noise.
-#
-# The challenge: The common signal is weak relative to individual noise.
-# Standard PCA/ICA on a single subject would struggle, but JDSS exploits
-# cross-subject consistency.
+# We simulate five subjects that share one weak 10 Hz source while each subject
+# also has strong pink noise with its own spatial pattern and additional
+# low-amplitude sensor noise. This is exactly the regime where single-subject
+# PCA or ICA struggles but JDSS can exploit cross-subject consistency.
 
 print("=== Joint DSS Example ===\n")
 print("Simulating 5 subjects with a shared 10 Hz source buried in noise...")
@@ -109,7 +104,8 @@ print("Signal amplitude: 1.0, Noise amplitude: 3.0 (SNR ~ 0.33)")
 # Note: DSS expects input shape (n_channels, n_times, n_epochs).
 # We treat the 5 subjects as "epochs" for the purpose of finding
 # reproducible components across subjects.
-# So we transpose datasets from (n_subjects, n_ch, n_times) to (n_ch, n_times, n_subjects).
+# So we transpose datasets from (n_subjects, n_ch, n_times)
+# to (n_ch, n_times, n_subjects).
 
 print("\nApplying JDSS (via DSS with group averaging)...")
 datasets_dss = np.transpose(datasets, (1, 2, 0))  # (16, 1000, 5)
@@ -126,7 +122,8 @@ print("  -> Score near 0.0 = random noise.\n")
 # Extract Sources
 # ---------------
 # Apply the learned filters to the data.
-# Transform returns (n_components, n_times, n_subjects) because input was (n_ch, n_times, n_subjects)
+# Transform returns (n_components, n_times, n_subjects)
+# because input was (n_ch, n_times, n_subjects)
 
 sources = jdss.transform(datasets_dss)  # (3, 1000, 5)
 sources = np.transpose(sources, (2, 0, 1))  # (n_subjects, n_components, n_times)
@@ -224,10 +221,7 @@ plt.show()
 # %%
 # Conclusion
 # ----------
-# JDSS successfully extracted the common 10 Hz signal despite:
-# * Low SNR (signal 3x weaker than noise)
-# * Subject-specific noise patterns
-# * Slightly varying signal topographies
-#
-# This makes JDSS ideal for group-level analyses where you want to find
-# components that are consistent across subjects or sessions.
+# JDSS successfully extracted the common 10 Hz signal even though the signal
+# was weaker than the noise, the noise patterns varied across subjects, and the
+# signal topographies were only approximately aligned. That is exactly the
+# setting where a shared group-level component model is useful.

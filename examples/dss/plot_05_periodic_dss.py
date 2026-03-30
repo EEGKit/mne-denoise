@@ -1,24 +1,12 @@
 """
 =====================================================
-Example 5: Periodic Signals (SSVEP & Quasi-Periodic).
+Periodic Signals (SSVEP and Quasi-Periodic).
 =====================================================
 
-This example comprehensively demonstrates periodic signal extraction using DSS.
-
-**Periodic Module Functions:**
-- `PeakFilterBias`: Single frequency (narrow bandpass)
-- `CombFilterBias`: Fundamental + harmonics (SSVEP)
-- `QuasiPeriodicDenoiser`: Template-based (ECG, respiration)
-
-**DSS Types:**
-- `DSS`: Linear spatial filtering (bias functions)
-- `IterativeDSS`: Nonlinear denoising (iterative refinement)
-
-**Structure**:
-- Part 0: Single Frequency (PeakFilterBias + DSS)
-- Part 1: SSVEP Harmonics (CombFilterBias + DSS)
-- Part 2: Quasi-Periodic Synthetic (QuasiPeriodicDenoiser + IterativeDSS)
-- Part 3: Real ECG Artifact (QuasiPeriodicDenoiser, single-channel)
+This example demonstrates periodic signal extraction with DSS. It combines
+PeakFilterBias, CombFilterBias, and QuasiPeriodicDenoiser with DSS and
+IterativeDSS to cover single-frequency extraction, SSVEP harmonics, and
+quasi-periodic structure such as ECG-like activity.
 
 Authors: Sina Esmaeili (sina.esmaeili@umontreal.ca)
          Hamza Abdelhedi (hamza.abdelhedi@umontreal.ca)
@@ -39,10 +27,10 @@ from mne_denoise.dss.denoisers import (
 )
 from mne_denoise.dss.variants import ssvep_dss
 from mne_denoise.viz import (
+    plot_channel_time_course_comparison,
+    plot_component_psd_comparison,
     plot_component_summary,
     plot_psd_comparison,
-    plot_spectral_psd_comparison,
-    plot_time_course_comparison,
 )
 
 # %%
@@ -116,16 +104,29 @@ print(f"\nDSS Eigenvalues: {dss_peak.eigenvalues_[:5]}")
 
 sources_peak = dss_peak.transform(raw_alpha)
 
-plot_component_summary(dss_peak, data=raw_alpha, n_components=3, show=False)
-plt.show(block=False)
+plot_component_summary(
+    dss_peak,
+    data=raw_alpha,
+    info=raw_alpha.info,
+    picks=np.arange(len(raw_alpha.ch_names)),
+    n_components=3,
+    show=False,
+)
+plt.show()
 
+# %%
 # Comparison
-plot_spectral_psd_comparison(
-    raw_alpha, sources_peak, sfreq, peak_freq=alpha_freq, show=False
+plot_component_psd_comparison(
+    raw_alpha,
+    sources_peak,
+    component_indices=[0],
+    sfreq=sfreq,
+    peak_freq=alpha_freq,
+    show=False,
 )
 plt.gcf().axes[0].set_title("Single Frequency: Original PSD")
 plt.gcf().axes[1].set_title("Single Frequency: DSS Components PSD")
-plt.show(block=False)
+plt.show()
 
 
 # %%
@@ -169,8 +170,15 @@ print(f"Harmonic frequencies: {comb_bias.harmonic_frequencies}")
 
 sources_comb = dss_comb.transform(raw_ssvep)
 
-plot_component_summary(dss_comb, data=raw_ssvep, n_components=3, show=False)
-plt.show(block=False)
+plot_component_summary(
+    dss_comb,
+    data=raw_ssvep,
+    info=raw_ssvep.info,
+    picks=np.arange(len(raw_ssvep.ch_names)),
+    n_components=3,
+    show=False,
+)
+plt.show()
 
 # %%
 # Method 2: Convenience Wrapper (ssvep_dss)
@@ -184,8 +192,14 @@ print(f"\nWrapper DSS Eigenvalues: {dss_wrapper.eigenvalues_[:5]}")
 print("(Should match manual approach)")
 
 # PSD comparison
-plot_spectral_psd_comparison(
-    raw_ssvep, sources_comb, sfreq, peak_freq=f_stim, fmax=50, show=False
+plot_component_psd_comparison(
+    raw_ssvep,
+    sources_comb,
+    component_indices=[0],
+    sfreq=sfreq,
+    peak_freq=f_stim,
+    fmax=50,
+    show=False,
 )
 plt.gcf().axes[0].set_title("SSVEP: Original PSD")
 plt.gcf().axes[1].set_title("SSVEP: DSS Components PSD")
@@ -194,7 +208,7 @@ plt.gcf().axes[1].set_title("SSVEP: DSS Components PSD")
 for ax in plt.gcf().axes:
     for h in [2, 3]:
         ax.axvline(f_stim * h, color="orange", linestyle="--", alpha=0.5)
-plt.show(block=False)
+plt.show()
 
 
 # %%
@@ -292,8 +306,15 @@ sources_qp = idss_qp.transform(raw_qp)
 print(f"\nIterativeDSS converged in {len(idss_qp.convergence_info_)} iterations")
 print("Multi-channel denoising: Uses spatial + temporal information")
 
-plot_component_summary(idss_qp, data=raw_qp, n_components=3, show=False)
-plt.show(block=False)
+plot_component_summary(
+    idss_qp,
+    data=raw_qp,
+    info=raw_qp.info,
+    picks=np.arange(len(raw_qp.ch_names)),
+    n_components=3,
+    show=False,
+)
+plt.show()
 
 # %%
 # Visualize Comparison: Single-Channel vs Multi-Channel
@@ -329,7 +350,7 @@ axes[3].set_ylabel("Amplitude")
 axes[3].grid(True, alpha=0.3)
 
 plt.tight_layout()
-plt.show(block=False)
+plt.show()
 
 # %%
 # Quantitative Comparison
@@ -416,19 +437,20 @@ raw_denoised = mne.io.RawArray(
 )
 
 # Time series comparison
-plot_time_course_comparison(
+plot_channel_time_course_comparison(
     raw_channel,
     raw_denoised,
+    picks=[0],
+    times=raw_channel.times,
     start=0,
-    stop=10,  # First 10 seconds
+    stop=int(10 * raw_channel.info["sfreq"]),  # First 10 seconds
     show=False,
 )
 plt.gcf().suptitle("ECG Artifact Removal: Time Series Comparison")
-plt.show(block=False)
+plt.show()
 
+# %%
 # PSD comparison
 plot_psd_comparison(raw_channel, raw_denoised, fmin=0, fmax=10, show=False)
 plt.gcf().axes[0].set_title("PSD Comparison: ECG Artifact Reduction")
-plt.show(block=False)
-
 plt.show()

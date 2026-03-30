@@ -8,9 +8,8 @@ The core idea is: **Artifacts are repetitive**.
 If we can define when artifacts happen (e.g., using EOG/ECG channels),
 we can use **Trial Average Bias** to find the artifact source and remove it.
 
-This tutorial demonstrates:
-1.  **EOG (Blink) Correction**: Epoching on blinks and using DSS to find the blink component.
-2.  **ECG (Heartbeat) Correction**: Epoching on heartbeats and finding the cardiac component.
+This tutorial demonstrates two artifact-correction workflows with DSS: blink
+correction based on EOG epochs and heartbeat correction based on ECG epochs.
 
 Authors: Sina Esmaeili (sina.esmaeili@umontreal.ca)
          Hamza Abdelhedi (hamza.abdelhedi@umontreal.ca)
@@ -30,12 +29,12 @@ from mne.preprocessing import create_ecg_epochs, create_eog_epochs
 
 from mne_denoise.dss import DSS, AverageBias, CycleAverageBias
 from mne_denoise.viz import (
+    plot_component_patterns,
+    plot_component_score_curve,
     plot_component_summary,
     plot_component_time_series,
-    plot_evoked_comparison,
+    plot_evoked_gfp_comparison,
     plot_psd_comparison,
-    plot_score_curve,
-    plot_spatial_patterns,
 )
 
 # %%
@@ -61,9 +60,8 @@ print(f"Data: {len(raw.ch_names)} channels (MEG, EEG, EOG, ECG), 60s duration")
 # %%
 # Part 1: EOG (Blink) Correction
 # ------------------------------
-# **Goal**: Remove eye blinks.
-# **Bias**: We epoch the data around blink events (found via EOG channel).
-# The "blink artifact" is the component that is most consistent across these epochs.
+# The goal is to isolate eye blinks. We epoch the data around blink events from
+# the EOG channel, which turns blink reproducibility into the DSS bias.
 
 print("\n--- Part 1: EOG (Blink) Correction ---")
 
@@ -75,8 +73,10 @@ eog_epochs = create_eog_epochs(
 # We exclude the EOG channel itself from the model.
 eog_epochs.pick_types(meg="grad", eog=False, ecg=False)
 print(
-    f"Found {len(eog_epochs)} blink events. Using {len(eog_epochs.ch_names)} MEG channels."
+    f"Found {len(eog_epochs)} blink events. "
+    f"Using {len(eog_epochs.ch_names)} MEG channels."
 )
+eog_sensor_picks = np.arange(len(eog_epochs.ch_names))
 
 # 2. Fit DSS with Trial Average Bias
 # We use AverageBias(axis='epochs') which works on pre-epoched data.
@@ -89,24 +89,41 @@ dss_eog.fit(eog_epochs)
 # Visualize Blink Components
 # --------------------------
 
-# 1. Score Curve
-# *   **Expectation**: Comp 0 should have a very high score (reproducible bias).
-plot_score_curve(dss_eog, mode="ratio", show=False)
-
-# 2. Time Series
-# *   **Expectation**: Comp 0 should look like a classic "V-shape" or bell-shape blink.
-plot_component_time_series(dss_eog, data=eog_epochs, n_components=10, show=False)
-
-# 3. Spatial Patterns
-# *   **Expectation**: Comp 0 should be strictly frontal.
-plot_spatial_patterns(dss_eog, n_components=10, show=False)
-
-# 4. Summary (Topo + Time + PSD)
-plot_component_summary(dss_eog, data=eog_epochs, n_components=[0, 1], show=False)
+# Score Curve
+# The first component should dominate the score curve if the blink bias is
+# captured cleanly.
+plot_component_score_curve(dss_eog, mode="ratio", show=True)
 
 # %%
-# 5. Denoising Comparison
-# -----------------------
+# Time Series
+# The first component should show the stereotyped blink waveform.
+plot_component_time_series(dss_eog, data=eog_epochs, n_components=10, show=True)
+
+# %%
+# Spatial Patterns
+# The leading blink component should also be spatially frontal.
+plot_component_patterns(
+    dss_eog,
+    info=eog_epochs.info,
+    picks=eog_sensor_picks,
+    n_components=10,
+    show=True,
+)
+
+# %%
+# Summary (Topo + Time + PSD)
+plot_component_summary(
+    dss_eog,
+    data=eog_epochs,
+    info=eog_epochs.info,
+    picks=eog_sensor_picks,
+    n_components=[0, 1],
+    show=True,
+)
+
+# %%
+# Denoising Comparison
+# --------------------
 # We project the data into the DSS space, **zero out** the first component (the blink),
 # and project back.
 
@@ -114,6 +131,7 @@ print("Removing blink component...")
 # Transform continuous data
 # We must ensure we apply to the same channels used in fit (the gradiometers).
 raw_meg = raw.copy().pick_types(meg="grad", eeg=False, eog=False, ecg=False)
+raw_meg_picks = np.arange(len(raw_meg.ch_names))
 sources = dss_eog.transform(raw_meg)
 
 # Check Correlation with EOG channel
@@ -167,7 +185,7 @@ plt.title(f"TrialAverageBias: Blink Peaks Aligned (r={abs(corr):.3f})")
 plt.legend()
 plt.grid(True, alpha=0.3)
 plt.tight_layout()
-plt.show(block=False)
+plt.show()
 
 # %%
 # Alternative: CycleAverageBias (Continuous Data Approach)
@@ -200,19 +218,40 @@ print("Fitted DSS with CycleAverageBias")
 # Visualize Cycle Average Components
 # -----------------------------------
 
-plot_component_summary(dss_cycle, data=raw_meg, n_components=[0, 1], show=False)
+plot_component_summary(
+    dss_cycle,
+    data=raw_meg,
+    info=raw_meg.info,
+    picks=raw_meg_picks,
+    n_components=[0, 1],
+    show=False,
+)
 plt.gcf().suptitle("CycleAverageBias Results")
-plt.show(block=False)
+plt.show()
 
+# %%
 # Compare spatial patterns (both bias types)
 print("\n--- Comparing Spatial Patterns ---")
-plot_spatial_patterns(dss_eog, n_components=1, show=False)
+plot_component_patterns(
+    dss_eog,
+    info=eog_epochs.info,
+    picks=eog_sensor_picks,
+    n_components=1,
+    show=False,
+)
 plt.gcf().suptitle("TrialAverageBias: Blink Component Topography")
-plt.show(block=False)
+plt.show()
 
-plot_spatial_patterns(dss_cycle, n_components=1, show=False)
+# %%
+plot_component_patterns(
+    dss_cycle,
+    info=raw_meg.info,
+    picks=raw_meg_picks,
+    n_components=1,
+    show=False,
+)
 plt.gcf().suptitle("CycleAverageBias: Blink Component Topography")
-plt.show(block=False)
+plt.show()
 
 print("\nBoth approaches extract the same blink artifact!")
 print("- TrialAverageBias: Works on MNE Epochs (easier integration)")
@@ -251,6 +290,12 @@ plt.legend()
 plt.tight_layout()
 plt.show()
 
+# %%
+# Blink-Locked Average Before and After
+# -------------------------------------
+# The blink-locked average should shrink strongly after removing the dominant
+# artifact component.
+
 # Zero out blink
 sources[0, :] = 0  # Remove Comp 0
 
@@ -271,21 +316,29 @@ eog_epochs_clean = mne.Epochs(
 )
 
 print("Plotting correction effect...")
-# Expectation 1: The huge blink artifact in the 'Original' trace should be gone or massive reduced.
-plot_evoked_comparison(
-    eog_epochs, eog_epochs_clean, show=False, labels=("Original", "Cleaned")
+plot_evoked_gfp_comparison(
+    eog_epochs,
+    eog_epochs_clean,
+    times=eog_epochs.times,
+    show=False,
+    labels=("Original", "Cleaned"),
 )
+plt.show()
 
-# Expectation 2: The PSD should be largely unchanged in the alpha/beta bands.
-# Blinks are mostly low-frequency (<5 Hz). We want to ensure we didn't distort brain rhythms.
+# %%
+# Spectral Preservation After Blink Removal
+# -----------------------------------------
+# Blinks are mostly low-frequency (<5 Hz), so the alpha and beta structure
+# should remain broadly stable after denoising.
+
 plot_psd_comparison(eog_epochs, eog_epochs_clean, fmax=40, show=True)
 
 
 # %%
 # Part 2: ECG (Heartbeat) Correction
 # ----------------------------------
-# **Goal**: Remove cardiac field artifact.
-# **Bias**: Epoch around heartbeat (R-peak).
+# The same idea applies to heartbeat contamination: epoch on the artifact,
+# fit DSS on those repeats, and remove the dominant cardiac component.
 
 print("\n--- Part 2: ECG (Heartbeat) Correction ---")
 
@@ -296,8 +349,10 @@ ecg_epochs = create_ecg_epochs(
 )
 ecg_epochs.pick_types(meg="grad", eeg=False, eog=False, ecg=False)
 print(
-    f"Found {len(ecg_epochs)} heartbeats. Using {len(ecg_epochs.ch_names)} MEG channels."
+    f"Found {len(ecg_epochs)} heartbeats. "
+    f"Using {len(ecg_epochs.ch_names)} MEG channels."
 )
+ecg_sensor_picks = np.arange(len(ecg_epochs.ch_names))
 
 # 2. Fit DSS
 dss_ecg = DSS(n_components=8, bias=AverageBias(axis="epochs"))
@@ -307,19 +362,36 @@ dss_ecg.fit(ecg_epochs)
 # Visualize Cardiac Components
 # ----------------------------
 
-# 1. Score Curve
-plot_score_curve(dss_ecg, mode="ratio", show=False)
+# Score Curve
+plot_component_score_curve(dss_ecg, mode="ratio", show=True)
 
-# 2. Time Series
-# *   **Expectation**: Comp 0 should look like a QRS complex.
-plot_component_time_series(dss_ecg, data=ecg_epochs, n_components=8, show=False)
+# %%
+# Time Series
+# The dominant cardiac component should follow a QRS-like shape.
+plot_component_time_series(dss_ecg, data=ecg_epochs, n_components=8, show=True)
 
-# 3. Spatial Patterns
-# *   **Expectation**: Deep/distant field pattern.
-plot_spatial_patterns(dss_ecg, n_components=8, show=False)
+# %%
+# Spatial Patterns
+# The corresponding field pattern should look broad and deep rather than
+# strictly focal.
+plot_component_patterns(
+    dss_ecg,
+    info=ecg_epochs.info,
+    picks=ecg_sensor_picks,
+    n_components=8,
+    show=True,
+)
 
-# 4. Summary
-plot_component_summary(dss_ecg, data=ecg_epochs, n_components=[0], show=False)
+# %%
+# Summary
+plot_component_summary(
+    dss_ecg,
+    data=ecg_epochs,
+    info=ecg_epochs.info,
+    picks=ecg_sensor_picks,
+    n_components=[0],
+    show=True,
+)
 
 
 # %%
@@ -332,6 +404,12 @@ sources_ecg = dss_ecg.transform(raw_meg)  # Apply to continuous data
 sources_ecg[0, :] = 0  # Zero out heartbeat
 raw_clean_ecg = mne.io.RawArray(dss_ecg.inverse_transform(sources_ecg), raw_meg.info)
 
+# %%
+# Heartbeat-Locked Average Before and After
+# -----------------------------------------
+# The heartbeat-locked average should show a much smaller QRS-like transient
+# after removing the dominant cardiac component.
+
 # Verification
 ecg_epochs_clean = mne.Epochs(
     raw_clean_ecg,
@@ -342,18 +420,25 @@ ecg_epochs_clean = mne.Epochs(
     verbose=False,
 )
 
-# Expectation 1: The QRS spike should be suppressed.
-plot_evoked_comparison(
-    ecg_epochs, ecg_epochs_clean, show=False, labels=("Original", "Cleaned")
+plot_evoked_gfp_comparison(
+    ecg_epochs,
+    ecg_epochs_clean,
+    times=ecg_epochs.times,
+    show=False,
+    labels=("Original", "Cleaned"),
 )
+plt.show()
 
-# Expectation 2: Cardiac harmonics (multiples of heart rate ~1.2 Hz) should be reduced,
-# while alpha/beta peaks remain.
+# %%
+# Spectral Preservation After Heartbeat Removal
+# ---------------------------------------------
+# Cardiac harmonics should be reduced while broader neural rhythms remain.
+
 plot_psd_comparison(ecg_epochs, ecg_epochs_clean, fmax=40, show=True)
 # %%
 # Conclusion
 # ----------
 # We used DSS with **AverageBias** to find and remove stereotypic artifacts.
-# *   By epoching on the artifact events (blinks, heartbeats), we made the artifact "the signal of interest".
-# *   DSS isolated perfectly.
-# *   We removed it by zeroing the component.
+# By epoching on the artifact events, we turned the artifact into the most
+# repeatable signal in the data. DSS isolates that repeatable component, and
+# denoising then reduces to zeroing it before projection back to sensor space.

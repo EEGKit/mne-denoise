@@ -1,18 +1,19 @@
 """
 =============================================================================
-09. Custom DSS: Defining Your Own Bias.
+Custom DSS: Defining Your Own Bias.
 =============================================================================
 
 This example demonstrates how to extend DSS by defining **custom bias criteria**.
 This is useful when you have domain-specific knowledge about the target source
 (e.g., "it has sharp gradients", "it occurs after a specific trigger", etc.).
 
-We cover two ways to define custom biases:
-1.  **Subclassing `LinearDenoiser`**: For full control over the bias matrix computation.
-2.  **Using `function_bias`**: For simple weighting strategies based on auxiliary data.
+It shows two ways to define custom biases: subclassing `LinearDenoiser` for
+full control over the bias computation, and using function-based weighting
+ideas for simpler auxiliary-data strategies.
 
-Here, we implement a **Gradient Trigger Bias** that finds sources with sharp
-transients (high temporal gradient) by weighting time points where the gradient magnitude is high.
+Here, we implement a **Gradient Trigger Bias** that finds
+sources with sharp transients (high temporal gradient) by
+weighting time points where the gradient magnitude is high.
 
 Authors: Sina Esmaeili (sina.esmaeili@umontreal.ca)
          Hamza Abdelhedi (hamza.abdelhedi@umontreal.ca)
@@ -79,7 +80,9 @@ class GradientTriggerBias(LinearDenoiser):
         mask = (grad_energy > thresh).astype(float)
 
         print(
-            f"  GradientTriggerBias: Weighting {np.sum(mask)} / {len(mask)} samples ({mask.mean() * 100:.1f}%)"
+            f"  GradientTriggerBias: Weighting "
+            f"{np.sum(mask)} / {len(mask)} samples "
+            f"({mask.mean() * 100:.1f}%)"
         )
 
         # 5. Return weighted data
@@ -90,10 +93,9 @@ class GradientTriggerBias(LinearDenoiser):
 ###############################################################################
 # Part 2: Generating Synthetic Data with Transients
 # -------------------------------------------------
-# We create a dataset with:
-# - A "Transient" Source: Rare sharp spikes (gradient target).
-# - A "Background" Source: Smooth oscillation (10 Hz).
-# - Noise: Gaussian white noise.
+# We create a dataset with a transient source made of rare sharp spikes, a
+# background source made of a smooth 10 Hz oscillation, and additive Gaussian
+# white noise.
 
 n_samples = 2000
 time = np.arange(n_samples) / 200.0  # 200 Hz
@@ -138,7 +140,7 @@ axes[1].set_title("Distractor Source (Smooth 10Hz)")
 axes[2].plot(time, X[0], "gray")
 axes[2].set_title("Mixed Sensor Signal (Ch 0)")
 plt.tight_layout()
-plt.show(block=False)
+plt.show()
 
 
 ###############################################################################
@@ -166,7 +168,7 @@ axes[2].set_title("DSS Component 2")
 axes[-1].set_xlabel("Time (s)")
 plt.suptitle("Custom Bias Results")
 plt.tight_layout()
-plt.show(block=False)
+plt.show()
 
 # Check correlation with target
 corr = np.abs(np.corrcoef(S_est[0], s1)[0, 1])

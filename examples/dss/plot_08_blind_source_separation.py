@@ -1,16 +1,16 @@
 """
 =============================================================================
-08. Blind Source Separation & ICA Equivalence.
+Blind Source Separation and ICA Equivalence.
 =============================================================================
 
-This example demonstrates how **Nonlinear DSS** can perform Blind Source Separation (BSS),
-effectively recovering independent sources from mixed signals. It explicitly shows
-the equivalence between DSS with specific nonlinearities and Independent Component Analysis (ICA).
+This example demonstrates how **Nonlinear DSS** can perform
+Blind Source Separation (BSS), effectively recovering independent
+sources from mixed signals. It explicitly shows the equivalence
+between DSS with specific nonlinearities and ICA.
 
-We cover:
-1.  **Synthetic BSS**: Separating mixed Super-Gaussian sources (speech/bursts) and Sub-Gaussian sources.
-2.  **ICA Equivalence**: Comparing DSS (`TanhMaskDenoiser`, `KurtosisDenoiser`) against `sklearn.decomposition.FastICA`.
-3.  **Real MEG Data**: Performing blind decomposition of the MNE Sample dataset to find artifacts (EOG/ECG) and brain sources.
+It covers synthetic blind source separation, the link between DSS
+nonlinearities and FastICA, and a real MEG decomposition that exposes both
+artifact and brain-like components.
 
 Authors: Sina Esmaeili (sina.esmaeili@umontreal.ca)
          Hamza Abdelhedi (hamza.abdelhedi@umontreal.ca)
@@ -26,7 +26,7 @@ from mne_denoise.dss import IterativeDSS, KurtosisDenoiser, TanhMaskDenoiser, be
 from mne_denoise.viz import (
     plot_component_summary,
     plot_component_time_series,
-    plot_overlay_comparison,
+    plot_signal_overlay,
 )
 
 print(__doc__)
@@ -34,8 +34,10 @@ print(__doc__)
 ###############################################################################
 # Part 1: Synthetic Blind Source Separation
 # -----------------------------------------
-# We generate synthetic sources with different statistical properties (Super-Gaussian, Sub-Gaussian)
-# and mix them linearly. We then attempt to recover them using DSS and FastICA.
+# We generate synthetic sources with different statistical
+# properties (Super-Gaussian, Sub-Gaussian) and mix them
+# linearly. We then attempt to recover them using DSS and
+# FastICA.
 
 print("\n--- 1. Creating Synthetic Mixed Data ---")
 
@@ -78,17 +80,18 @@ axes[1].set_title("Mixed Signals (Input)")
 axes[1].set_yticks(np.arange(n_sources) * 5)
 
 plt.tight_layout()
-plt.show(block=False)
+plt.show()
 
 
 ###############################################################################
 # Run DSS with Tanh Nonlinearity (Robust ICA)
 # -------------------------------------------
-# The `TanhMaskDenoiser` implements the `tanh` nonlinearity, which is robust to outliers.
+# The `TanhMaskDenoiser` implements the `tanh` nonlinearity,
+# which is robust to outliers.
 #
-# **Convergence Comparison**:
-# We demonstrate the speedup of the "Newton step" (`beta=beta_tanh`) vs standard gradient ascent (`beta=None`).
-# The Newton step is what makes FastICA fast (quadratic convergence).
+# This section compares the Newton-style update (`beta=beta_tanh`) with plain
+# gradient ascent (`beta=None`). The faster convergence is the same idea that
+# makes FastICA efficient in practice.
 
 print("\nRunning DSS with Tanh Nonlinearity (Robust)...")
 
@@ -122,7 +125,8 @@ iters_grad = dss_grad.convergence_info_[:, 0].sum()
 iters_newton = dss_tanh.convergence_info_[:, 0].sum()
 print(f"  Gradient Iterations: {iters_grad:.0f}")
 print(
-    f"  Newton Iterations:   {iters_newton:.0f} (Speedup: {iters_grad / iters_newton:.1f}x)"
+    f"  Newton Iterations:   {iters_newton:.0f} "
+    f"(Speedup: {iters_grad / iters_newton:.1f}x)"
 )
 
 
@@ -162,7 +166,8 @@ S_fastica = ica.fit_transform(X.T).T
 ###############################################################################
 # Evaluate Performance (Correlation with True Sources)
 # ----------------------------------------------------
-# We compute the absolute correlation matrix between recovered components and true sources.
+# We compute the absolute correlation matrix between recovered
+# components and true sources.
 # A perfect recovery would have one 1.0 per row/column (permutation matrix).
 
 
@@ -209,21 +214,26 @@ plt.colorbar(im2, ax=axes[2])
 
 plt.suptitle("Source Recovery Quality (Abs Correlation)")
 plt.tight_layout()
-plt.show(block=False)
+plt.show()
 
 # Plot recovered time series using viz module
 print("Visualizing Recovered Sources (Stacked)...")
 # We treat the sources as "components" of the estimator
+
+###############################################################################
+# Recovered Source Time Series
+# ----------------------------
 plot_component_time_series(dss_tanh, data=X, show=False)
 plt.gcf().suptitle("Recovered Sources (DSS Tanh) - Newton Optimization")
-plt.show(block=False)
+plt.show()
 
 
 ###############################################################################
 # Part 2: Blind Separation of Real MEG Data
 # -----------------------------------------
-# We apply nonlinear DSS to the MNE sample dataset (MEG channels) to blindly extract
-# artifacts (EOG, ECG) and brain sources. This is similar to running `mne.preprocessing.ICA`.
+# We apply nonlinear DSS to the MNE sample dataset (MEG
+# channels) to blindly extract artifacts (EOG, ECG) and brain
+# sources. This is similar to running `mne.preprocessing.ICA`.
 
 print("\n--- 2. Real MEG Data (Blind Separation) ---")
 
@@ -238,7 +248,8 @@ raw.crop(0, 60).pick_types(meg=True, eeg=False, eog=True, stim=False).load_data(
 raw.filter(1, 40, verbose=False)
 
 # Prepare MEG-only data for BSS
-# We want to find artifacts *in the MEG channels*, ensuring we don't just pick up the EOG channel itself.
+# We want to find artifacts *in the MEG channels*, ensuring we
+# don't just pick up the EOG channel itself.
 raw_meg = raw.copy().pick_types(meg=True, eeg=False, eog=False, stim=False)
 print(f"Data shape (MEG only): {raw_meg.get_data().shape}")
 
@@ -256,7 +267,8 @@ dss_meg = IterativeDSS(
 dss_meg.fit(raw_meg)
 
 # Identify Artifacts by correlation with EOG channel
-# We use the separate EOG channel to validate which extracted source corresponds to blinks.
+# We use the separate EOG channel to validate which extracted
+# source corresponds to blinks.
 eog_ch = raw.get_data(picks="eog")[0]
 sources = dss_meg.transform(raw_meg)
 
@@ -266,9 +278,16 @@ print(f"\nMost likely EOG component: #{blink_idx} (Corr: {corrs[blink_idx]:.3f})
 
 # Visualize the Blink Component
 print("Visualizing Blink Component...")
-plot_component_summary(dss_meg, data=raw_meg, n_components=[blink_idx], show=False)
+plot_component_summary(
+    dss_meg,
+    data=raw_meg,
+    info=raw_meg.info,
+    picks=mne.pick_types(raw_meg.info, meg="grad", eeg=False, eog=False, stim=False),
+    n_components=[blink_idx],
+    show=False,
+)
 plt.gcf().suptitle(f"Component #{blink_idx}: Blindly Extracted EOG Artifact")
-plt.show(block=False)
+plt.show()
 
 # Visualize a Brain Component (candidate)
 # We look for a component that is NOT the blink argmax
@@ -276,9 +295,19 @@ candidate_indices = [i for i in range(n_components) if i != blink_idx]
 brain_idx = candidate_indices[1]  # Pick arbitrary one, e.g. 2nd candidate
 print(f"Visualizing Candidate Brain Component #{brain_idx}...")
 
-plot_component_summary(dss_meg, data=raw_meg, n_components=[brain_idx], show=False)
+###############################################################################
+# Candidate Brain Component
+# -------------------------
+plot_component_summary(
+    dss_meg,
+    data=raw_meg,
+    info=raw_meg.info,
+    picks=mne.pick_types(raw_meg.info, meg="grad", eeg=False, eog=False, stim=False),
+    n_components=[brain_idx],
+    show=False,
+)
 plt.gcf().suptitle(f"Component #{brain_idx}: Candidate Brain Source")
-plt.show(block=False)
+plt.show()
 
 # Overlay comparison for EOG
 # Show how the extracted component matches the EOG channel
@@ -289,15 +318,18 @@ comp_raw = mne.io.RawArray(
     sources[blink_idx : blink_idx + 1], mne.create_info(1, raw.info["sfreq"], "misc")
 )
 
-plot_overlay_comparison(
+###############################################################################
+# EOG Overlay
+# -----------
+plot_signal_overlay(
     eog_raw,
     comp_raw,
+    times=eog_raw.times,
     start=10,
     stop=20,
     title="EOG Channel vs Extracted Component (Time Domain)",
     show=False,
 )
-plt.show(block=False)
+plt.show()
 
 print("\nBlind Source Separation complete!")
-plt.show()

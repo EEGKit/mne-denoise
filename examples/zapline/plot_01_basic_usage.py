@@ -2,21 +2,13 @@ r"""
 ZapLine: Line Noise Removal Fundamentals.
 ==========================================
 
-This tutorial demonstrates **ZapLine** for removing power line noise (50/60 Hz).
+This example introduces ZapLine on a controlled synthetic dataset. The goal is
+to show the basic workflow first on a simple 50 Hz contamination problem, then
+extend it to harmonics and more realistic multi-channel structure.
 
-ZapLine is a spatial filtering technique that:
-1. Splits data into smooth (low-freq) and residual (high-freq + line noise)
-2. Uses DSS to find components that maximize line noise power
-3. Projects out the line noise components from the residual
-4. Reconstructs clean data as smooth + cleaned residual
-
-Key advantages over notch filters:
-- Preserves neural signals AT the line frequency
-- Removes harmonics automatically
-- Adapts to spatially complex line noise sources
-
-Reference: de Cheveigné, A. (2020). ZapLine: A simple and effective method
-to remove power line artifacts. NeuroImage, 207, 116356.
+Reference:
+    de Cheveigné, A. (2020). ZapLine: A simple and effective method to remove
+    power line artifacts. NeuroImage, 207, 116356.
 
 Authors: Sina Esmaeili (sina.esmaeili@umontreal.ca)
          Hamza Abdelhedi (hamza.abdelhedi@umontreal.ca)
@@ -29,9 +21,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy import signal
 
-from mne_denoise.viz.zapline import (
-    plot_cleaning_summary,
-    plot_component_scores,
+from mne_denoise.viz import (
+    plot_component_cleaning_summary,
+    plot_component_score_curve,
     plot_psd_comparison,
 )
 from mne_denoise.zapline import ZapLine
@@ -42,10 +34,8 @@ from mne_denoise.zapline import ZapLine
 # We create synthetic data with controllable line noise to demonstrate
 # ZapLine's effectiveness.
 #
-# The data contains:
-# - A 10 Hz "neural" signal (what we want to preserve)
-# - A 50 Hz "line noise" signal (what we want to remove)
-# - White noise
+# The data contains a 10 Hz neural signal we want to preserve, a 50 Hz line
+# component we want to remove, and broadband noise.
 
 print("Generating synthetic data with 50 Hz line noise...")
 
@@ -140,28 +130,37 @@ print(f"Harmonics processed: {est.n_harmonics_}")
 # Let's visualize the cleaning effect using the reusable viz function.
 
 # Use plot_psd_comparison for a clean comparison
-plot_psd_comparison(data, cleaned, sfreq, line_freq=50, show=True)
+plot_psd_comparison(data, cleaned, sfreq=sfreq, line_freq=50, show=True)
 
 # %%
 # Component Scores
 # ----------------
 # View the DSS component scores to understand what was removed.
 
-plot_component_scores(est, show=True)
+plot_component_score_curve(est, show=True)
 
 # %%
 # Cleaning Summary
 # ----------------
 # A comprehensive summary combining PSD, scores, and statistics.
 
-plot_cleaning_summary(data, cleaned, est, sfreq, line_freq=50, show=True)
+plot_component_cleaning_summary(
+    scores=getattr(est, "scores_", getattr(est, "eigenvalues_", None)),
+    selected_count=getattr(est, "n_removed_", 0),
+    patterns=getattr(est, "patterns_", None),
+    removed=data - cleaned,
+    sources=getattr(est, "sources_", None),
+    sfreq=sfreq,
+    line_freq=50,
+    title="Component Cleaning Summary (ZapLine)",
+    show=True,
+)
 
 # %%
 # Quantify Reduction
 # ------------------
 # Measure the power reduction at 50 Hz.
 
-idx_50 = np.argmin(np.abs(freqs - 50))
 idx_50 = np.argmin(np.abs(freqs - 50))
 idx_10 = np.argmin(np.abs(freqs - 10))
 
@@ -204,7 +203,6 @@ for i in range(n_channels):
     )
 
 # Apply ZapLine
-# Apply ZapLine
 est_harmonics = ZapLine(
     line_freq=50,
     sfreq=sfreq,
@@ -238,15 +236,12 @@ plt.show()
 # %%
 # Conclusion
 # ----------
-# ZapLine is a powerful tool for removing line noise because:
+# ZapLine is effective because it targets spatial components that carry line
+# noise, handles harmonics naturally, and can preserve neural structure even
+# near the contaminated frequency. It can also choose the number of removed
+# components automatically when that is more practical than fixing the value in
+# advance.
 #
-# 1. **Spatial Selectivity**: Only removes components that carry line noise
-# 2. **Harmonic Coverage**: Automatically handles harmonics
-# 3. **Neural Preservation**: Preserves neural signals at line frequency
-# 4. **Automatic Selection**: Can auto-detect number of components to remove
-#
-# Key parameters:
-# - `line_freq`: 50 Hz (Europe) or 60 Hz (Americas)
-# - `n_remove`: Number of components or "auto"
-# - `n_harmonics`: How many harmonics to include
-# - `nkeep`: PCA dimensionality reduction (for high-channel data)
+# The main parameters are ``line_freq`` for the mains frequency, ``n_remove``
+# for manual or automatic component selection, ``n_harmonics`` for harmonic
+# coverage, and ``nkeep`` for optional PCA reduction on high-channel data.

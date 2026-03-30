@@ -1,22 +1,15 @@
 """
 =============================================================================
-10. Efficiency Benchmark: DSS vs PCA, ICA, and Averaging.
+Efficiency Benchmark: DSS vs PCA, ICA, and Averaging.
 =============================================================================
 
 This example demonstrates the superior efficiency
 of DSS in recovering evoked responses compared to standard methods.
 
-We compare:
-1.  **Best Single Channel**: The channel with the highest signal-to-noise ratio.
-2.  **Channel Averaging**: Averaging the best 20 channels.
-3.  **PCA**: The Principal Component with the highest evoked power.
-4.  **FastICA**: The Independent Component with the highest evoked power.
-5.  **DSS**: The first component extracted using `AverageBias`.
-
-**Metric**:
-We define "SNR Proxy" as the variance of the trial-averaged signal.
-Since the noise is uncorrelated across trials, averaging suppresses noise by $1/N_{trials}$.
-Higher variance of the average indicates better recovery of the phase-locked evoked response.
+It compares the best single channel, channel averaging, PCA, FastICA, and DSS.
+The metric is an SNR proxy defined as the variance of the trial-averaged
+signal. Because uncorrelated noise shrinks with averaging, higher variance in
+the average indicates better recovery of the phase-locked response.
 
 Authors: Sina Esmaeili (sina.esmaeili@umontreal.ca)
          Hamza Abdelhedi (hamza.abdelhedi@umontreal.ca)
@@ -35,13 +28,9 @@ print(__doc__)
 # 1. Generate Synthetic Evoked Response Data
 # ------------------------------------------
 # We simulate a dataset with a known "Evoked" source (M100-like waveform)
-# embedded in spatially correlated noise.
-#
-# - Channels: 60
-# - Time points: 350
-# - Epochs: 100
-# - Signal Power: 5.0
-# - Noise Power: 3.0
+# embedded in spatially correlated noise. The simulation uses 60 channels, 350
+# time points, and 100 epochs, with signal power set to 5.0 and noise power set
+# to 3.0.
 
 n_epochs = 100
 n_channels = 60
@@ -195,7 +184,8 @@ data_ica = X_ica.reshape(n_epochs, n_times, 10).transpose(0, 2, 1)
 best_ic_idx, snr_ica, wave_ica = compute_snr_proxy(data_ica)
 print(f"  Best IC: #{best_ic_idx}, SNR: {snr_ica:.2f}")
 
-# Re-scale ICA (since ICA has arbitrary scale) to match best channel magnitude for fair visual comparison
+# Re-scale ICA (since ICA has arbitrary scale) to match
+# best channel magnitude for fair visual comparison
 scaling = np.std(wave_best_ch) / np.std(wave_ica)
 wave_ica *= scaling
 if np.corrcoef(wave_ica, true_evoked_data)[0, 1] < 0:
@@ -206,7 +196,8 @@ if np.corrcoef(wave_ica, true_evoked_data)[0, 1] < 0:
 # Method 5: DSS (Trial Averaging)
 # -------------------------------
 print("\nRunning Method 5: DSS (Our Method)...")
-# We use AverageBias (default axis='epochs'), which specifically optimizes for the evoked response
+# We use AverageBias (default axis='epochs'), which
+# specifically optimizes for the evoked response
 # (maximizing ratio of Mean / Variance).
 
 dss = DSS(bias=AverageBias(), n_components=5)
@@ -245,9 +236,11 @@ relative_improvement = np.array(snrs) / snrs[0]
 
 
 # IMPORTANT: ICA/PCA/DSS scales are arbitrary.
-# Comparing "Raw Variance" (which is SNR Proxy *if* noise is constant) is tricky across methods
+# Comparing "Raw Variance" (which is SNR Proxy *if* noise is
+# constant) is tricky across methods
 # if they apply different gains.
-# However, "SNR" in the context of Evoked BCI is usually (Power of Avg) / (Residual Variance).
+# However, "SNR" in the context of Evoked BCI is usually
+# (Power of Avg) / (Residual Variance).
 # Our proxy `var(mean)` assumes noise cancels out exactly or similarly.
 # A more robust SNR is (Power of Signal) / (Power of Noise).
 #
@@ -300,7 +293,7 @@ ax.set_ylabel("SNR Improvement (Relative to Best Channel)")
 ax.set_title("Denoising Efficiency Comparison (Higher is Better)")
 ax.legend()
 plt.tight_layout()
-plt.show(block=False)
+plt.show()
 
 
 ###############################################################################
@@ -328,7 +321,8 @@ ax.plot(
 ax.plot(
     t, wave_pca / np.max(np.abs(wave_pca)), color="orange", alpha=0.6, label="Best PCA"
 )
-# ax.plot(t, wave_ica, color='purple', alpha=0.6, label='Best ICA') # ICA often poor for this
+# ax.plot(t, wave_ica, color='purple', alpha=0.6,
+#         label='Best ICA')  # ICA often poor for this
 ax.plot(
     t, wave_dss / np.max(np.abs(wave_dss)), "b", linewidth=2.5, label="DSS (Optimal)"
 )

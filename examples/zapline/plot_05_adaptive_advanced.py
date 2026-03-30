@@ -1,22 +1,19 @@
 """
-==============================================
-ZapLine-plus: Advanced Settings and Features
-==============================================
+ZapLine-plus: Advanced Settings and Features.
+=============================================
 
-This example demonstrates the advanced features of Zapline-plus:
-1. **Harmonic Processing**: Auto-detect and remove harmonics (2f, 3f, ...)
-2. **Hybrid Fallback**: Notch filter cleanup when ZapLine struggles
-3. **Topography Outputs**: Per-chunk spatial patterns of removed artifacts
-4. **Chunk Metadata**: Detailed per-segment cleaning information
+This example focuses on the extra adaptive features around the core ZapLine
+step: harmonic handling, chunk metadata, and the hybrid fallback path when a
+plain component projection is not enough.
+
+Authors: Sina Esmaeili (sina.esmaeili@umontreal.ca)
 """
-
-# Authors: Sina Esmaeili <sina.esmaeili@umontreal.ca>
 
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy import signal
 
-from mne_denoise.viz.zapline import plot_psd_comparison
+from mne_denoise.viz import plot_psd_comparison
 from mne_denoise.zapline import ZapLine
 from mne_denoise.zapline.adaptive import detect_harmonics
 
@@ -115,7 +112,8 @@ for i, info in enumerate(result["chunk_info"]):
 ###############################################################################
 # Step 4: Visualize Removed Topographies
 # --------------------------------------
-# Access spatial patterns of removed noise components per chunk.
+# Chunk-wise metadata are often more informative than a single global summary
+# when the contamination changes over time.
 
 print("\n--- Step 4: Topography Outputs ---")
 # (To support this, we would need to store `est.patterns_` from each chunk pass)
@@ -128,9 +126,15 @@ print("\n--- Step 4: Topography Outputs ---")
 print("\n--- Step 5: Spectral Comparison ---")
 
 # Use our reusable viz function for a quick overview
-plot_psd_comparison(data, data_clean, sfreq, line_freq=fundamental, fmax=180, show=True)
+plot_psd_comparison(
+    data, data_clean, sfreq=sfreq, line_freq=fundamental, fmax=180, show=True
+)
 
-# Detailed per-frequency comparison
+###############################################################################
+# Detailed Harmonic Comparison
+# ----------------------------
+# Detailed per-frequency comparison makes it easier to check that harmonics
+# drop together rather than leaving isolated residual peaks.
 fig, axes = plt.subplots(1, 3, figsize=(14, 4))
 
 for i, (freq, ax) in enumerate(zip(freqs, axes)):
