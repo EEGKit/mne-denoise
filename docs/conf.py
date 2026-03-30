@@ -39,7 +39,9 @@ extensions = [
 
 templates_path = ["_templates"]
 exclude_patterns: list[str] = ["_build", "Thumbs.db", ".DS_Store", "changes"]
-suppress_warnings = ["config.cache"]  # silence sphinx-gallery "unpickleable configuration" warning
+suppress_warnings = [
+    "config.cache"
+]  # silence sphinx-gallery "unpickleable configuration" warning
 
 autosummary_generate = True
 napoleon_google_docstring = False
