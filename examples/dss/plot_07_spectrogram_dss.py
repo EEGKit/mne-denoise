@@ -9,11 +9,8 @@ using time-frequency (TF) domain constraints via spectrogram masking.
 We cover **SpectrogramBias** (linear) and **SpectrogramDenoiser** (nonlinear)
 for isolating activity that is sparse in the TF domain.
 
-**Structure**:
-- Part 0: Synthetic Transient Bursts (Spindles)
-- Part 1: SpectrogramBias with Fixed TF Mask
-- Part 2: SpectrogramDenoiser (Adaptive Masking) + IterativeDSS
-- Part 3: Real MEG Gamma Bursts (Somato Dataset)
+The examples move from synthetic spindle-like bursts to fixed-mask DSS,
+adaptive spectrogram denoising, and a real MEG gamma-burst example.
 
 Authors: Sina Esmaeili (sina.esmaeili@umontreal.ca)
          Hamza Abdelhedi (hamza.abdelhedi@umontreal.ca)
@@ -32,12 +29,12 @@ from scipy import signal as sp_signal
 from mne_denoise.dss import DSS, IterativeDSS
 from mne_denoise.dss.denoisers import SpectrogramBias, SpectrogramDenoiser
 from mne_denoise.viz import (
+    plot_channel_time_course_comparison,
     plot_component_spectrogram,
     plot_component_summary,
-    plot_overlay_comparison,
+    plot_signal_overlay,
     plot_spectrogram_comparison,
-    plot_tf_mask,
-    plot_time_course_comparison,
+    plot_time_frequency_mask,
 )
 
 # %%
@@ -96,7 +93,7 @@ axes[2].legend()
 axes[2].grid(True, alpha=0.3)
 
 plt.tight_layout()
-plt.show(block=False)
+plt.show()
 
 
 # %%
@@ -116,7 +113,7 @@ plt.ylim(0, 30)
 plt.axhline(spindle_freq, color="r", linestyle="--", alpha=0.7, label="12 Hz Spindle")
 plt.legend()
 plt.tight_layout()
-plt.show(block=False)
+plt.show()
 
 
 # %%
@@ -154,18 +151,19 @@ mask_fixed[freq_mask[:, None] & (time_mask1 | time_mask2)] = 1.0
 
 print(f"TF mask shape: {mask_fixed.shape}")
 print(
-    f"Masked points: {mask_fixed.sum()} / {mask_fixed.size} ({100 * mask_fixed.sum() / mask_fixed.size:.1f}%)"
+    f"Masked points: {mask_fixed.sum()} / {mask_fixed.size} "
+    f"({100 * mask_fixed.sum() / mask_fixed.size:.1f}%)"
 )
 
 # Visualize mask
-plot_tf_mask(
+plot_time_frequency_mask(
     mask_fixed,
     t_grid,
     freq_axis,
     title="SpectrogramBias Mask: 10-15 Hz Spindles",
     show=False,
 )
-plt.show(block=False)
+plt.show()
 
 # Apply SPectrogramBias with DSS
 # For demonstration, create multi-channel data
@@ -189,9 +187,16 @@ dss_tf.fit(raw_spindle)
 print(f"\nDSS Eigenvalues: {dss_tf.eigenvalues_[:3]}")
 
 # Visualize DSS components
-plot_component_summary(dss_tf, data=raw_spindle, n_components=2, show=False)
+plot_component_summary(
+    dss_tf,
+    data=raw_spindle,
+    info=raw_spindle.info,
+    picks=np.arange(len(raw_spindle.ch_names)),
+    n_components=2,
+    show=False,
+)
 plt.gcf().suptitle("SpectrogramBias: DSS Components")
-plt.show(block=False)
+plt.show()
 
 # Extract component
 sources_tf = dss_tf.transform(raw_spindle)
@@ -207,19 +212,32 @@ print(f"Correlation with ground truth: {corr_tf:.3f}")
 # Spectrogram comparison
 raw_orig = mne.io.RawArray(data_mixed[np.newaxis, :], mne.create_info(1, sfreq, "eeg"))
 raw_comp = mne.io.RawArray(comp0_tf[np.newaxis, :], mne.create_info(1, sfreq, "eeg"))
-plot_spectrogram_comparison(raw_orig, raw_comp, fmin=5, fmax=20, show=False)
-plt.gcf().suptitle("Spectrogram Comparison: Original vs Extracted Spindles")
-plt.show(block=False)
 
-# Plot comparison
-plot_overlay_comparison(
-    signal_spindle,
-    comp0_tf,
-    title="Spindle Reconstruction: Ground Truth vs SpectrogramBias Component",
-    scale_denoised=True,
+# %%
+plot_spectrogram_comparison(
+    raw_orig,
+    raw_comp,
+    picks=[0],
+    times=raw_orig.times,
+    fmin=5,
+    fmax=20,
     show=False,
 )
-plt.show(block=False)
+plt.gcf().suptitle("Spectrogram Comparison: Original vs Extracted Spindles")
+plt.show()
+
+# Plot comparison
+
+# %%
+plot_signal_overlay(
+    signal_spindle,
+    comp0_tf,
+    times=times,
+    title="Spindle Reconstruction: Ground Truth vs SpectrogramBias Component",
+    scale_after=True,
+    show=False,
+)
+plt.show()
 
 
 # %%
@@ -284,7 +302,7 @@ axes[2].legend()
 axes[2].grid(True, alpha=0.3)
 
 plt.tight_layout()
-plt.show(block=False)
+plt.show()
 
 
 # %%
@@ -327,19 +345,39 @@ comp_raw_meg = mne.io.RawArray(
 raw_single_meg = raw_somato.copy().pick([0])
 
 # --- Time Course Comparison ---
-plot_time_course_comparison(raw_single_meg, comp_raw_meg, start=0, stop=5, show=False)
+plot_channel_time_course_comparison(
+    raw_single_meg,
+    comp_raw_meg,
+    picks=[0],
+    times=raw_single_meg.times,
+    start=0,
+    stop=int(5 * raw_single_meg.info["sfreq"]),
+    show=False,
+)
 plt.gcf().suptitle("Real MEG: Original vs TF-DSS Component 0 (Gamma Bursts)")
-plt.show(block=False)
+plt.show()
 
 # --- Spectrogram Comparison (Pre/Post) ---
 # Compares broadband raw data vs the broadband component
-plot_spectrogram_comparison(raw_single_meg, comp_raw_meg, fmin=1, fmax=100, show=False)
+
+# %%
+plot_spectrogram_comparison(
+    raw_single_meg,
+    comp_raw_meg,
+    picks=[0],
+    times=raw_single_meg.times,
+    fmin=1,
+    fmax=100,
+    show=False,
+)
 plt.gcf().suptitle("Spectrogram Comparison: Raw Data vs Extracted Component")
-plt.show(block=False)
+plt.show()
 
 # --- Component Spectrogram (Single Component TFR) ---
 # Zoom into the component's frequency content
 freqs = np.arange(10, 50, 2)
+
+# %%
 plot_component_spectrogram(
     sources_meg[0],
     sfreq=raw_somato.info["sfreq"],
@@ -347,16 +385,23 @@ plot_component_spectrogram(
     title="TF-DSS Component 0: Extracted Transient Oscillations",
     show=False,
 )
-plt.show(block=False)
+plt.show()
 
 # --- Full Component Summary (with Topomaps!) ---
 # Now that we have info, we can show topomaps
 # Note: IterativeDSS stores patterns, so plot_component_summary can extract them.
 print("\nPlotting full component dashboard (including Topomaps)...")
-plot_component_summary(idss_meg, data=raw_somato, n_components=1, show=False)
+
+# %%
+plot_component_summary(
+    idss_meg,
+    data=raw_somato,
+    info=raw_somato.info,
+    picks=np.arange(len(raw_somato.ch_names)),
+    n_components=1,
+    show=False,
+)
 plt.gcf().suptitle("TF-DSS Component 0 Dashboard")
-plt.show(block=False)
+plt.show()
 
 print("\nSuccessfully extracted transient gamma oscillations using TF masking!")
-
-plt.show()

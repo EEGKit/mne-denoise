@@ -11,17 +11,14 @@ of high *non-Gaussianity*, DSS finds components that maximize a user-defined **B
 The core optimization is:
 
 .. math::
-    \\max_w \\frac{w^T R_{biased} w}{w^T R_{baseline} w}
+   \max_w \frac{w^T R_{biased} w}{w^T R_{baseline} w}
 
-where:
-*   $R_{biased}$ is the covariance of the "signal of interest" (biased data).
-*   $R_{baseline}$ is the covariance of the raw data (or noise).
+where :math:`R_{biased}` is the covariance of the signal of interest and
+:math:`R_{baseline}` is the covariance of the raw data or noise.
 
 This allows DSS to be extremely flexible. The "Bias" defines what you are looking for.
-Typical biases include:
-*   **Trial Averaging**: Finds stimulus-evoked responses (reproducible across trials).
-*   **Bandpass Filtering**: Finds oscillatory sources (alpha, beta, etc.).
-*   **Time Masking**: Finds artifacts (blinks, heartbeats) to remove them.
+Typical biases include trial averaging for stimulus-evoked responses, bandpass
+filtering for oscillatory sources, and time masking for artifact removal.
 
 This tutorial demonstrates the "Hello World" of DSS: extracting a repetitive signal
 buried in noise using the **Trial Average Bias**.
@@ -42,21 +39,22 @@ from mne.datasets import sample
 
 from mne_denoise.dss import DSS, AverageBias, BandpassBias
 from mne_denoise.viz import (
+    plot_component_patterns,
+    plot_component_score_curve,
     plot_component_summary,
     plot_component_time_series,
-    plot_evoked_comparison,
+    plot_evoked_gfp_comparison,
     plot_psd_comparison,
-    plot_score_curve,
-    plot_spatial_patterns,
 )
 
 # %%
 # Part 1: Synthetic Data
 # ----------------------
 # We generate synthetic data with distinct components to demonstrate different biases.
-# *   **Signal A (Evoked)**: 10 Hz sine wave, phase-locked (reproducible).
-# *   **Signal B (Oscillatory)**: 50 Hz, random phase (not reproducible, but distinct frequency).
-# *   **Noise**: White noise.
+# Signal A (Evoked): 10 Hz sine wave, phase-locked (reproducible).
+# Signal B (Oscillatory): 50 Hz, random phase
+# (not reproducible, but distinct frequency).
+# Noise: White noise.
 
 print("Generating synthetic data...")
 n_epochs = 50
@@ -74,7 +72,8 @@ info = mne.create_info(ch_names, sfreq, "eeg")
 info.set_montage(montage)
 
 # Generate smooth spatial patterns (dipole-like)
-# This fixes the "noisy topomap" issue by ensuring adjacent sensors have similar weights.
+# This fixes the "noisy topomap" issue by ensuring
+# adjacent sensors have similar weights.
 pos = np.array([ch["loc"][:3] for ch in info["chs"]])
 center_head = np.mean(pos, axis=0)
 
@@ -129,6 +128,7 @@ for i in range(n_epochs):
     )
 
 epochs = mne.EpochsArray(data, info)
+epochs_picks = np.arange(len(epochs.ch_names))
 print(f"Created epochs: {epochs.get_data().shape}")
 
 
@@ -143,41 +143,60 @@ dss_evoked = DSS(n_components=3, bias=AverageBias(), return_type="sources")
 dss_evoked.fit(epochs)
 
 # Visualize
-# 1. Score Curve
-# --------------
+# Score Curve
+# -----------
 # This plot shows the "Bias Ratio" for each component.
-# *   **Expectation**: The first component (Comp 0) should have a much higher score than the rest.
-# *   This indicates that Comp 0 is highly reproducible (signal), while others are noise.
-plot_score_curve(dss_evoked, mode="ratio", show=False)
+# Expectation: The first component (Comp 0) should have a much
+# higher score than the rest.
+# This indicates that Comp 0 is highly reproducible (signal),
+# while others are noise.
+plot_component_score_curve(dss_evoked, mode="ratio", show=True)
 
-# 2. Component Time Series
-# ------------------------
+# %%
+# Component Time Series
+# ---------------------
 # We view the time courses of the first 5 components.
-# *   **Expectation**: Comp 0 should look like a clean 10 Hz sine wave.
-# *   **Expectation**: Comp 1-4 should look like noise or the 50 Hz interference.
-plot_component_time_series(dss_evoked, data=epochs, n_components=3, show=False)
+# Expectation: Comp 0 should look like a clean 10 Hz sine wave.
+# Expectation: Comp 1-4 should look like noise or the 50 Hz interference.
+plot_component_time_series(dss_evoked, data=epochs, n_components=3, show=True)
 
-# 3. Spatial Patterns
-# -------------------
+# %%
+# Spatial Patterns
+# ----------------
 # The "Spatial Pattern" (or topomap) shows how the component maps onto the sensors.
 #
-# *   **Interpretation**:
-#     *   **Colors**: Red/Blue indicate opposite polarity. Strong colors mean the component
-#         is strongly present on those sensors.
-#     *   **Dots**: These represent the 32 electrodes of the 'standard_1020' montage.
-#     *   **Comp 0**: Shows a smooth dipolar field (the "Left-ish" pattern we simulated).
-#     *   **Comp 1+**: Often look "speckled" or messy, indicating they capture noise.
+# Interpretation:
+# Colors: Red/Blue indicate opposite polarity. Strong colors mean the component
+# is strongly present on those sensors.
+# Dots: These represent the 32 electrodes of the 'standard_1020' montage.
+# Comp 0: Shows a smooth dipolar field (the "Left-ish" pattern we simulated).
+# Comp 1+: Often look "speckled" or messy, indicating they capture noise.
 #
 # Note: Since the data is synthetic, the sensor locations are idealized.
-plot_spatial_patterns(dss_evoked, n_components=3, show=False)
+plot_component_patterns(
+    dss_evoked,
+    info=epochs.info,
+    picks=epochs_picks,
+    n_components=3,
+    show=True,
+)
 
-# 4. Component Summary
-# --------------------
+# %%
+# Component Summary
+# -----------------
 # A dashboard for detailed inspection of Comp 0.
-plot_component_summary(dss_evoked, data=epochs, n_components=[0], show=False)
+plot_component_summary(
+    dss_evoked,
+    data=epochs,
+    info=epochs.info,
+    picks=epochs_picks,
+    n_components=[0],
+    show=True,
+)
 
-# 5. Denoising Comparison
-# -----------------------
+# %%
+# Denoising Comparison
+# --------------------
 # We reconstruct the data using ONLY the first component (the "Signal").
 # This removes the 50Hz interference and white noise.
 print("Reconstructing data from first component...")
@@ -188,44 +207,64 @@ epochs_denoised = dss_evoked.inverse_transform(sources)
 epochs_denoised = mne.EpochsArray(epochs_denoised, info)
 
 # Plot Original vs Denoised Evoked Response
-# *   **Expectation**: The "Denoised" trace should have smaller confidence intervals (shaded area)
-#     because the variable noise has been removed.
-plot_evoked_comparison(epochs, epochs_denoised, show=True)
+# Expectation: The "Denoised" trace should have smaller confidence intervals
+# because the variable noise has been removed.
+plot_evoked_gfp_comparison(epochs, epochs_denoised, times=epochs.times, show=True)
 
 
 # %%
 # Synthetic B: Bandpass Bias
 # --------------------------
 # Goal: Isolate the **Oscillatory (50Hz)** component.
-# Note: This component cancels out in the trial average! But DSS can find it by maximizing 50Hz power.
+# Note: This component cancels out in the trial average!
+# But DSS can find it by maximizing 50Hz power.
 # Bias: Maximize power in 48-52 Hz band.
 
 print("\n--- Synthetic: Bandpass Bias (50Hz) ---")
 bias_bp = BandpassBias(freq_band=(48, 52), sfreq=sfreq)
 dss_osc = DSS(n_components=5, bias=bias_bp)
-# For Bandpass, we often treat data as continuous (Raw), but Epochs work too (concatenated).
+# For Bandpass, we often treat data as continuous (Raw),
+# but Epochs work too (concatenated).
 dss_osc.fit(epochs)
 
 # Visualize
-# 1. Score Curve
-plot_score_curve(dss_osc, mode="ratio", show=False)
+# Score Curve
+plot_component_score_curve(dss_osc, mode="ratio", show=True)
 
-# 2. Component Time Series
-# *   **Expectation**: Comp 0 should look like a bursty/clean 50Hz oscillation.
-# *   **Note**: Unlike Evoked, these are not phase-locked, so peaks don't align across trials.
-plot_component_time_series(dss_osc, data=epochs, n_components=3, show=False)
+# %%
+# Component Time Series
+# Expectation: Comp 0 should look like a bursty/clean 50Hz oscillation.
+# Note: Unlike Evoked, these are not phase-locked, so peaks don't align across trials.
+plot_component_time_series(dss_osc, data=epochs, n_components=3, show=True)
 
-# 3. Spatial Patterns
-# *   **Expectation**: Comp 0 should show the "Right-ish" field pattern.
-# *   **Note**: This topography is distinct from the Evoked signal, showing how DSS separates sources spatially.
-plot_spatial_patterns(dss_osc, n_components=3, show=False)
+# %%
+# Spatial Patterns
+# Expectation: Comp 0 should show the "Right-ish" field pattern.
+# Note: This topography is distinct from the Evoked signal,
+# showing how DSS separates sources spatially.
+plot_component_patterns(
+    dss_osc,
+    info=epochs.info,
+    picks=epochs_picks,
+    n_components=3,
+    show=True,
+)
 
-# 4. Component Summary
-# *   **Expectation**: PSD should show a very sharp peak at 50 Hz.
-plot_component_summary(dss_osc, data=epochs, n_components=[0], show=False)
+# %%
+# Component Summary
+# Expectation: PSD should show a very sharp peak at 50 Hz.
+plot_component_summary(
+    dss_osc,
+    data=epochs,
+    info=epochs.info,
+    picks=epochs_picks,
+    n_components=[0],
+    show=True,
+)
 
-# 5. Denoising Comparison
-# -----------------------
+# %%
+# Denoising Comparison
+# --------------------
 # Reconstruct data using the oscillator component.
 print("Reconstructing data from oscillatory component...")
 # We concatenate epochs for continuous reconstruction if desired, or keep as epochs
@@ -236,17 +275,17 @@ epochs_osc = dss_osc.inverse_transform(sources)
 epochs_osc = mne.EpochsArray(epochs_osc, info)
 
 # Plot PSD Comparison
-# *   **Expectation**: The "Denoised" signal should have a massive peak at 50Hz
-#     and very little power elsewhere (noise suppressed).
+# Expectation: The "Denoised" signal should have a massive peak at 50 Hz
+# and very little power elsewhere (noise suppressed).
 plot_psd_comparison(epochs, epochs_osc, show=True, fmax=100)
 
 
 # %%
 # Part 2: Real Data (MNE Sample)
 # ------------------------------
-# We load real MEG data and perform the same two tasks:
-# 1.  **Trial Average Bias**: Recover auditory evoked response (M100).
-# 2.  **Bandpass Bias**: Recover Alpha rhythm (8-12 Hz) from background.
+# We load real MEG data and perform the same two tasks as above: recover the
+# auditory evoked response with a trial-average bias and recover background
+# alpha rhythm with a bandpass bias.
 
 print("\nLoading MNE Sample data...")
 # Ensure MNE_DATA directory exists
@@ -262,6 +301,7 @@ event_fname = data_path / "MEG" / "sample" / "sample_audvis_raw-eve.fif"
 
 raw = mne.io.read_raw_fif(raw_fname, preload=True, verbose=False)
 raw.pick_types(meg="grad", eeg=False, eog=False, stim=False).crop(0, 60)
+raw_picks = np.arange(len(raw.ch_names))
 print(f"Data: {len(raw.ch_names)} Gradiometers, 60s duration")
 
 # %%
@@ -275,23 +315,40 @@ dss_alpha = DSS(n_components=5, bias=bias_alpha)
 dss_alpha.fit(raw)
 
 # Visualize
-# 1. Score Curve
-plot_score_curve(dss_alpha, mode="ratio", show=False)
+# Score Curve
+plot_component_score_curve(dss_alpha, mode="ratio", show=True)
 
-# 2. Component Time Series
-# *   **Expectation**: Strong rhythmic activity (alpha waves) in the first component.
-plot_component_time_series(dss_alpha, data=raw, n_components=5, show=False)
+# %%
+# Component Time Series
+# Expectation: Strong rhythmic activity (alpha waves) in the first component.
+plot_component_time_series(dss_alpha, data=raw, n_components=5, show=True)
 
-# 3. Spatial Patterns
-# *   **Expectation**: Comp 0 shows a posterior/occipital topography (visual/alpha areas).
-# *   **Note**: The dots here represent the MEG sensors (gradiometers).
-plot_spatial_patterns(dss_alpha, n_components=5, show=False)
+# %%
+# Spatial Patterns
+# Expectation: Comp 0 shows a posterior/occipital topography (visual/alpha areas).
+# Note: The dots here represent the MEG sensors (gradiometers).
+plot_component_patterns(
+    dss_alpha,
+    info=raw.info,
+    picks=raw_picks,
+    n_components=5,
+    show=True,
+)
 
-# 4. Component Summary
-# *   **Expectation**: PSD peak in 8-12 Hz range.
-plot_component_summary(dss_alpha, data=raw, n_components=[0], show=False)
+# %%
+# Component Summary
+# Expectation: PSD peak in 8-12 Hz range.
+plot_component_summary(
+    dss_alpha,
+    data=raw,
+    info=raw.info,
+    picks=raw_picks,
+    n_components=[0],
+    show=True,
+)
 
-# 5. Denoising Comparison
+# %%
+# Denoising Comparison
 print("Reconstructing Alpha component...")
 sources_alpha = dss_alpha.transform(raw)
 sources_alpha[1:, :] = 0
@@ -299,7 +356,8 @@ raw_alpha = dss_alpha.inverse_transform(sources_alpha)
 raw_alpha = mne.io.RawArray(raw_alpha, raw.info)
 
 # Compare PSDs
-# *   **Expectation**: Denoised signal roughly follows original in alpha band but has lower noise floor.
+# Expectation: Denoised signal roughly follows original in
+# alpha band but has lower noise floor.
 plot_psd_comparison(raw, raw_alpha, fmax=40, show=True)
 
 
@@ -323,28 +381,47 @@ epochs_real = mne.Epochs(
     verbose=False,
 )
 print(f"Epochs extracted: {len(epochs_real)}")
+epochs_real_picks = np.arange(len(epochs_real.ch_names))
 
 dss_m100 = DSS(n_components=5, bias=AverageBias())
 dss_m100.fit(epochs_real)
 
 # Visualize
-# 1. Score Curve
-plot_score_curve(dss_m100, mode="ratio", show=False)
+# Score Curve
+plot_component_score_curve(dss_m100, mode="ratio", show=True)
 
-# 2. Component Time Series
-# *   **Expectation**: Comp 0 should show a clear evoked potential (M100) that is
-#     visible even in the stacked single trials (if SNR is good enough) or at least in the mean.
-plot_component_time_series(dss_m100, data=epochs_real, n_components=5, show=False)
+# %%
+# Component Time Series
+# Expectation: Comp 0 should show a clear evoked potential (M100) that is
+# visible even in the stacked single trials (if SNR is good
+# enough) or at least in the mean.
+plot_component_time_series(dss_m100, data=epochs_real, n_components=5, show=True)
 
-# 3. Spatial Patterns
-# *   **Expectation**: Dipolar pattern over auditory cortex (temporal lobes).
-# *   **Observation**: You might see symmetric dipoles over left and right temporal areas.
-plot_spatial_patterns(dss_m100, n_components=5, show=False)
+# %%
+# Spatial Patterns
+# Expectation: Dipolar pattern over auditory cortex (temporal lobes).
+# Observation: You might see symmetric dipoles over left and right temporal areas.
+plot_component_patterns(
+    dss_m100,
+    info=epochs_real.info,
+    picks=epochs_real_picks,
+    n_components=5,
+    show=True,
+)
 
-# 4. Summary
-plot_component_summary(dss_m100, data=epochs_real, n_components=[0], show=False)
+# %%
+# Summary
+plot_component_summary(
+    dss_m100,
+    data=epochs_real,
+    info=epochs_real.info,
+    picks=epochs_real_picks,
+    n_components=[0],
+    show=True,
+)
 
-# 5. Denoising Comparison
+# %%
+# Denoising Comparison
 print("Reconstructing M100 component...")
 sources = dss_m100.transform(epochs_real)
 sources[:, 1:, :] = 0
@@ -352,14 +429,15 @@ epochs_m100 = dss_m100.inverse_transform(sources)
 epochs_m100 = mne.EpochsArray(epochs_m100, epochs_real.info)
 
 # Compare Evoked Responses
-# *   **Expectation**: Cleaner M100 peak with reduced baseline noise.
-plot_evoked_comparison(epochs_real, epochs_m100, show=True)
+# Expectation: Cleaner M100 peak with reduced baseline noise.
+plot_evoked_gfp_comparison(epochs_real, epochs_m100, times=epochs_real.times, show=True)
 
 # %%
 # Conclusion
 # ----------
 # We successfully demonstrated the flexibility of DSS:
-# *   **AverageBias**: Found phase-locked signals (Sine wave, M100) by averaging.
-# *   **BandpassBias**: Found induced/oscillatory signals (50Hz, Alpha) by filtering.
+# AverageBias: Found phase-locked signals (Sine wave, M100) by averaging.
+# BandpassBias: Found induced/oscillatory signals (50Hz, Alpha) by filtering.
 #
-# The same algorithm, `DSS`, solved both problems simply by changing the definition of "interesting".
+# The same algorithm, `DSS`, solved both problems simply by
+# changing the definition of "interesting".
