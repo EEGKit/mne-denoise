@@ -105,9 +105,10 @@ class ICanClean(BaseEstimator, TransformerMixin):
     exclude_pattern : str | None, default=None
         Pattern to exclude channels from both layers (e.g. ``'EXG'``).
     segment_len : float, default=2.0
-        Sliding window duration in seconds.
-    overlap : float, default=0.5
+        Sliding window duration in seconds (the "clean window").
+    overlap : float, default=0.0
         Overlap between consecutive windows as a fraction in [0, 1).
+        Default 0.0 matches the MATLAB reference (non-overlapping windows).
     threshold : float | 'auto', default=0.7
         :math:`R^2` threshold for component rejection.
         If ``'auto'``, uses an adaptive threshold based on the 95th percentile
@@ -115,6 +116,21 @@ class ICanClean(BaseEstimator, TransformerMixin):
     max_reject_fraction : float, default=0.5
         Safety cap: at most this fraction of canonical components can be
         removed per window.
+    reref_primary : bool | str, default=False
+        Apply average re-referencing to primary channels *for CCA only*
+        (the original data is used for cleaning). Matches MATLAB's
+        ``rerefX='yes-temp'``. Accepts ``True`` / ``'fullrank'`` (preserves
+        rank, divides by n+1) or ``'loserank'`` (standard avg ref, loses
+        1 rank).
+    reref_ref : bool | str, default=False
+        Same as ``reref_primary`` but for reference channels.
+    stats_segment_len : float | None, default=None
+        Duration (seconds) of the broader "stats window" for CCA
+        computation. If ``None`` or equal to ``segment_len``, the same
+        window is used for CCA and cleaning. When larger, CCA is computed
+        on the broader window but only the inner ``segment_len`` portion
+        is cleaned — matching MATLAB's ``statsWindow`` / ``cleanWindow``
+        distinction.
     verbose : bool, default=True
         Whether to log progress information.
 
@@ -216,22 +232,56 @@ class ICanClean(BaseEstimator, TransformerMixin):
         ref_prefix: str | None = None,
         primary_prefix: str | None = None,
         exclude_pattern: str | None = None,
+        mode: str = "sliding",
+        clean_with: str = "X",
         segment_len: float = 2.0,
-        overlap: float = 0.5,
+        overlap: float = 0.0,
         threshold: float | str = 0.7,
         max_reject_fraction: float = 0.5,
+        reref_primary: bool | str = False,
+        reref_ref: bool | str = False,
+        stats_segment_len: float | None = None,
+        global_threshold: float | str | None = None,
+        global_clean_with: str | None = None,
+        global_max_reject_fraction: float | None = None,
         verbose: bool = True,
     ):
+        if mode not in ("sliding", "global", "hybrid", "calibrated"):
+            raise ValueError(
+                f"mode must be 'sliding', 'global', 'hybrid', or "
+                f"'calibrated', got {mode!r}"
+            )
+        if clean_with not in ("X", "Y", "both"):
+            raise ValueError(
+                f"clean_with must be 'X', 'Y', or 'both', got {clean_with!r}"
+            )
+        if not (0 <= overlap < 1):
+            raise ValueError(
+                f"overlap must be in [0, 1), got {overlap}"
+            )
+        if not (0 <= max_reject_fraction <= 1):
+            raise ValueError(
+                f"max_reject_fraction must be in [0, 1], got {max_reject_fraction}"
+            )
+
         self.sfreq = float(sfreq)
         self.ref_channels = ref_channels
         self.primary_channels = primary_channels
         self.ref_prefix = ref_prefix
         self.primary_prefix = primary_prefix
         self.exclude_pattern = exclude_pattern
+        self.mode = mode
+        self.clean_with = clean_with
         self.segment_len = segment_len
         self.overlap = overlap
         self.threshold = threshold
         self.max_reject_fraction = max_reject_fraction
+        self.reref_primary = reref_primary
+        self.reref_ref = reref_ref
+        self.stats_segment_len = stats_segment_len
+        self.global_threshold = global_threshold
+        self.global_clean_with = global_clean_with
+        self.global_max_reject_fraction = global_max_reject_fraction
         self.verbose = verbose
 
     def fit(self, X: Any, y=None) -> "ICanClean":
@@ -281,10 +331,60 @@ class ICanClean(BaseEstimator, TransformerMixin):
         if mne_type == "epochs":
             # Epochs: (n_epochs, n_channels, n_times)
             cleaned_epochs = np.empty_like(data)
+            # Accumulate QC across epochs instead of overwriting
+            epoch_corrs: list[np.ndarray] = []
+            epoch_n_removed: list[int] = []
+            epoch_removed_idx: list[np.ndarray] = []
+            epoch_filters: list[np.ndarray] = []
+            epoch_patterns: list[np.ndarray] = []
+            epoch_window_counts: list[int] = []
+            # For hybrid mode, also accumulate global QC
+            epoch_global_corrs: list[np.ndarray] = []
+            epoch_global_n_removed: list[int] = []
+            epoch_global_removed_idx: list[np.ndarray] = []
+
             for i in range(data.shape[0]):
                 cleaned_epochs[i] = self._clean_continuous(
                     data[i], sfreq, orig_inst
                 )
+                # Collect per-epoch QC (top-level = sliding pass in hybrid)
+                epoch_corrs.extend(
+                    [self.correlations_[j] for j in range(self.n_windows_)]
+                )
+                epoch_n_removed.extend(self.n_removed_.tolist())
+                epoch_removed_idx.extend(self.removed_idx_)
+                epoch_filters.extend(self.filters_)
+                epoch_patterns.extend(self.patterns_)
+                epoch_window_counts.append(self.n_windows_)
+                # Collect hybrid global QC if present
+                if hasattr(self, "global_correlations_"):
+                    epoch_global_corrs.extend(
+                        [self.global_correlations_[j]
+                         for j in range(self.global_correlations_.shape[0])]
+                    )
+                    epoch_global_n_removed.extend(
+                        self.global_n_removed_.tolist()
+                    )
+                    epoch_global_removed_idx.extend(
+                        self.global_removed_idx_
+                    )
+
+            # Aggregate QC across all epochs
+            self.correlations_ = _pad_ragged(epoch_corrs)
+            self.n_removed_ = np.array(epoch_n_removed, dtype=int)
+            self.removed_idx_ = epoch_removed_idx
+            self.filters_ = epoch_filters
+            self.patterns_ = epoch_patterns
+            self.n_windows_ = len(epoch_corrs)
+            self.epoch_window_counts_ = epoch_window_counts
+            # Aggregate hybrid global QC
+            if epoch_global_corrs:
+                self.global_correlations_ = _pad_ragged(epoch_global_corrs)
+                self.global_n_removed_ = np.array(
+                    epoch_global_n_removed, dtype=int
+                )
+                self.global_removed_idx_ = epoch_global_removed_idx
+
             return reconstruct_mne_object(
                 cleaned_epochs, orig_inst, mne_type, verbose=False
             )
@@ -427,7 +527,7 @@ class ICanClean(BaseEstimator, TransformerMixin):
         sfreq: float,
         orig_inst: Any,
     ) -> np.ndarray:
-        """Core sliding-window CCA cleaning on a 2-D array.
+        """Orchestrate CCA cleaning based on mode.
 
         Parameters
         ----------
@@ -441,53 +541,188 @@ class ICanClean(BaseEstimator, TransformerMixin):
         """
         primary_idx, ref_idx = self._resolve_channels(data, orig_inst)
 
-        data_primary = data[primary_idx, :]  # (n_primary, n_times)
-        data_ref = data[ref_idx, :]          # (n_ref, n_times)
-
-        n_times = data_primary.shape[1]
-        n_primary = data_primary.shape[0]
-
-        # Window parameters
-        win_samples = int(self.segment_len * sfreq)
-        step_samples = max(1, int(round(win_samples * (1 - self.overlap))))
-
-        if win_samples > n_times:
-            raise ValueError(
-                f"Window length ({win_samples} samples = {self.segment_len}s) "
-                f"exceeds data length ({n_times} samples)."
+        if self.mode == "global":
+            data_out = self._run_single_pass(
+                data, primary_idx, ref_idx, sfreq,
+                threshold=self.threshold,
+                clean_with=self.clean_with,
+                max_reject_fraction=self.max_reject_fraction,
+                use_windows=False,
             )
+        elif self.mode == "sliding":
+            data_out = self._run_single_pass(
+                data, primary_idx, ref_idx, sfreq,
+                threshold=self.threshold,
+                clean_with=self.clean_with,
+                max_reject_fraction=self.max_reject_fraction,
+                use_windows=True,
+            )
+        elif self.mode == "hybrid":
+            # Global pass first
+            g_thr = self.global_threshold if self.global_threshold is not None else self.threshold
+            g_cw = self.global_clean_with if self.global_clean_with is not None else self.clean_with
+            g_mrf = self.global_max_reject_fraction if self.global_max_reject_fraction is not None else self.max_reject_fraction
+
+            data_after_global = self._run_single_pass(
+                data, primary_idx, ref_idx, sfreq,
+                threshold=g_thr,
+                clean_with=g_cw,
+                max_reject_fraction=g_mrf,
+                use_windows=False,
+            )
+            # Store global-pass QC
+            self.global_correlations_ = self.correlations_
+            self.global_n_removed_ = self.n_removed_
+            self.global_removed_idx_ = self.removed_idx_
+            self.global_filters_ = self.filters_
+            self.global_patterns_ = self.patterns_
+
+            # Sliding pass on globally-cleaned data
+            data_out = self._run_single_pass(
+                data_after_global, primary_idx, ref_idx, sfreq,
+                threshold=self.threshold,
+                clean_with=self.clean_with,
+                max_reject_fraction=self.max_reject_fraction,
+                use_windows=True,
+            )
+            # Store sliding-pass QC (also becomes top-level)
+            self.sliding_correlations_ = self.correlations_
+            self.sliding_n_removed_ = self.n_removed_
+            self.sliding_removed_idx_ = self.removed_idx_
+            self.sliding_filters_ = self.filters_
+            self.sliding_patterns_ = self.patterns_
+        elif self.mode == "calibrated":
+            data_out = self._run_calibrated_pass(
+                data, primary_idx, ref_idx, sfreq,
+                threshold=self.threshold,
+                max_reject_fraction=self.max_reject_fraction,
+            )
+        else:
+            raise ValueError(f"Unknown mode {self.mode!r}")
+
+        return data_out
+
+    def _run_single_pass(
+        self,
+        data: np.ndarray,
+        primary_idx: np.ndarray,
+        ref_idx: np.ndarray,
+        sfreq: float,
+        *,
+        threshold: float | str,
+        clean_with: str,
+        max_reject_fraction: float,
+        use_windows: bool,
+    ) -> np.ndarray:
+        """Run one CCA cleaning pass (either global or sliding windows).
+
+        Parameters
+        ----------
+        data : ndarray, shape (n_channels, n_times)
+        primary_idx, ref_idx : ndarray of int
+        sfreq : float
+        threshold : float or 'auto'
+        clean_with : 'X', 'Y', or 'both'
+        max_reject_fraction : float
+        use_windows : bool
+            If True, use sliding windows. If False, single global pass.
+
+        Returns
+        -------
+        data_out : ndarray, shape (n_channels, n_times)
+        """
+        data_primary = data[primary_idx, :]
+        data_ref = data[ref_idx, :]
+        n_times = data_primary.shape[1]
+
+        if use_windows:
+            win_samples = int(self.segment_len * sfreq)
+            step_samples = max(1, int(round(win_samples * (1 - self.overlap))))
+
+            if win_samples > n_times:
+                raise ValueError(
+                    f"Window length ({win_samples} samples = {self.segment_len}s) "
+                    f"exceeds data length ({n_times} samples)."
+                )
+
+            starts = list(np.arange(0, n_times - win_samples + 1, step_samples))
+            # Ensure terminal window covers the last sample
+            last_possible = n_times - win_samples
+            if starts and starts[-1] < last_possible:
+                starts.append(last_possible)
+        else:
+            # Global: one window covering the whole recording
+            win_samples = n_times
+            starts = [0]
 
         # Overlap-add buffers
         cleaned = np.zeros_like(data_primary)
         weights = np.zeros(n_times, dtype=np.float64)
         window_fn = np.ones(win_samples, dtype=np.float64)
 
-        # Window start positions
-        starts = np.arange(0, n_times - win_samples + 1, step_samples)
-
-        # Per-window QC storage
+        # Per-window QC
         all_corr: list[np.ndarray] = []
         all_n_removed: list[int] = []
         all_removed_idx: list[np.ndarray] = []
         all_filters: list[np.ndarray] = []
         all_patterns: list[np.ndarray] = []
-
-        # Running R\u00b2 accumulator for adaptive threshold
         running_r2: list[float] = []
+
+        # Broader stats window support (Bug 6: MATLAB statsWindow)
+        use_stats_win = (
+            self.stats_segment_len is not None
+            and self.stats_segment_len > self.segment_len
+            and use_windows
+        )
+        if use_stats_win:
+            stats_win_samples = int(self.stats_segment_len * sfreq)
+        else:
+            stats_win_samples = None
 
         for start in starts:
             end = start + win_samples
+            if end > n_times:
+                end = n_times
 
-            X_win = data_primary[:, start:end].T  # (samples, n_primary)
-            Y_win = data_ref[:, start:end].T       # (samples, n_ref)
+            actual_len = end - start
+            wfn = window_fn[:actual_len]
+
+            # -- Stats window: broader context for CCA (Bug 6) --
+            if use_stats_win:
+                extra = stats_win_samples - actual_len
+                extra_pre = extra // 2
+                extra_post = extra - extra_pre
+                s_start = start - extra_pre
+                s_end = end + extra_post
+                # Clamp to data boundaries, redistribute excess
+                if s_start < 0:
+                    s_end = min(n_times, s_end - s_start)
+                    s_start = 0
+                if s_end > n_times:
+                    s_start = max(0, s_start - (s_end - n_times))
+                    s_end = n_times
+                inner_offset = start - s_start
+            else:
+                s_start, s_end = start, end
+                inner_offset = 0
+
+            # -- Extract data: original for cleaning, processed for CCA --
+            # Bug 1: X_orig/X_temp separation — CCA may use re-referenced
+            # data but projection always targets original data.
+            X_orig = data_primary[:, s_start:s_end].T  # (stats_len, n_primary)
+            Y_orig = data_ref[:, s_start:s_end].T      # (stats_len, n_ref)
+
+            # Bug 2: optionally re-reference for CCA only
+            X_cca = _apply_reref(X_orig, self.reref_primary)
+            Y_cca = _apply_reref(Y_orig, self.reref_ref)
 
             try:
-                A, B, R, U, V = canonical_correlation(X_win, Y_win)
+                A, B, R, U, V = canonical_correlation(X_cca, Y_cca)
             except Exception as exc:
                 if self.verbose:
                     logger.warning("CCA failed for window at %d: %s", start, exc)
-                cleaned[:, start:end] += data_primary[:, start:end] * window_fn
-                weights[start:end] += window_fn
+                cleaned[:, start:end] += data_primary[:, start:end] * wfn
+                weights[start:end] += wfn
                 all_corr.append(np.array([]))
                 all_n_removed.append(0)
                 all_removed_idx.append(np.array([], dtype=int))
@@ -498,22 +733,25 @@ class ICanClean(BaseEstimator, TransformerMixin):
             r2 = (R ** 2).astype(np.float64)
             running_r2.extend(r2.tolist())
 
-            # Determine threshold
-            if self.threshold == "auto":
+            # Threshold
+            if threshold == "auto":
                 thr = self._adaptive_threshold(running_r2)
             else:
-                thr = float(self.threshold)
+                thr = float(threshold)
 
-            # Identify artifact components (strict >)
             bad_mask = r2 > thr
 
-            # Safety cap
-            max_bad = max(1, int(self.max_reject_fraction * len(r2)))
+            # Safety cap: max_reject_fraction=0 means remove nothing;
+            # otherwise allow at least 1 if any components exceed threshold
+            if max_reject_fraction == 0:
+                max_bad = 0
+            else:
+                max_bad = max(1, int(max_reject_fraction * len(r2)))
             if bad_mask.sum() > max_bad:
-                # Keep only the top-correlation ones
                 order = np.argsort(r2)[::-1]
                 bad_mask[:] = False
-                bad_mask[order[:max_bad]] = True
+                if max_bad > 0:
+                    bad_mask[order[:max_bad]] = True
 
             bad_idx = np.where(bad_mask)[0]
 
@@ -524,31 +762,41 @@ class ICanClean(BaseEstimator, TransformerMixin):
             all_patterns.append(B)
 
             if bad_idx.size > 0:
-                # Least-squares projection removal (matches MATLAB cleanXwith='X')
-                noise_sources = U[:, bad_idx]  # (samples, k)
-                X_mc = X_win - X_win.mean(axis=0, keepdims=True)
+                # Select noise sources based on clean_with mode
+                if clean_with == "X":
+                    noise_sources = U[:, bad_idx]
+                elif clean_with == "Y":
+                    noise_sources = V[:, bad_idx]
+                else:  # "both" — average of U and V (matches MATLAB 'XY' mode)
+                    noise_sources = (U[:, bad_idx] + V[:, bad_idx]) / 2
+
+                # Bug 1: project noise out of ORIGINAL (not re-referenced)
+                # data over the full stats window, matching MATLAB's
+                # iCanClean_cleanChansWithNoiseSources(X_localWindow, ...).
+                X_mc = X_orig - X_orig.mean(axis=0, keepdims=True)
                 Z_mc = noise_sources - noise_sources.mean(axis=0, keepdims=True)
 
                 beta, *_ = la.lstsq(Z_mc, X_mc, lapack_driver="gelsy")
-                X_clean_win = X_win - Z_mc @ beta
+                X_clean_full = X_orig - Z_mc @ beta
 
-                cleaned[:, start:end] += X_clean_win.T * window_fn
+                # Extract the inner clean-window portion
+                X_clean_win = X_clean_full[inner_offset:inner_offset + actual_len]
+                cleaned[:, start:end] += X_clean_win.T * wfn
             else:
-                cleaned[:, start:end] += X_win.T * window_fn
+                X_inner = X_orig[inner_offset:inner_offset + actual_len]
+                cleaned[:, start:end] += X_inner.T * wfn
 
-            weights[start:end] += window_fn
+            weights[start:end] += wfn
 
         # Normalise overlap-add
         mask = weights > 0
         cleaned[:, mask] /= weights[mask]
-
-        # Handle edges with no coverage (shouldn't happen with rectangular window)
         if not mask.all():
             cleaned[:, ~mask] = data_primary[:, ~mask]
 
-        # Store fitted attributes
+        # Store QC attributes (top-level, will be overwritten by hybrid second pass)
         self.n_windows_ = len(starts)
-        self.correlations_ = _pad_ragged(all_corr)  # (n_windows, d)
+        self.correlations_ = _pad_ragged(all_corr)
         self.n_removed_ = np.array(all_n_removed, dtype=int)
         self.removed_idx_ = all_removed_idx
         self.filters_ = all_filters
@@ -569,14 +817,214 @@ class ICanClean(BaseEstimator, TransformerMixin):
                 total_removed / max(self.n_windows_, 1),
             )
 
-        # Write cleaned data back
+        data_out = data.copy()
+        data_out[primary_idx, :] = cleaned
+        return data_out
+
+    def _run_calibrated_pass(
+        self,
+        data: np.ndarray,
+        primary_idx: np.ndarray,
+        ref_idx: np.ndarray,
+        sfreq: float,
+        *,
+        threshold: float | str,
+        max_reject_fraction: float,
+    ) -> np.ndarray:
+        """Calibrated mode: global CCA decomposition, per-window cleaning.
+
+        Matches MATLAB ``calcCCAonWholeData=true``:
+
+        1. Compute CCA on the **entire** recording → global A, B.
+        2. Compute global mixing matrix (``fakeWinv``).
+        3. For each sliding window:
+           - Project local data through global A, B → local U, V.
+           - Compute **local** pairwise correlations.
+           - Threshold on local R² → select bad components.
+           - Reconstruct noise via ``fakeWinv[:, bad] @ (X_mc @ A[:, bad]).T``
+             and subtract from original.
+
+        This is far more effective than per-window CCA because the global
+        spatial filters are stable, while local thresholding adapts to
+        which artifacts are active in each window.
+        """
+        data_primary = data[primary_idx, :]
+        data_ref = data[ref_idx, :]
+        n_times = data_primary.shape[1]
+
+        # ---- Step 1: Global CCA on entire recording ----
+        X_global = data_primary.T  # (T, n_primary)
+        Y_global = data_ref.T      # (T, n_ref)
+
+        X_cca = _apply_reref(X_global, self.reref_primary)
+        Y_cca = _apply_reref(Y_global, self.reref_ref)
+
+        A, B, R_global, U_global, V_global = canonical_correlation(
+            X_cca, Y_cca
+        )
+        d = A.shape[1]
+        if d == 0:
+            logger.warning("CCA returned 0 components — returning data as-is")
+            return data.copy()
+
+        # ---- Step 2: Global mixing matrix ----
+        # MATLAB: fakeWinv = mrdivide(X_mc', U')
+        # Python equivalent: lstsq(U, X_mc) → (d, n_ch) → transpose
+        X_global_mc = X_global - X_global.mean(axis=0, keepdims=True)
+        fakeWinv_T, *_ = la.lstsq(
+            U_global, X_global_mc, lapack_driver="gelsy"
+        )
+        fakeWinv = fakeWinv_T.T  # (n_primary, d)
+
+        # Store global calibration for inspection
+        self.global_A_ = A
+        self.global_B_ = B
+        self.global_R_ = R_global
+        self.fakeWinv_ = fakeWinv
+
+        if self.verbose:
+            logger.info(
+                "Calibrated mode: global CCA → %d components, "
+                "top-5 R²: %s",
+                d,
+                np.round(R_global[:min(5, d)] ** 2, 3),
+            )
+
+        # ---- Step 3: Sliding-window cleaning ----
+        win_samples = int(self.segment_len * sfreq)
+        step_samples = max(1, int(round(win_samples * (1 - self.overlap))))
+
+        if win_samples > n_times:
+            raise ValueError(
+                f"Window length ({win_samples} samples) exceeds "
+                f"data length ({n_times} samples)."
+            )
+
+        starts = list(
+            np.arange(0, n_times - win_samples + 1, step_samples)
+        )
+        last_possible = n_times - win_samples
+        if starts and starts[-1] < last_possible:
+            starts.append(last_possible)
+
+        cleaned = np.zeros_like(data_primary)
+        weights = np.zeros(n_times, dtype=np.float64)
+        window_fn = np.ones(win_samples, dtype=np.float64)
+
+        all_corr: list[np.ndarray] = []
+        all_n_removed: list[int] = []
+        all_removed_idx: list[np.ndarray] = []
+        all_filters: list[np.ndarray] = []
+        all_patterns: list[np.ndarray] = []
+        running_r2: list[float] = []
+
+        for start in starts:
+            end = start + win_samples
+            if end > n_times:
+                end = n_times
+            actual_len = end - start
+            wfn = window_fn[:actual_len]
+
+            # Local data (original, for cleaning)
+            X_local = data_primary[:, start:end].T  # (win, n_primary)
+            Y_local = data_ref[:, start:end].T      # (win, n_ref)
+
+            # Project through global A, B → local canonical variates
+            X_local_mc = X_local - X_local.mean(axis=0, keepdims=True)
+            Y_local_mc = Y_local - Y_local.mean(axis=0, keepdims=True)
+            U_local = X_local_mc @ A  # (win, d)
+            V_local = Y_local_mc @ B  # (win, d)
+
+            # Local pairwise correlations: R_local[i] = corr(U[:,i], V[:,i])
+            U_zm = U_local - U_local.mean(axis=0, keepdims=True)
+            V_zm = V_local - V_local.mean(axis=0, keepdims=True)
+            u_norm = np.sqrt(np.sum(U_zm ** 2, axis=0))
+            v_norm = np.sqrt(np.sum(V_zm ** 2, axis=0))
+            denom = u_norm * v_norm
+            denom[denom == 0] = 1.0
+            R_local = np.sum(U_zm * V_zm, axis=0) / denom
+
+            r2 = np.clip(R_local ** 2, 0.0, 1.0)
+            running_r2.extend(r2.tolist())
+
+            # Threshold
+            if threshold == "auto":
+                thr = self._adaptive_threshold(running_r2)
+            else:
+                thr = float(threshold)
+
+            bad_mask = r2 > thr
+
+            # Safety cap
+            if max_reject_fraction == 0:
+                max_bad = 0
+            else:
+                max_bad = max(1, int(max_reject_fraction * len(r2)))
+            if bad_mask.sum() > max_bad:
+                order = np.argsort(r2)[::-1]
+                bad_mask[:] = False
+                if max_bad > 0:
+                    bad_mask[order[:max_bad]] = True
+
+            bad_idx = np.where(bad_mask)[0]
+
+            all_corr.append(r2)
+            all_n_removed.append(int(bad_idx.size))
+            all_removed_idx.append(bad_idx)
+            all_filters.append(A)
+            all_patterns.append(B)
+
+            if bad_idx.size > 0:
+                # MATLAB calibrated cleaning:
+                #   activations = X_mc * A(:, bad)  — project into bad subspace
+                #   noise_est = fakeWinv(:, bad) * activations'  — back to channels
+                #   X_clean = X - noise_est'
+                activations = X_local_mc @ A[:, bad_idx]       # (win, n_bad)
+                noise_est = (fakeWinv[:, bad_idx] @ activations.T).T  # (win, n_ch)
+                X_clean_win = X_local - noise_est
+
+                cleaned[:, start:end] += X_clean_win.T * wfn
+            else:
+                cleaned[:, start:end] += X_local.T * wfn
+
+            weights[start:end] += wfn
+
+        # Normalise overlap-add
+        mask = weights > 0
+        cleaned[:, mask] /= weights[mask]
+        if not mask.all():
+            cleaned[:, ~mask] = data_primary[:, ~mask]
+
+        # Store QC
+        self.n_windows_ = len(starts)
+        self.correlations_ = _pad_ragged(all_corr)
+        self.n_removed_ = np.array(all_n_removed, dtype=int)
+        self.removed_idx_ = all_removed_idx
+        self.filters_ = all_filters
+        self.patterns_ = all_patterns
+
+        if self.verbose:
+            total_removed = self.n_removed_.sum()
+            pct_windows = (
+                (self.n_removed_ > 0).sum() / self.n_windows_ * 100
+                if self.n_windows_ > 0
+                else 0
+            )
+            logger.info(
+                "Calibrated: %d windows, %.1f%% had removals, "
+                "%.1f components removed on average",
+                self.n_windows_,
+                pct_windows,
+                total_removed / max(self.n_windows_, 1),
+            )
+
         data_out = data.copy()
         data_out[primary_idx, :] = cleaned
         return data_out
 
     @staticmethod
     def _adaptive_threshold(running_r2: list[float]) -> float:
-        """Compute adaptive R\u00b2 threshold from running distribution."""
+        """Compute adaptive R^2 threshold from running distribution."""
         if len(running_r2) > 10:
             return float(np.percentile(running_r2, 95))
         return 0.95
@@ -585,6 +1033,43 @@ class ICanClean(BaseEstimator, TransformerMixin):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _apply_reref(data: np.ndarray, reref: bool | str) -> np.ndarray:
+    """Apply average re-reference across channels for CCA input.
+
+    Matches MATLAB ``iCanClean_reref``.
+
+    Parameters
+    ----------
+    data : ndarray, shape (n_samples, n_channels)
+    reref : bool or str
+        ``False``: no re-referencing.
+        ``True`` or ``'fullrank'``: full-rank average re-reference
+        (divides by n+1, preserves rank — MATLAB default).
+        ``'loserank'``: standard average re-reference (divides by n,
+        loses 1 rank).
+
+    Returns
+    -------
+    data_reref : ndarray, shape (n_samples, n_channels)
+    """
+    if reref is False:
+        return data
+    n_ch = data.shape[1]
+    if reref is True or reref == "fullrank":
+        # eye(n) - ones(n)/(n+1) — MATLAB iCanClean_reref 'fullrank'
+        ref = np.eye(n_ch) - np.ones((n_ch, n_ch)) / (n_ch + 1)
+    elif reref == "loserank":
+        # eye(n) - ones(n)/n — standard average reference
+        ref = np.eye(n_ch) - np.ones((n_ch, n_ch)) / n_ch
+    else:
+        raise ValueError(
+            f"reref must be False, True, 'fullrank', or 'loserank', "
+            f"got {reref!r}"
+        )
+    # ref is symmetric, so data @ ref == data @ ref.T
+    return data @ ref
 
 
 def _pad_ragged(arrays: list[np.ndarray]) -> np.ndarray:
