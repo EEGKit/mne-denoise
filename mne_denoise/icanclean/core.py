@@ -241,6 +241,8 @@ class ICanClean(BaseEstimator, TransformerMixin):
         reref_primary: bool | str = False,
         reref_ref: bool | str = False,
         stats_segment_len: float | None = None,
+        filter_ref: tuple | None = None,
+        pseudo_ref: bool = False,
         global_threshold: float | str | None = None,
         global_clean_with: str | None = None,
         global_max_reject_fraction: float | None = None,
@@ -279,6 +281,8 @@ class ICanClean(BaseEstimator, TransformerMixin):
         self.reref_primary = reref_primary
         self.reref_ref = reref_ref
         self.stats_segment_len = stats_segment_len
+        self.filter_ref = filter_ref
+        self.pseudo_ref = pseudo_ref
         self.global_threshold = global_threshold
         self.global_clean_with = global_clean_with
         self.global_max_reject_fraction = global_max_reject_fraction
@@ -539,7 +543,39 @@ class ICanClean(BaseEstimator, TransformerMixin):
         -------
         data_out : ndarray, shape (n_channels, n_times)
         """
-        primary_idx, ref_idx = self._resolve_channels(data, orig_inst)
+        # Pseudo-reference mode: use primary channels as both X and Y
+        # for CCA. The Y copy gets filtered (e.g. notch out brain band).
+        n_orig = data.shape[0]
+        if self.pseudo_ref:
+            # Resolve primary channels; ref = same channels.
+            # Accept either primary_channels or ref_channels as input.
+            try:
+                primary_idx, _ = self._resolve_channels(data, orig_inst)
+            except ValueError:
+                primary_idx = np.array([], dtype=int)
+            if primary_idx.size == 0:
+                try:
+                    _, primary_idx = self._resolve_channels(data, orig_inst)
+                except ValueError:
+                    pass
+            if primary_idx.size == 0:
+                # Last resort: use all channels
+                primary_idx = np.arange(data.shape[0])
+            # Create filtered pseudo-reference from primary data
+            pseudo_data = data[primary_idx, :].copy()
+            pseudo_data = _filter_channels(pseudo_data, self.filter_ref,
+                                           sfreq)
+            data = np.vstack([data, pseudo_data])
+            ref_idx = np.arange(n_orig, data.shape[0])
+        else:
+            primary_idx, ref_idx = self._resolve_channels(data, orig_inst)
+
+        if self.filter_ref is not None and not self.pseudo_ref:
+            # Non-pseudo: filter ref channels in a copy (ref != primary)
+            data = data.copy()
+            data[ref_idx, :] = _filter_channels(
+                data[ref_idx, :], self.filter_ref, sfreq
+            )
 
         if self.mode == "global":
             data_out = self._run_single_pass(
@@ -599,6 +635,10 @@ class ICanClean(BaseEstimator, TransformerMixin):
             )
         else:
             raise ValueError(f"Unknown mode {self.mode!r}")
+
+        # Strip pseudo-reference rows if they were appended
+        if self.pseudo_ref and data_out.shape[0] > n_orig:
+            data_out = data_out[:n_orig]
 
         return data_out
 
@@ -1033,6 +1073,54 @@ class ICanClean(BaseEstimator, TransformerMixin):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _filter_channels(
+    data: np.ndarray,
+    filter_spec: tuple | None,
+    sfreq: float,
+) -> np.ndarray:
+    """Apply a filter to channel data (n_channels, n_times).
+
+    Parameters
+    ----------
+    data : ndarray, shape (n_channels, n_times)
+    filter_spec : tuple (type, freqs) or None
+        ``('notch', (lo, hi))``: bandstop — remove lo–hi Hz (brain band),
+        keep outside (artifact frequencies). Matches MATLAB ``filtYtype='Notch'``.
+        ``('hp', freq)``: high-pass.
+        ``('lp', freq)``: low-pass.
+        ``('bp', (lo, hi))``: band-pass.
+    sfreq : float
+
+    Returns
+    -------
+    filtered : ndarray, same shape
+    """
+    if filter_spec is None:
+        return data
+    from scipy.signal import butter, sosfiltfilt
+
+    ftype, ffreqs = filter_spec
+    if ftype == "notch":
+        lo, hi = ffreqs
+        sos = butter(4, [lo, hi], btype="bandstop", fs=sfreq, output="sos")
+    elif ftype == "hp":
+        sos = butter(4, ffreqs, btype="high", fs=sfreq, output="sos")
+    elif ftype == "lp":
+        sos = butter(4, ffreqs, btype="low", fs=sfreq, output="sos")
+    elif ftype == "bp":
+        lo, hi = ffreqs
+        sos = butter(4, [lo, hi], btype="band", fs=sfreq, output="sos")
+    else:
+        raise ValueError(
+            f"filter type must be 'notch', 'hp', 'lp', or 'bp', "
+            f"got {ftype!r}"
+        )
+    out = data.copy()
+    for i in range(out.shape[0]):
+        out[i] = sosfiltfilt(sos, out[i])
+    return out
 
 
 def _apply_reref(data: np.ndarray, reref: bool | str) -> np.ndarray:
