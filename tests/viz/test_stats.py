@@ -16,6 +16,7 @@ from mne_denoise.viz import (
     plot_metric_violins,
     plot_null_distribution,
     plot_tradeoff_scatter,
+    plot_window_count_series,
 )
 
 
@@ -447,3 +448,23 @@ def test_plot_harmonic_attenuation_missing_series(freqs, gm_psd, cleaned_psds):
         show=False,
     )
     assert isinstance(fig, plt.Figure)
+
+
+def test_plot_window_count_series():
+    """Test plotting of windowed component counts."""
+    counts = np.array([2, 3, 2, 4, 1])
+
+    # Basic plot
+    fig = plot_window_count_series(counts, show=False)
+    assert isinstance(fig, plt.Figure)
+    plt.close(fig)
+
+    # With existing ax
+    fig, ax = plt.subplots()
+    ret_fig = plot_window_count_series(counts, ax=ax, show=False)
+    assert ret_fig is fig
+    plt.close(fig)
+
+    # Invalid counts shape
+    with pytest.raises(ValueError, match="1D array"):
+        plot_window_count_series(np.zeros((2, 2)), show=False)
