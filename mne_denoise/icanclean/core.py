@@ -438,9 +438,9 @@ def compute_icanclean(
 class ICanClean(BaseEstimator, TransformerMixin):
     r"""ICanClean Transformer for reference-based artifact removal.
 
-    Implements the iCanClean algorithm [1]_ [2]_ [3]_ using canonical correlation
-    analysis (CCA) between primary channels and reference channels to identify
-    and remove artifact-dominated subspaces [4]_.
+    Implements the iCanClean algorithm [1]_ [2]_ [3]_ using canonical
+    correlation analysis (CCA) between primary channels and reference
+    channels to identify and remove artifact-dominated subspaces.
 
     The estimator supports four operating modes:
 
