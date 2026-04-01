@@ -15,10 +15,10 @@ reference channels. The core procedure is:
 4. Project the selected variates back to the primary channels.
 5. Subtract the projected artifact activity from the original primary signal.
 
-.. note:: A public U.S. patent application appears relevant to the iCanClean
-          method: US20230363718A1, "Removing latent noise components from data
-          signals" (Application 18/245,496). Patent applications, and any
-          resulting patents, may affect commercial use. Consult counsel if
+.. note:: A public U.S. patent application has been filed for the
+          iCanClean method: US20230363718A1, "Removing latent noise components
+          from data signals" (Application 18/245,496). Patent applications, and
+          any resulting patents, may affect commercial use. Consult lawyer if
           necessary.
 
 Authors: Sina Esmaeili (sina.esmaeili@umontreal.ca)
@@ -44,7 +44,7 @@ References
 """
 
 # Patent notice:
-# A public U.S. patent application appears relevant to the iCanClean method:
+# A public U.S. patent application has been filed for the iCanClean method:
 # US20230363718A1, "Removing latent noise components from data signals"
 # (Application 18/245,496). Patent applications, and any resulting patents,
 # may affect commercial use.
@@ -173,11 +173,11 @@ def compute_icanclean(
 
     Notes
     -----
-    .. note:: A public U.S. patent application appears relevant to the
+    .. note:: A public U.S. patent application has been filed for the
               iCanClean method: US20230363718A1, "Removing latent noise
               components from data signals" (Application 18/245,496).
               Patent applications, and any resulting patents, may affect
-              commercial use. Consult counsel if necessary.
+              commercial use. Consult lawyer if necessary.
 
     When ``threshold='auto'``, the rejection threshold is the 95th percentile
     of the running :math:`R^2` distribution after at least 10 values have been
@@ -537,17 +537,16 @@ class ICanClean(BaseEstimator, TransformerMixin):
 
     See Also
     --------
-    mne_denoise.dss.DSS : Denoising Source Separation.
-    mne_denoise.zapline.ZapLine : Line noise removal.
-    mne_denoise.icanclean._cca.canonical_correlation : CCA utility.
+    mne_denoise.DSS : Denoising Source Separation.
+    mne_denoise.ZapLine : DSS-based line noise removal.
 
     Notes
     -----
-    .. note:: A public U.S. patent application appears relevant to the
+    .. note:: A public U.S. patent application has been filed for the
               iCanClean method: US20230363718A1, "Removing latent noise
               components from data signals" (Application 18/245,496).
               Patent applications, and any resulting patents, may affect
-              commercial use. Consult counsel if necessary.
+              commercial use. Consult lawyer if necessary.
 
     When ``threshold='auto'``, the adaptive threshold is computed as the
     95th percentile of all :math:`R^2` values accumulated so far. For the
