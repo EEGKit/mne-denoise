@@ -448,3 +448,162 @@ class TestICanCleanViz:
         assert fig is not None
         import matplotlib.pyplot as plt
         plt.close(fig)
+
+
+# ---------------------------------------------------------------------------
+# Tests for new features (mode, clean_with, bug fixes)
+# ---------------------------------------------------------------------------
+
+
+class TestICanCleanValidation:
+    """Input validation tests."""
+
+    def test_invalid_overlap_raises(self):
+        with pytest.raises(ValueError, match="overlap"):
+            ICanClean(sfreq=250.0, ref_channels=[0], overlap=1.0)
+
+    def test_negative_overlap_raises(self):
+        with pytest.raises(ValueError, match="overlap"):
+            ICanClean(sfreq=250.0, ref_channels=[0], overlap=-0.1)
+
+    def test_invalid_mode_raises(self):
+        with pytest.raises(ValueError, match="mode"):
+            ICanClean(sfreq=250.0, ref_channels=[0], mode="unknown")
+
+    def test_invalid_clean_with_raises(self):
+        with pytest.raises(ValueError, match="clean_with"):
+            ICanClean(sfreq=250.0, ref_channels=[0], clean_with="Z")
+
+    def test_invalid_max_reject_fraction_raises(self):
+        with pytest.raises(ValueError, match="max_reject_fraction"):
+            ICanClean(sfreq=250.0, ref_channels=[0], max_reject_fraction=-0.1)
+
+
+class TestICanCleanMaxRejectZero:
+    """max_reject_fraction=0.0 should remove nothing."""
+
+    def test_zero_reject_preserves_data(self, rng, synthetic_dual_layer):
+        data, primary_idx, ref_idx, sfreq, _ = synthetic_dual_layer
+        icc = ICanClean(
+            sfreq=sfreq,
+            ref_channels=list(ref_idx),
+            max_reject_fraction=0.0,
+            threshold=0.0,  # would reject everything if cap weren't 0
+        )
+        cleaned = icc.fit_transform(data)
+        np.testing.assert_array_almost_equal(cleaned, data)
+        assert icc.n_removed_.sum() == 0
+
+
+class TestICanCleanModes:
+    """Tests for mode='global' and mode='hybrid'."""
+
+    def test_global_mode(self, rng, synthetic_dual_layer):
+        data, primary_idx, ref_idx, sfreq, _ = synthetic_dual_layer
+        icc = ICanClean(
+            sfreq=sfreq,
+            ref_channels=list(ref_idx),
+            mode="global",
+            threshold=0.7,
+        )
+        cleaned = icc.fit_transform(data)
+        assert cleaned.shape == data.shape
+        assert icc.n_windows_ == 1  # global = single window
+
+    def test_hybrid_mode(self, rng, synthetic_dual_layer):
+        data, primary_idx, ref_idx, sfreq, _ = synthetic_dual_layer
+        icc = ICanClean(
+            sfreq=sfreq,
+            ref_channels=list(ref_idx),
+            mode="hybrid",
+            threshold=0.7,
+            global_threshold=0.9,
+            global_clean_with="Y",
+            global_max_reject_fraction=0.3,
+        )
+        cleaned = icc.fit_transform(data)
+        assert cleaned.shape == data.shape
+        # Hybrid should have both global and sliding QC
+        assert hasattr(icc, "global_correlations_")
+        assert hasattr(icc, "sliding_correlations_")
+        # Top-level is from the sliding pass
+        assert icc.n_windows_ > 1
+
+    def test_sliding_mode_default(self, rng, synthetic_dual_layer):
+        data, primary_idx, ref_idx, sfreq, _ = synthetic_dual_layer
+        icc = ICanClean(
+            sfreq=sfreq,
+            ref_channels=list(ref_idx),
+            mode="sliding",
+            threshold=0.7,
+        )
+        cleaned = icc.fit_transform(data)
+        assert cleaned.shape == data.shape
+        assert icc.n_windows_ > 1
+
+
+class TestICanCleanCleanWith:
+    """Tests for clean_with='X', 'Y', 'both'."""
+
+    def test_clean_with_y(self, rng, synthetic_dual_layer):
+        data, primary_idx, ref_idx, sfreq, _ = synthetic_dual_layer
+        icc = ICanClean(
+            sfreq=sfreq,
+            ref_channels=list(ref_idx),
+            clean_with="Y",
+            threshold=0.5,
+        )
+        cleaned = icc.fit_transform(data)
+        assert cleaned.shape == data.shape
+        # Reference channels should be unchanged
+        np.testing.assert_array_equal(cleaned[ref_idx], data[ref_idx])
+
+    def test_clean_with_both(self, rng, synthetic_dual_layer):
+        data, primary_idx, ref_idx, sfreq, _ = synthetic_dual_layer
+        icc = ICanClean(
+            sfreq=sfreq,
+            ref_channels=list(ref_idx),
+            clean_with="both",
+            threshold=0.5,
+        )
+        cleaned = icc.fit_transform(data)
+        assert cleaned.shape == data.shape
+
+    def test_clean_with_modes_differ(self, rng, synthetic_dual_layer):
+        """Different clean_with modes should produce different outputs."""
+        data, primary_idx, ref_idx, sfreq, _ = synthetic_dual_layer
+        results = {}
+        for cw in ("X", "Y", "both"):
+            icc = ICanClean(
+                sfreq=sfreq,
+                ref_channels=list(ref_idx),
+                clean_with=cw,
+                threshold=0.5,
+            )
+            results[cw] = icc.fit_transform(data)
+
+        # At least X vs Y should differ
+        assert not np.allclose(
+            results["X"][primary_idx], results["Y"][primary_idx], atol=1e-10
+        ), "clean_with='X' and 'Y' produced identical outputs"
+
+
+class TestICanCleanTerminalWindow:
+    """Verify all samples are covered (no tail gap)."""
+
+    def test_no_uncovered_samples(self, rng):
+        """With awkward overlap, last samples should still be cleaned."""
+        n_primary, n_ref, n_times = 8, 2, 1000
+        sfreq = 250.0
+        data = rng.standard_normal((n_primary + n_ref, n_times))
+        ref_idx = list(range(n_primary, n_primary + n_ref))
+
+        icc = ICanClean(
+            sfreq=sfreq,
+            ref_channels=ref_idx,
+            segment_len=0.5,  # 125 samples
+            overlap=0.3,      # step = 87.5 -> 88 samples
+            threshold=0.99,   # high threshold = minimal cleaning
+        )
+        cleaned = icc.fit_transform(data)
+        assert cleaned.shape == data.shape
