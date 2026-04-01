@@ -547,19 +547,23 @@ class ICanClean(BaseEstimator, TransformerMixin):
         # for CCA. The Y copy gets filtered (e.g. notch out brain band).
         n_orig = data.shape[0]
         if self.pseudo_ref:
-            # Resolve primary channels; ref = same channels.
-            # Accept either primary_channels or ref_channels as input.
-            try:
+            # In pseudo-ref mode there is no separate reference — the user
+            # specifies which channels to clean.  Accept EITHER
+            # primary_channels or ref_channels (whichever was set).
+            if self.primary_channels is not None:
+                # Resolve normally; ref will be overridden below
                 primary_idx, _ = self._resolve_channels(data, orig_inst)
-            except ValueError:
-                primary_idx = np.array([], dtype=int)
-            if primary_idx.size == 0:
-                try:
-                    _, primary_idx = self._resolve_channels(data, orig_inst)
-                except ValueError:
-                    pass
-            if primary_idx.size == 0:
-                # Last resort: use all channels
+            elif self.ref_channels is not None:
+                # User passed ref_channels — treat those as primary
+                # (pseudo-ref means "use same channels for both")
+                if _HAS_MNE and orig_inst is not None and hasattr(orig_inst, "ch_names"):
+                    ch_names = list(orig_inst.ch_names)
+                    primary_idx = np.array(
+                        [ch_names.index(ch) for ch in self.ref_channels
+                         if ch in ch_names], dtype=int)
+                else:
+                    primary_idx = np.asarray(self.ref_channels, dtype=int)
+            else:
                 primary_idx = np.arange(data.shape[0])
             # Create filtered pseudo-reference from primary data
             pseudo_data = data[primary_idx, :].copy()
@@ -1080,14 +1084,19 @@ def _filter_channels(
     filter_spec: tuple | None,
     sfreq: float,
 ) -> np.ndarray:
-    """Apply a filter to channel data (n_channels, n_times).
+    """Apply an EEGLAB-compatible FIR filter to channel data.
+
+    Uses a Hamming-windowed sinc FIR filter with zero-phase (forward +
+    backward) application, matching EEGLAB's ``pop_eegfiltnew`` /
+    ``firfilt`` exactly.
 
     Parameters
     ----------
     data : ndarray, shape (n_channels, n_times)
     filter_spec : tuple (type, freqs) or None
         ``('notch', (lo, hi))``: bandstop — remove lo–hi Hz (brain band),
-        keep outside (artifact frequencies). Matches MATLAB ``filtYtype='Notch'``.
+        keep outside (artifact frequencies). Matches MATLAB
+        ``pop_eegfiltnew(EEG, 'locutoff', lo, 'hicutoff', hi, 'revfilt', 1)``.
         ``('hp', freq)``: high-pass.
         ``('lp', freq)``: low-pass.
         ``('bp', (lo, hi))``: band-pass.
@@ -1099,27 +1108,57 @@ def _filter_channels(
     """
     if filter_spec is None:
         return data
-    from scipy.signal import butter, sosfiltfilt
+    from scipy.signal import firwin, filtfilt
 
     ftype, ffreqs = filter_spec
+    nyq = sfreq / 2.0
+
     if ftype == "notch":
         lo, hi = ffreqs
-        sos = butter(4, [lo, hi], btype="bandstop", fs=sfreq, output="sos")
-    elif ftype == "hp":
-        sos = butter(4, ffreqs, btype="high", fs=sfreq, output="sos")
-    elif ftype == "lp":
-        sos = butter(4, ffreqs, btype="low", fs=sfreq, output="sos")
+        # EEGLAB transition bandwidth heuristic for bandpass/bandstop
+        df = min(max(lo * 0.25, 2), max((hi - lo) * 0.25, 2))
+    elif ftype in ("hp", "lp"):
+        freq = float(ffreqs)
+        df = max(freq * 0.25, 2) if ftype == "hp" else max(freq * 0.25, 2)
     elif ftype == "bp":
         lo, hi = ffreqs
-        sos = butter(4, [lo, hi], btype="band", fs=sfreq, output="sos")
+        df = min(max(lo * 0.25, 2), max((hi - lo) * 0.25, 2))
     else:
         raise ValueError(
             f"filter type must be 'notch', 'hp', 'lp', or 'bp', "
             f"got {ftype!r}"
         )
+
+    # EEGLAB filter order: 3.3 / (df / sfreq), rounded to even
+    order = int(np.ceil(3.3 / (df / sfreq) / 2) * 2)
+
+    # Design FIR filter — cutoff frequencies are -6 dB points
+    # (passband edge shifted inward by half transition bandwidth)
+    if ftype == "notch":
+        # Bandstop: pass_zero=True, cutoffs at -6 dB points
+        f_lo = lo + df / 2  # -6 dB point (inner edge of stopband)
+        f_hi = hi - df / 2
+        taps = firwin(order + 1, [f_lo / nyq, f_hi / nyq],
+                      window="hamming", pass_zero=True)
+    elif ftype == "hp":
+        f_cut = freq - df / 2
+        taps = firwin(order + 1, f_cut / nyq,
+                      window="hamming", pass_zero=False)
+    elif ftype == "lp":
+        f_cut = freq + df / 2
+        taps = firwin(order + 1, f_cut / nyq,
+                      window="hamming", pass_zero=True)
+    elif ftype == "bp":
+        f_lo = lo - df / 2
+        f_hi = hi + df / 2
+        taps = firwin(order + 1, [f_lo / nyq, f_hi / nyq],
+                      window="hamming", pass_zero=False)
+
+    # Zero-phase filtering (forward + backward), matching EEGLAB firfilt
     out = data.copy()
+    padlen = min(3 * order, data.shape[1] - 1)
     for i in range(out.shape[0]):
-        out[i] = sosfiltfilt(sos, out[i])
+        out[i] = filtfilt(taps, 1.0, out[i], padlen=padlen)
     return out
 
 
