@@ -2,7 +2,7 @@
 
 This module contains:
 1. ``canonical_correlation``: The core canonical correlation analysis solver
-   used by iCanClean.
+   used by iCanClean [1]_ [2]_.
 
 Authors: Sina Esmaeili (sina.esmaeili@umontreal.ca)
          Hamza Abdelhedi (hamza.abdelhedi@umontreal.ca)

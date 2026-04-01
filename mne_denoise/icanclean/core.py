@@ -7,9 +7,9 @@ This module contains:
    objects or NumPy arrays.
 
 iCanClean removes latent artifact subspaces shared by primary channels and
-reference channels. The core procedure is:
+reference channels [1]_ [2]_ [3]_. The core procedure is:
 
-1. Compute canonical variates shared by the primary and reference recordings.
+1. Compute canonical variates shared by the primary and reference recordings [5]_.
 2. Score those variates by squared canonical correlation.
 3. Select the artifact-dominated variates.
 4. Project the selected variates back to the primary channels.
@@ -438,9 +438,9 @@ def compute_icanclean(
 class ICanClean(BaseEstimator, TransformerMixin):
     r"""ICanClean Transformer for reference-based artifact removal.
 
-    Implements the iCanClean algorithm [1]_ using canonical correlation
+    Implements the iCanClean algorithm [1]_ [2]_ [3]_ using canonical correlation
     analysis (CCA) between primary channels and reference channels to identify
-    and remove artifact-dominated subspaces.
+    and remove artifact-dominated subspaces [4]_.
 
     The estimator supports four operating modes:
 

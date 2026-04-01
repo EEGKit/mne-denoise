@@ -6,7 +6,7 @@ This module contains:
   objects or NumPy arrays.
 
 iCanClean removes artifact subspaces shared by primary channels and
-reference channels using canonical correlation analysis (CCA).
+reference channels using canonical correlation analysis (CCA) [1]_ [2]_ [3]_.
 
 References
 ----------
