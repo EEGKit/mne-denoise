@@ -170,6 +170,76 @@ def plot_component_score_curve(
     return _finalize_fig(fig, show=show, fname=fname)
 
 
+def plot_window_score_traces(
+    scores,
+    threshold=None,
+    ax=None,
+    show=True,
+    fname=None,
+):
+    """Plot per-window score traces from a 2D score matrix.
+
+    Parameters
+    ----------
+    scores : array-like of shape (n_windows, n_scores)
+        Score matrix to display.
+    threshold : float | None
+        Optional horizontal threshold line.
+    ax : matplotlib.axes.Axes | None
+        Target axes. If None, a new themed figure is created.
+    show : bool, default=True
+        If True, display the figure.
+    fname : path-like | None
+        Optional output path used to save the figure.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure handle.
+    """
+    scores = np.asarray(scores, dtype=float)
+    if scores.ndim != 2 or scores.shape[0] == 0:
+        raise ValueError("scores must be a non-empty 2D array.")
+
+    if ax is None:
+        fig, ax = themed_figure(figsize=(9, 4))
+    else:
+        fig = ax.figure
+
+    n_windows, n_scores = scores.shape
+    for idx in range(n_scores):
+        vals = scores[:, idx]
+        valid = np.isfinite(vals)
+        if not np.any(valid):
+            continue
+        ax.plot(
+            np.where(valid)[0],
+            vals[valid],
+            color=get_series_color(idx),
+            linewidth=1.2,
+            alpha=0.85,
+            label=f"Score {idx + 1}",
+        )
+
+    if threshold is not None:
+        ax.axhline(
+            float(threshold),
+            color=COLORS["accent"],
+            linestyle="--",
+            linewidth=1.0,
+            label=f"Threshold ({float(threshold):.3g})",
+        )
+
+    ax.set_xlabel("Window")
+    ax.set_ylabel("Score")
+    ax.set_title("Window Score Traces")
+    style_axes(ax, grid=True)
+    if n_scores <= 10 or threshold is not None:
+        themed_legend(ax, loc="best")
+
+    return _finalize_fig(fig, show=show, fname=fname)
+
+
 def plot_component_patterns(
     estimator,
     info=None,

@@ -7,6 +7,7 @@ from .components import (
     plot_component_spectrogram,
     plot_component_summary,
     plot_component_time_series,
+    plot_window_score_traces,
 )
 from .signals import (
     plot_channel_time_course_comparison,
@@ -34,6 +35,7 @@ from .stats import (
     plot_metric_violins,
     plot_null_distribution,
     plot_tradeoff_scatter,
+    plot_window_count_series,
 )
 from .summary import (
     plot_component_cleaning_summary,
@@ -88,6 +90,7 @@ __all__ = [
     "plot_component_epochs_image",
     "plot_component_time_series",
     "plot_component_spectrogram",
+    "plot_window_score_traces",
     # Spectral helpers
     "plot_narrowband_score_scan",
     "plot_time_frequency_mask",
@@ -120,4 +123,5 @@ __all__ = [
     "plot_null_distribution",
     "plot_forest",
     "plot_metric_tradeoff_summary",
+    "plot_window_count_series",
 ]

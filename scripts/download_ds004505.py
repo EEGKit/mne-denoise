@@ -23,7 +23,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 from pathlib import Path
 
@@ -178,7 +177,9 @@ def main() -> None:
 
     # ── Phase 1: Audit current state ─────────────────────────────────────
     print("\n=== Current data status ===")
-    print(f"{'Subject':<10s} {'Merged .fdt':<15s} {'channels.tsv':<15s} {'events.tsv':<15s}")
+    print(
+        f"{'Subject':<10s} {'Merged .fdt':<15s} {'channels.tsv':<15s} {'events.tsv':<15s}"
+    )
     print("-" * 55)
 
     need_merged_fdt = []
@@ -190,8 +191,12 @@ def main() -> None:
 
         # BIDS metadata status
         eeg_dir = data_dir / sub / "eeg"
-        has_channels = bool(list(eeg_dir.glob("*_channels.tsv"))) if eeg_dir.exists() else False
-        has_events = bool(list(eeg_dir.glob("*_events.tsv"))) if eeg_dir.exists() else False
+        has_channels = (
+            bool(list(eeg_dir.glob("*_channels.tsv"))) if eeg_dir.exists() else False
+        )
+        has_events = (
+            bool(list(eeg_dir.glob("*_events.tsv"))) if eeg_dir.exists() else False
+        )
 
         print(
             f"{sub:<10s} {fdt_status:<15s} "
@@ -206,7 +211,7 @@ def main() -> None:
 
     # ── Phase 2: Clean incomplete downloads ──────────────────────────────
     if need_merged_fdt and not args.skip_merged:
-        print(f"\n=== Cleaning incomplete .fdt downloads ===")
+        print("\n=== Cleaning incomplete .fdt downloads ===")
         for sub in need_merged_fdt:
             clean_partial_fdts(data_dir, sub, dry_run=args.dry_run)
 
@@ -260,15 +265,23 @@ def main() -> None:
     # ── Phase 5: Verify ──────────────────────────────────────────────────
     if not args.dry_run:
         print("\n=== Post-download verification ===")
-        print(f"{'Subject':<10s} {'Merged .fdt':<15s} {'channels.tsv':<15s} {'events.tsv':<15s}")
+        print(
+            f"{'Subject':<10s} {'Merged .fdt':<15s} {'channels.tsv':<15s} {'events.tsv':<15s}"
+        )
         print("-" * 55)
 
         ok_count = 0
         for sub in subjects:
             fdt_status = check_fdt_status(data_dir, sub)
             eeg_dir = data_dir / sub / "eeg"
-            has_channels = bool(list(eeg_dir.glob("*_channels.tsv"))) if eeg_dir.exists() else False
-            has_events = bool(list(eeg_dir.glob("*_events.tsv"))) if eeg_dir.exists() else False
+            has_channels = (
+                bool(list(eeg_dir.glob("*_channels.tsv")))
+                if eeg_dir.exists()
+                else False
+            )
+            has_events = (
+                bool(list(eeg_dir.glob("*_events.tsv"))) if eeg_dir.exists() else False
+            )
 
             all_ok = fdt_status == "ok" and has_channels and has_events
             if all_ok:

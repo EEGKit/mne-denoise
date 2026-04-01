@@ -13,6 +13,7 @@ from mne_denoise.viz import (
     plot_component_spectrogram,
     plot_component_summary,
     plot_component_time_series,
+    plot_window_score_traces,
 )
 from mne_denoise.viz.components import _resolve_component_indices
 
@@ -440,3 +441,37 @@ def test_plot_component_summary_zapline_mock():
         },
     )
     plot_component_summary(ZapMock(), sfreq=100.0, data=np.zeros((5, 100)), show=False)
+
+
+def test_plot_window_score_traces():
+    """Test plotting of window-wise score traces."""
+    n_windows = 5
+    n_components = 3
+    correlations = np.random.rand(n_windows, n_components)
+
+    # Basic plot
+    fig = plot_window_score_traces(correlations, show=False)
+    assert isinstance(fig, plt.Figure)
+    plt.close(fig)
+
+    # With threshold
+    fig = plot_window_score_traces(correlations, threshold=0.5, show=False)
+    assert isinstance(fig, plt.Figure)
+    # Check if threshold line exists
+    ax = fig.axes[0]
+    has_hline = any(
+        isinstance(line, plt.Line2D) and np.allclose(line.get_ydata(), 0.5)
+        for line in ax.get_lines()
+    )
+    assert has_hline
+    plt.close(fig)
+
+    # With custom axes
+    fig, ax = plt.subplots()
+    ret_fig = plot_window_score_traces(correlations, ax=ax, show=False)
+    assert ret_fig is fig
+    plt.close(fig)
+
+    # Invalid correlations shape
+    with pytest.raises(ValueError, match="2D array"):
+        plot_window_score_traces(np.random.rand(5), show=False)

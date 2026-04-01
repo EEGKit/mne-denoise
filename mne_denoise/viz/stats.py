@@ -113,6 +113,46 @@ def _plot_subject_trajectories(
     return np.nanmean(traces, axis=0)
 
 
+def plot_window_count_series(
+    counts,
+    ax=None,
+    show=True,
+    fname=None,
+):
+    """Plot a per-window count or metric series."""
+    counts = np.asarray(counts, dtype=float)
+    if counts.ndim != 1 or counts.size == 0:
+        raise ValueError("counts must be a non-empty 1D array.")
+
+    if ax is None:
+        fig, ax = themed_figure(figsize=(9, 3.5))
+    else:
+        fig = ax.figure
+
+    x = np.arange(counts.size)
+    ax.bar(
+        x,
+        counts,
+        color=COLORS["primary"],
+        alpha=_STATS_STYLE["bar_alpha"],
+        linewidth=_STATS_STYLE["bar_linewidth"],
+    )
+    ax.axhline(
+        float(np.mean(counts)),
+        color=COLORS["accent"],
+        linestyle="--",
+        linewidth=1.0,
+        label=f"Mean ({np.mean(counts):.3g})",
+    )
+    ax.set_xlabel("Window")
+    ax.set_ylabel("Count")
+    ax.set_title("Window Count Series")
+    style_axes(ax, grid=True)
+    themed_legend(ax, loc="best")
+
+    return _finalize_fig(fig, show=show, fname=fname)
+
+
 def plot_metric_bars(
     data,
     metric_cols,

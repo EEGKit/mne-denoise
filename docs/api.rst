@@ -20,6 +20,16 @@ ZapLine
 
    mne_denoise.zapline.ZapLine
 
+
+iCanClean
+---------
+.. autosummary::
+   :toctree: generated/
+   :nosignatures:
+
+   mne_denoise.icanclean.ICanClean
+   mne_denoise.icanclean.compute_icanclean
+
 Denoisers
 ---------
 .. autosummary::
@@ -70,6 +80,7 @@ Visualization
    mne_denoise.viz.plot_component_time_series
    mne_denoise.viz.plot_component_spectrogram
    mne_denoise.viz.plot_component_score_curve
+   mne_denoise.viz.plot_window_score_traces
    mne_denoise.viz.plot_component_patterns
    mne_denoise.viz.plot_component_epochs_image
    mne_denoise.viz.plot_psd_comparison
@@ -83,6 +94,7 @@ Visualization
    mne_denoise.viz.plot_narrowband_score_scan
    mne_denoise.viz.plot_time_frequency_mask
    mne_denoise.viz.plot_metric_bars
+   mne_denoise.viz.plot_window_count_series
    mne_denoise.viz.plot_tradeoff_scatter
    mne_denoise.viz.plot_metric_comparison
    mne_denoise.viz.plot_metric_slopes
